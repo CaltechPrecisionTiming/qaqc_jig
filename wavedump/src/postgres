@@ -1,0 +1,31 @@
+sudo dnf install postgresql postgresql-server
+sudo postgresql-setup --initdb --unit postgresql
+$ sudo sudo systemctl start postgresql
+$ sudo sudo systemctl enable postgresql
+
+# firewall (not tested)
+sudo firewall-cmd --add-service=postgresql --permanent
+sudo firewall-cmd --reload
+
+$ sudo vi /var/lib/pgsql/11/data/postgresql.conf
+listen_addresses = '*'
+
+$ sudo vim /var/lib/pgsql/11/data/pg_hba.conf
+# Accept from anywhere
+host all all 0.0.0.0/0 md5
+
+# Accept from trusted subnet
+host all all 192.168.18.0/24 md5
+
+sudo systemctl restart postgresql-11
+
+sudo su - postgres 
+$ psql -c "alter user postgres with password 'StrongPassword'" 
+ALTER ROLE
+
+$ createuser test_user
+$ createdb test_db -O test_user
+$ grant all privileges on database test_db to test_user;
+
+$ sudo dnf install python3-postgresql python3-psycopg2
+

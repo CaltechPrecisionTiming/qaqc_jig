@@ -1,4 +1,4 @@
-all: wavedump-3.10.3/src/wavedump
+all: wavedump/src/wavedump
 
 CAENUSBdrvB-1.5.4/CAENUSBdrvB.o:
 	$(MAKE) -c CAENUSBdrvB-1.5.4
@@ -9,11 +9,8 @@ install-deps: CAENUSBdrvB-1.5.4/CAENUSBdrvB.o
 	cd CAENDigitizer-2.17.0 && ./install_64
 	$(MAKE) -C CAENUSBdrvB-1.5.4 install
 
-wavedump-3.10.3/src/wavedump/src/Makefile:
-	cd wavedump-3.10.3 && ./configure
-
-wavedump-3.10.3/src/wavedump: wavedump-3.10.3/src/Makefile
-	$(MAKE) -C wavedump-3.10.3
+wavedump/src/wavedump: wavedump/src/Makefile wavedump/src/wavedump.c
+	$(MAKE) -C wavedump
 
 install: CAENUSBdrvB-1.5.4/CAENUSBdrvB.o
-	$(MAKE) -C wavedump-3.10.3 install
+	$(MAKE) -C wavedump install

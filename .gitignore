@@ -2,3 +2,10 @@
 *.tar.gz
 *.swp
 *.o
+*.txt
+*.cmd
+*.mod
+*.ko
+*.symvers
+*.order
+*.swo

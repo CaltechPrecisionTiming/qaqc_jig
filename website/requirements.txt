@@ -1,0 +1,9 @@
+flask==0.10
+gunicorn
+#numpy
+redis>=2.10
+#argparse
+sqlalchemy
+psycopg2
+#alabaster
+pytz

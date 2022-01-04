@@ -1,0 +1,36 @@
+#!/bin/sh
+#
+# chkconfig: - 58 74
+# description: minard dispatch
+
+. /etc/init.d/functions
+
+EXEC=/opt/minard/bin/minard-dispatch
+USER=minard
+MINARD_SETTINGS=/etc/minard/settings.cfg
+
+WORKERS=4
+
+export MINARD_SETTINGS
+
+case $1 in
+    start)
+	for i in `seq 1 $WORKERS`; do
+	    echo -n "starting $EXEC"
+	    LOGFILE=/var/log/minard/minard_dispatch_$i.log
+	    daemon --user=$USER --check=$EXEC $EXEC -n $WORKERS -w $(expr $i - 1) -d --logfile=$LOGFILE
+	    echo
+	done
+	;;
+    stop)
+	pkill -f $EXEC
+	;;
+    restart)
+	$0 stop
+	sleep 1
+	$0 start
+	;;
+    *)
+	echo "usage: $0 [start|stop|restart]"
+	;;
+esac

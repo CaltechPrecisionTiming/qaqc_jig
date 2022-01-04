@@ -1,0 +1,34 @@
+#!/bin/sh
+#
+# /etc/rc.d/mtca_baseline: start/stop mtca_baseline querying
+#
+# chkconfig: - 58 74
+# description: monitor mtca baselines
+
+. /etc/init.d/functions
+
+EXEC=/opt/minard/bin/mtca_baseline
+USER=minard
+LOGFILE=/var/log/minard/mtca_baseline.log
+MINARD_SETTINGS=/etc/minard/settings.cfg
+
+export MINARD_SETTINGS
+
+case $1 in
+start)
+	echo -n "starting $EXEC"
+        daemon --user=$USER $EXEC -d --logfile=$LOGFILE --enable-logging --loop-forever
+	echo
+        ;;
+stop)
+        pkill -f $EXEC
+        ;;
+restart)
+        $0 stop
+        sleep 2
+        $0 start
+        ;;
+*)
+        echo "usage: $0 [start|stop|restart]"
+        ;;
+esac

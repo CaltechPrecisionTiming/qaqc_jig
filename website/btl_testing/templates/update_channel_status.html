@@ -1,0 +1,259 @@
+{% extends "layout.html" %}
+{% block title %}Update Channel Status{% endblock %}
+{% block head %}
+    {{ super() }}
+{% endblock %}
+{% block body %}
+    {{ super() }}
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6">
+                <form action="update-channel-status" method="POST" role="form">
+                    <div class="form-group form-inline">
+                        <label for="crate">Crate</label>
+                        <select class="form-control" id="crate" name="crate">
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                            <option value="13">13</option>
+                            <option value="14">14</option>
+                            <option value="15">15</option>
+                            <option value="16">16</option>
+                            <option value="17">17</option>
+                            <option value="18">18</option>
+                            <option value="19">19</option>
+                        </select>
+                        <label for="slot">Card</label>
+                        <select class="form-control" id="slot" name="slot">
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                            <option value="13">13</option>
+                            <option value="14">14</option>
+                            <option value="15">15</option>
+                        </select>
+                        <label for="channel">Channel</label>
+                        <select class="form-control" id="channel" name="channel">
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                            <option value="13">13</option>
+                            <option value="14">14</option>
+                            <option value="15">15</option>
+                            <option value="16">16</option>
+                            <option value="17">17</option>
+                            <option value="18">18</option>
+                            <option value="19">19</option>
+                            <option value="20">20</option>
+                            <option value="21">21</option>
+                            <option value="22">22</option>
+                            <option value="23">23</option>
+                            <option value="24">24</option>
+                            <option value="25">25</option>
+                            <option value="26">26</option>
+                            <option value="27">27</option>
+                            <option value="28">28</option>
+                            <option value="29">29</option>
+                            <option value="30">30</option>
+                            <option value="31">31</option>
+                        </select>
+                    </div>
+                    {% macro form_checkbox(field) -%}
+                        <div class="checkbox">
+                            <label class="active"><input type="checkbox" name="{{ field.name }}" {% if field.data %}checked="checked"{% endif %}>{{ field.label.text }}</input></label>
+                        </div>
+                    {%- endmacro %}
+                    <div class="alert alert-info">
+                        <p>Note: When you press Submit, this will become the new current state, so don't update any check boxes unless the status has changed.
+                    </div>
+                    {{ form_checkbox(form.pmt_removed) }}
+                    {{ form_checkbox(form.pmt_reinstalled) }}
+                    {{ form_checkbox(form.low_occupancy) }}
+                    {{ form_checkbox(form.zero_occupancy) }}
+                    {{ form_checkbox(form.screamer) }}
+                    {{ form_checkbox(form.bad_discriminator) }}
+                    {{ form_checkbox(form.no_n100) }}
+                    {{ form_checkbox(form.no_n20) }}
+                    {{ form_checkbox(form.no_esum) }}
+                    {{ form_checkbox(form.cable_pulled) }}
+                    {{ form_checkbox(form.bad_cable) }}
+                    {{ form_checkbox(form.resistor_pulled) }}
+                    {{ form_checkbox(form.disable_n100) }}
+                    {{ form_checkbox(form.disable_n20) }}
+                    {{ form_checkbox(form.high_dropout) }}
+                    {{ form_checkbox(form.bad_base_current) }}
+                    {{ form_checkbox(form.bad_data) }}
+                    {{ form_checkbox(form.bad_calibration) }}
+                    {% if form.name.errors %}
+                    <div class="form-group has-error">
+                    {% else %}
+                    <div class="form-group">
+                    {% endif %}
+                        <label for="name">{{ form.name.label }}</label>
+                        <input type="text" class="form-control" name="{{ form.name.name }}" placeholder="Neil George" {% if form.name.data %}value="{{ form.name.data }}"{% endif %}></input>
+                    {% if form.name.errors %}
+                        {% for error in form.name.errors %}
+                            <span class="help-block">{{ error }}</span>
+                        {% endfor %}
+                    {% endif %}
+                    </div>
+                    {% if form.reason.errors %}
+                    <div class="form-group has-error" id="reason">
+                    {% else %}
+                    <div class="form-group" id="reason">
+                    {% endif %}
+                        <label for="reason">{{ form.reason.label }}</label>
+                        <select class="form-control" name="reason">
+                            <option value=""></option>
+                            <option value="installed">install feed resistor</option>
+                            <option value="DEB">(DEB) Dry End Breakdown, no light</option>
+                            <option value="WEB">(WEB) Wet End Breakdown & flat tac</option>
+                            <option value="FWEB">(FWEB) Friendly WEB, intermittent</option>
+                            <option value="GLOW">(GLOW) glowing tube, special form of WEB</option>
+                            <option value="SWEB">(SWEB) Silent WEB, low occupancy with blown feed resistor</option>
+                            <option value="OCC">(OCC) low occupancy - <15%, feed resistor OK</option>
+                            <option value="ZOCC">(ZOCC) ~zero occupancy, feed resistor, eca, base_i all OK</option>
+                            <option value="BASE">(BASE) bad base, resistance/current</option>
+                            <option value="ECA">(ECA) ~zero events in eca runs</option>
+                            <option value="DIG">(DIG) digital, other than ECA</option>
+                            <option value="SHARK">(SHARK) sharkfin, repetitive esum pulses</option>
+                            <option value="SEI">(SEI) seismic event</option>
+                            <option value="SCR">(SCR) screamer</option>
+                            <option value="PMTIC">(PMTIC) problem with pmtic</option>
+                            <option value="ROPE">(ROPE) rope pmt removed</option>
+                            <option value="NOPMT">(NOPMT) pmt (non-rope) removed</option>
+                        </select>
+                    {% if form.reason.errors %}
+                        {% for error in form.reason.errors %}
+                            <span class="help-block">{{ error }}</span>
+                        {% endfor %}
+                    {% endif %}
+                    </div>
+                    {% if form.info.errors %}
+                    <div class="form-group has-error">
+                    {% else %}
+                    <div class="form-group">
+                    {% endif %}
+                        <label for="info">{{ form.info.label }}</label>
+                        <textarea class="form-control" rows="3" name="{{ form.info.name }}" placeholder="Information about the update">{% if form.info.data %}{{ form.info.data }}{% endif %}</textarea>
+                    {% if form.info.errors %}
+                        {% for error in form.info.errors %}
+                            <span class="help-block">{{ error }}</span>
+                        {% endfor %}
+                    {% endif %}
+                    </div>
+                    {% if form.password.errors %}
+                    <div class="form-group has-error">
+                    {% else %}
+                    <div class="form-group">
+                    {% endif %}
+                        <label for="info">{{ form.password.label }}</label>
+                        <input type="password" class="form-control" name="{{ form.password.name }}" placeholder="Password"></input>
+                    {% if form.password.errors %}
+                        {% for error in form.password.errors %}
+                            <span class="help-block">{{ error }}</span>
+                        {% endfor %}
+                    {% endif %}
+                    </div>
+                    <button type="submit" class="btn btn-success">Submit</button>
+                </form>
+            </div>
+            <div class="col-md-6">
+                <h2>Descriptions</h2>
+                <dl class="dl-horizontal">
+                    <dt>PMT removed</dt>
+                    <dd>PMT was removed at the end of SNO</dd>
+                    <dt>PMT reinstalled</dt>
+                    <dd>PMT was reinstalled</dd>
+                    <dt>Low Occupancy</dt>
+                    <dd>CMOS rate < 100 Hz</dd>
+                    <dt>Zero Occupancy</dt>
+                    <dd>CMOS rate = 0 Hz</dd>
+                    <dt>Screamer</dt>
+                    <dd>CMOS rate > 500 kHz after bumping threshold by 5 DAC counts</dd>
+                    <dt>Bad Discriminator</dt>
+                    <dd>Discriminator is broken</dd>
+                    <dt>No N100</dt>
+                    <dd>The channel doesn't produce a N100 trigger signal</dd>
+                    <dt>No N20</dt>
+                    <dd>The channel doesn't produce a N20 trigger signal</dd>
+                    <dt>No ESUM</dt>
+                    <dd>The channel doesn't produce an ESUM signal</dd>
+                    <dt>Cable pulled</dt>
+                    <dd>The PMT cable was pulled</dd>
+                    <dt>Bad Cable</dt>
+                    <dd>The PMT cable is causing WEBs</dd>
+                    <dt>Resistor pulled</dt>
+                    <dd>The PMTIC resistor was pulled</dd>
+                    <dt>Disable N100</dt>
+                    <dd>The N100 trigger signal should be disabled for some reason</dd>
+                    <dt>Disable N20</dt>
+                    <dd>The N20 trigger signal should be disabled for some reason</dd>
+                    <dt>High Dropout</dt>
+                    <dd>The channel has a high drop out rate and so the triggers should be disabled.</dd>
+                    <dt>Bad Base Current</dt>
+                    <dd>The base current reading is too high or too low.</dd>
+                    <dt>Bad Data</dt>
+                    <dd>The channel is producing bad data or causing the FIFOs to fill up and it's sequencer should be disabled.</dd>
+                    <dt>Bad Calibration</dt>
+                    <dd>The channel failed the ECA time slope calibration, and so the triggers should be disabled.</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+{% block script %}
+    <script>
+        $("#crate").val("{{ form.crate.data }}");
+        $("#slot").val("{{ form.slot.data }}");
+        $("#channel").val("{{ form.channel.data }}");
+        if ($('[name=resistor_pulled]').prop("checked") == {{ status.resistor_pulled | tojson }}) {
+            $("#reason").hide();
+        } else {
+            $("#reason").show();
+        }
+        $('[name=resistor_pulled]').on("change", function() {
+            if ($('[name=resistor_pulled]').prop("checked") == {{ status.resistor_pulled | tojson }}) {
+                $("#reason").hide();
+            } else {
+                $("#reason").show();
+            }
+        });
+        function update_page() {
+            window.location.replace($SCRIPT_ROOT + "/update-channel-status?" + $.param({'crate': $('#crate').val(), 'slot': $('#slot').val(), 'channel': $('#channel').val()}));
+        }
+        $("#crate").on("change", update_page);
+        $("#slot").on("change", update_page);
+        $("#channel").on("change", update_page);
+    </script>
+{% endblock %}

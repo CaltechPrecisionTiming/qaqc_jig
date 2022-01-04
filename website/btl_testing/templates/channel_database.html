@@ -1,0 +1,337 @@
+{% extends "layout.html" %}
+{% block title %}Module Status{% endblock %}
+{% block head %}
+    {{ super() }}
+{% endblock %}
+{% block body %}
+    {{ super() }}
+    <div class="container">
+	<div class="row">
+	    <div class="col-md-10" style="margin-bottom:20px">
+                <label for="crate">Crate</label>
+                <select id="crate">
+                    <option value="-1">-</option>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="17">17</option>
+                    <option value="18">18</option>
+                    <option value="19">19</option>
+                </select>
+                <label for="slot">Card</label>
+                <select id="slot">
+                    <option value="-1">-</option>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                </select>
+                <label for="channel">Channel</label>
+                <select id="channel">
+                    <option value="-1">-</option>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="17">17</option>
+                    <option value="18">18</option>
+                    <option value="19">19</option>
+                    <option value="20">20</option>
+                    <option value="21">21</option>
+                    <option value="22">22</option>
+                    <option value="23">23</option>
+                    <option value="24">24</option>
+                    <option value="25">25</option>
+                    <option value="26">26</option>
+                    <option value="27">27</option>
+                    <option value="28">28</option>
+                    <option value="29">29</option>
+                    <option value="30">30</option>
+                    <option value="31">31</option>
+                </select>
+                and
+                <select id="setting1">
+                    <option value="pmt_removed">PMT Removed</option>
+                    <option value="pmt_reinstalled">PMT Reinstalled</option>
+                    <option value="low_occupancy">Low Occ.</option>
+                    <option value="zero_occupancy">Zero Occ.</option>
+                    <option value="screamer">Screamer</option>
+                    <option value="bad_discriminator">Bad Disc.</option>
+                    <option value="no_n100">No N100</option>
+                    <option value="no_n20">No N20</option>
+                    <option value="no_esum">No ESUM</option>
+                    <option value="cable_pulled">Cable pulled</option>
+                    <option value="bad_cable">Bad Cable</option>
+                    <option value="resistor_pulled">Resistor pulled</option>
+                    <option value="disable_n100">Disable N100</option>
+                    <option value="disable_n20">Disable N20</option>
+                    <option value="high_dropout">High Dropout</option>
+                    <option value="bad_base_current">Bad Base Current</option>
+                    <option value="bad_data">Bad Data</option>
+                </select>
+                is
+                <select id="bool1">
+                    <option value="-1">-</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+                and
+                <select id="setting2">
+                    <option value="pmt_removed">PMT Removed</option>
+                    <option value="pmt_reinstalled">PMT Reinstalled</option>
+                    <option value="low_occupancy">Low Occ.</option>
+                    <option value="zero_occupancy">Zero Occ.</option>
+                    <option value="screamer">Screamer</option>
+                    <option value="bad_discriminator">Bad Disc.</option>
+                    <option value="no_n100">No N100</option>
+                    <option value="no_n20">No N20</option>
+                    <option value="no_esum">No ESUM</option>
+                    <option value="cable_pulled">Cable pulled</option>
+                    <option value="bad_cable">Bad Cable</option>
+                    <option value="resistor_pulled">Resistor pulled</option>
+                    <option value="disable_n100">Disable N100</option>
+                    <option value="disable_n20">Disable N20</option>
+                    <option value="high_dropout">High Dropout</option>
+                    <option value="bad_base_current">Bad Base Current</option>
+                    <option value="bad_data">Bad Data</option>
+                </select>
+                is
+                <select id="bool2">
+                    <option value="-1">-</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                </select>
+            </div>
+            <div class="col-md-2 text-right">
+                Results
+                <select id="limit">
+                    {% for i in [100,200,500,1000] %}
+                        <option {% if limit == i %}selected="selected" {% endif %}value="{{ i }}">{{ i }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+	<div class="row">
+	    <div class="col-md-12" style="margin-bottom:20px">
+                <label for="pmt_type">PMT Type</label>
+                <select id="pmt_type">
+                    <option value=-1>Any</option>
+                    <option value=2>Normal</option>
+                    <option value=256>HQE</option>
+                    <option value=8>Neck</option>
+                    <option value=16>FECD</option>
+                    <option value=32>Low Gain</option>
+                    <option value=64>OWL</option>
+                    <option value=128>BUTT</option>
+                    <option value=4>Rope</option>
+                    <option value=18>Petal-less</option>
+                    <option value=0>None</option>
+                </select>
+                <label for="sort-by">Sort by</label>
+                <select id="sort-by">
+                    <option {% if sort_by == 'ccc' %}selected="selected" {% endif %}value="ccc">C/C/C</option>
+                    <option {% if sort_by == 'timestamp' %}selected="selected" {% endif %}value="timestamp">Timestamp</option>
+                </select>
+            </div>
+        </div>
+        <div class="row">
+        {% macro status(data) %}
+            <td>
+            {% if data %}
+                <span class="glyphicon glyphicon-ok"></span>
+            {% endif %}
+            </td>
+        {% endmacro %}
+	    <div class="col-md-12">
+		<table class="table table-hover table-condensed">
+		    <thead>
+			<tr>
+                            <th>Last Updated</th>
+			    <th>Barcode</th>
+			    <th>Voltage</th>
+			    <th>Institution</th>
+			</tr>
+		    </thead>
+		    {% for row in results %}
+		    <tr onclick="window.document.location = '{{ "module-status?key=%i" % row['key'] }}';">
+                        <td>{{ row['timestamp'] | time_from_now }}</td>
+			<td>{{ row['barcode'] }}</td>
+			<td>{{ row['voltage'] }}</td>
+			<td>{{ row['institution'] }}</td>
+		    </tr>
+		    {% endfor %}
+		</table>
+	    </div>
+	</div>
+    </div>
+{% endblock %}
+{% block script %}
+    <script>
+        var setting = 0;
+        for (var key in url_params) {
+            if (url_params.hasOwnProperty(key)) {
+                if (key == 'sort-by'){
+                    document.getElementById("sort-by").value = url_params['sort-by'];
+                } else if (key == 'type'){
+                    document.getElementById("pmt_type").value = url_params.type;
+                } else if (key == 'crate') {
+                    document.getElementById("crate").value = url_params.crate;
+                } else if (key == 'slot') {
+                    document.getElementById("slot").value = url_params.slot;
+                } else if (key == 'channel') {
+                    document.getElementById("channel").value = url_params.channel;
+                } else if (key == 'limit') {
+                    document.getElementById("limit").value = url_params.limit;
+                } else if ($.map(document.getElementById("setting1").options, function(option) { return option.value }).indexOf(key) >= 0) {
+                    if (setting == 0) {
+                        document.getElementById("setting1").value = key;
+                        document.getElementById("bool1").value = url_params[key];
+                    } else if (setting == 1) {
+                        document.getElementById("setting2").value = key;
+                        document.getElementById("bool2").value = url_params[key];
+                    }
+                    setting += 1;
+                }
+            }
+        }
+        $("#setting1").on("change", function() {
+            if (document.getElementById("bool1").value == -1) return;
+
+            var params = {};
+            if (document.getElementById("crate").value != -1) {
+                params['crate'] = document.getElementById("crate").value;
+            }
+            if (document.getElementById("slot").value != -1) {
+                params['slot'] = document.getElementById("slot").value;
+            }
+            if (document.getElementById("channel").value != -1) {
+                params['channel'] = document.getElementById("channel").value;
+            }
+            if (document.getElementById("bool1").value != -1) {
+                params[document.getElementById("setting1").value] = document.getElementById("bool1").value;
+            }
+            if (document.getElementById("bool2").value != -1) {
+                params[document.getElementById("setting2").value] = document.getElementById("bool2").value;
+            }
+            if (document.getElementById("pmt_type").value != -1) {
+                params["type"] = document.getElementById("pmt_type").value;
+            }
+            if (document.getElementById("sort-by").value != -1) {
+                params["sort-by"] = document.getElementById("sort-by").value;
+            }
+
+            params["limit"] = document.getElementById("limit").value;
+
+            if (Object.keys(params).length > 0) {
+                window.location.replace($SCRIPT_ROOT + "/channel-database?" + $.param(params));
+            } else {
+                window.location.replace($SCRIPT_ROOT + "/channel-database");
+            }
+        });
+        $("#setting2").on("change", function() {
+            if (document.getElementById("bool2").value == -1) return;
+
+            var params = {};
+            if (document.getElementById("crate").value != -1) {
+                params['crate'] = document.getElementById("crate").value;
+            }
+            if (document.getElementById("slot").value != -1) {
+                params['slot'] = document.getElementById("slot").value;
+            }
+            if (document.getElementById("channel").value != -1) {
+                params['channel'] = document.getElementById("channel").value;
+            }
+            if (document.getElementById("bool1").value != -1) {
+                params[document.getElementById("setting1").value] = document.getElementById("bool1").value;
+            }
+            if (document.getElementById("bool2").value != -1) {
+                params[document.getElementById("setting2").value] = document.getElementById("bool2").value;
+            }
+            if (document.getElementById("pmt_type") != -1) {
+                params["type"] = document.getElementById("pmt_type").value;
+            }
+            if (document.getElementById("sort-by").value != -1) {
+                params["sort-by"] = document.getElementById("sort-by").value;
+            }
+
+            params["limit"] = document.getElementById("limit").value;
+
+            if (Object.keys(params).length > 0) {
+                window.location.replace($SCRIPT_ROOT + "/channel-database?" + $.param(params));
+            } else {
+                window.location.replace($SCRIPT_ROOT + "/channel-database");
+            }
+        });
+        $("#crate, #slot, #channel, #bool1, #bool2, #limit, #pmt_type, #sort-by").on("change", function() {
+            var params = {};
+            if (document.getElementById("crate").value != -1) {
+                params['crate'] = document.getElementById("crate").value;
+            }
+            if (document.getElementById("slot").value != -1) {
+                params['slot'] = document.getElementById("slot").value;
+            }
+            if (document.getElementById("channel").value != -1) {
+                params['channel'] = document.getElementById("channel").value;
+            }
+            if (document.getElementById("bool1").value != -1) {
+                params[document.getElementById("setting1").value] = document.getElementById("bool1").value;
+            }
+            if (document.getElementById("bool2").value != -1) {
+                params[document.getElementById("setting2").value] = document.getElementById("bool2").value;
+            }
+            if (document.getElementById("pmt_type").value != -1) {
+                params["type"] = document.getElementById("pmt_type").value;
+            }
+            if (document.getElementById("sort-by").value != -1) {
+                params["sort-by"] = document.getElementById("sort-by").value;
+            }
+
+            params["limit"] = document.getElementById("limit").value;
+
+            if (Object.keys(params).length > 0) {
+                window.location.replace($SCRIPT_ROOT + "/channel-database?" + $.param(params));
+            } else {
+                window.location.replace($SCRIPT_ROOT + "/channel-database");
+            }
+        });
+    </script>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block title %}Module Status{% endblock %}
+{% block head %}
+    {{ super() }}
+{% endblock %}
+{% block body %}
+    {{ super() }}
+    <div class="container">
+	    <div class="col-md-12">
+		<table class="table table-hover table-condensed">
+		    <thead>
+			<tr>
+                            <th>Last Updated</th>
+			    <th>Barcode</th>
+			    <th>Voltage</th>
+			    <th>Institution</th>
+			</tr>
+		    </thead>
+		    {% for row in results %}
+		    <tr onclick="window.document.location = '{{ "module-status?key=%i" % row['key'] }}';">
+                        <td>{{ row['timestamp'] | time_from_now }}</td>
+			<td>{{ row['barcode'] }}</td>
+			<td>{{ row['voltage'] }}</td>
+			<td>{{ row['institution'] }}</td>
+		    </tr>
+		    {% endfor %}
+		</table>
+	    </div>
+	</div>
+    </div>
+{% endblock %}

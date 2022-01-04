@@ -1,0 +1,124 @@
+BTL Testing Website
+===================
+
+This directory contains the files necessary to run a copy of the web server for
+collating the BTL module testing results. Data is stored in a postgres database
+that is uploaded by the analysis software in the `wavedump` directory of this
+repository. The data is then shared using a website run by Flask.
+
+## Installation
+
+The server must be running CentOS-8. First, make sure all the available
+software is updated:
+
+```console
+# dnf update -y
+```
+
+Next, we install and enable the postgres server software:
+
+```console
+# dnf install postgresql postgresql-server
+# postgresql-setup --initdb --unit postgresql
+# systemctl start postgresql
+# systemctl enable postgresql
+```
+
+### Setting up the Database
+
+Now, we need to set up the database:
+
+```console
+# install -o postgres btl_qa.sql /var/lib/pgsql
+# su postgres
+# cd
+# createdb btl_qa
+# psql btl_qa -f btl_qa.sql
+```
+
+Now, we need to create the passwords for the three users: btl_admin, btl, and
+cms. The btl_admin account has complete control over the database and should be
+limited to the server administrator. The btl account is for the BTL assembly
+centers and the cms account is the read only account for the website. To set up
+each of these passwords, sign in as the postgres user and run the following
+commands:
+
+```console
+# su postgres # if not already
+# psql
+postgres=# alter user btl_admin with password '';
+ALTER ROLE
+postgres=# alter user btl with password '';
+ALTER ROLE
+postgres=# alter user cms with password '';
+ALTER ROLE
+```
+
+where you need to fill in each of the passwords. If you need to create a
+password quickly you can use the following command:
+
+```console
+cat /dev/urandom | tr -dc 'a-zA-Z0-9' | head -c 10
+```
+
+Now, we need to configure the database to allow TCP connections:
+
+```
+# vim /var/lib/pgsql/data/postgresql.conf
+```
+
+and change the following line:
+
+```
+listen_addresses = '*'
+```
+
+Next, edit `vim /var/lib/pgsql/data/pg_hba.conf` and change the following line:
+
+```
+# IPv4 local connections:
+host    all             all             127.0.0.1/32            md5
+# IPv6 local connections:
+host    all             all             ::1/128                 md5
+```
+
+Finally, restart the database:
+
+```console
+# systemctl restart postgresql
+```
+
+### Configuring the Webserver
+
+Next, we install the software necessary to run the webserver:
+
+```console
+# dnf install python3-flask python3-gunicorn python3-sqlalchemy python3-psycopg2 python3-pytz nginx
+# systemctl start nginx
+# systemctl enable nginx
+```
+
+Next, create a file in this directory named `settings.txt` with the following
+information:
+
+```console
+DB_USER = "cms"
+DB_HOST = "localhost"
+DB_PORT = 5432
+DB_NAME = "btl_qa"
+DB_PASS = "password"
+```
+
+changing `password` to the default cms password for the database.
+
+Change the server_name in the nginx.conf configuration file:
+
+```console
+# vim nginx.conf
+```
+
+Finally, run:
+
+```console
+$ sudo make install
+```

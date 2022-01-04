@@ -1,0 +1,5 @@
+*.o
+src/wavedump
+*.hdf5
+*.root
+src/release.h

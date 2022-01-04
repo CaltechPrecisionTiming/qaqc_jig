@@ -1,0 +1,2 @@
+recursive-include minard/templates *
+recursive-include minard/static *

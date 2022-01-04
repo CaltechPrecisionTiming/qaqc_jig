@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# chkconfig: 345 91 19
+# description: Gunicorn daemon init script
+
+CMD=/opt/minard/bin/gunicorn
+PIDFILE=/var/run/gunicorn.pid
+LOGFILE=/var/log/gunicorn.log
+APP=minard:app
+USER=gunicorn
+GROUP=gunicorn
+MINARD_SETTINGS=/etc/minard/settings.cfg
+
+export MINARD_SETTINGS
+
+case "$1" in
+    start)
+        if [ -f $PIDFILE ]; then
+            echo "$PIDFILE exists, process is already running or crashed"
+        else
+            echo "Starting Gunicorn daemon..."
+            $CMD -w 4 -b unix:/tmp/gunicorn.sock $APP -D --error-logfile=$LOGFILE --pid=$PIDFILE --user=$USER --group=$GROUP --chdir /tmp
+        fi
+        ;;
+    stop)
+        if [ ! -f $PIDFILE ]; then
+            echo "$PIDFILE does not exist, process is not running"
+        else
+            PID=$(cat $PIDFILE)
+            echo "Stopping..."
+            kill $PID
+            while [ -x /proc/${PID} ]; do
+                echo "Waiting for Gunicorn to shutdown..."
+                sleep 1
+            done
+        fi
+        ;;
+    reload|restart)
+        $0 stop
+        $0 start
+        ;;
+    *)
+        echo "Usage: $0 start|stop|restart|reload"
+        exit 1
+esac
+exit 0

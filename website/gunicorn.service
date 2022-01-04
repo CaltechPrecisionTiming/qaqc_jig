@@ -1,0 +1,14 @@
+[Unit]
+Description=gunicorn daemon
+Requires=gunicorn.socket
+After=network.target
+
+[Service]
+User=nginx
+Group=nginx
+WorkingDirectory=/opt/btl-testing
+Environment="WEBSITE_SETTINGS=/opt/btl-testing/settings.txt"
+ExecStart=gunicorn --workers 3 --bind unix:/run/gunicorn.sock btl_testing:app --error-logfile=/var/log/gunicorn/gunicorn.log
+
+[Install]
+WantedBy=multi-user.target

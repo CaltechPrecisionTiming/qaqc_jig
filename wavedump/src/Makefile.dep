@@ -1,0 +1,7 @@
+fft.o: fft.c fft.h
+flash.o: flash.c flash.h spi.h flash_opcodes.h
+keyb.o: keyb.c
+spi.o: spi.c spi.h
+WDplot.o: WDplot.c WDplot.h
+X742CorrectionRoutines.o: X742CorrectionRoutines.c \
+ X742CorrectionRoutines.h

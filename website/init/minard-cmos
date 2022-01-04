@@ -1,0 +1,32 @@
+#!/bin/sh
+#
+# chkconfig: - 58 75
+# description: minard cmos
+
+. /etc/init.d/functions
+
+EXEC=/opt/minard/bin/minard-cmos
+USER=minard
+MINARD_SETTINGS=/etc/minard/settings.cfg
+LOGFILE=/var/log/minard/minard_cmos.log
+
+export MINARD_SETTINGS
+
+case $1 in
+    start)
+        echo -n "starting $EXEC"
+        daemon --user=$USER --check=$EXEC $EXEC -d --logfile=$LOGFILE
+        echo
+	;;
+    stop)
+	pkill -f $EXEC
+	;;
+    restart)
+	$0 stop
+	sleep 1
+	$0 start
+	;;
+    *)
+	echo "usage: $0 [start|stop|restart]"
+	;;
+esac

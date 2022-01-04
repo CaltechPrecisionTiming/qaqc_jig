@@ -1,5 +1,4 @@
-BTL Testing Website
-===================
+# BTL Testing Website
 
 This directory contains the files necessary to run a copy of the web server for
 collating the BTL module testing results. Data is stored in a postgres database

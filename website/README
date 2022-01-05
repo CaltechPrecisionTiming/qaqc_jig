@@ -92,7 +92,7 @@ Finally, restart the database:
 Next, we install the software necessary to run the webserver:
 
 ```console
-# dnf install python3-flask python3-gunicorn python3-sqlalchemy python3-psycopg2 python3-pytz nginx
+# dnf install python3-flask python3-gunicorn python3-sqlalchemy python3-psycopg2 python3-pytz nginx httpd-tools
 # systemctl start nginx
 # systemctl enable nginx
 ```
@@ -114,6 +114,12 @@ Change the server_name in the nginx.conf configuration file:
 
 ```console
 # vim nginx.conf
+```
+
+Create a password for the website:
+
+```console
+htpasswd -c /opt/btl-testing/.htpasswd cms
 ```
 
 Finally, run:

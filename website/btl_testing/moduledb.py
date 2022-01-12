@@ -36,10 +36,33 @@ def get_module_info(key):
     result = conn.execute(query, (key,))
 
     if result is None:
-        return None
+        # Try to select again without joining. Maybe they forgot to upload the
+        # module to the database.
+        query = "SELECT * FROM btl_qa WHERE key = %s"
+
+        result = conn.execute(query, (key,))
+
+        if result is None:
+            return None
 
     keys = result.keys()
     row = result.fetchone()
+
+    if row is None:
+        # Try to select again without joining. Maybe they forgot to upload the
+        # module to the database.
+        query = "SELECT *, btl_qa.institution as btl_qa_institution, btl_qa.timestamp as btl_qa_timestamp FROM btl_qa WHERE key = %s"
+
+        result = conn.execute(query, (key,))
+
+        if result is None:
+            return None
+
+        keys = result.keys()
+        row = result.fetchone()
+
+        if row is None:
+            return None
 
     return dict(zip(keys,row))
 

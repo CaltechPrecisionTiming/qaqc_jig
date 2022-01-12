@@ -48,6 +48,7 @@
 	    </div>
 	    <div class="col-md-2">
                 <h3>Module Info</h3>
+                {% if 'mdoules_timestamp' in info %}
                 <table class="table table-bordered">
                     <tr>
                         <th>Date Added to Database</th>
@@ -66,6 +67,11 @@
                         <td>{{ info['btl_qa_institution'] }}</td>
                     </tr>
                 </table>
+                {% else %}
+                <div class="alert alert-danger">
+                No module found with barcode {{ info['barcode'] }} in database. Did you forget to upload it <a href="{{ url_for('upload_new_module_view')}}">here</a>?
+                </div>
+                {% endif %}
 	    </div>
         </div>
 	<div class="row">

@@ -86,6 +86,9 @@ def upload_new_module_view():
 def module_status():
     key = request.args.get("key", 0, type=int)
     info = get_module_info(key=key)
+    if info is None:
+        flash('No module found in database with that barcode. Did you forget to upload it?','danger')
+        return redirect(url_for('module_database'))
     return render_template('module_status.html', info=info)
 
 @app.route('/')

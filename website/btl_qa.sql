@@ -39,6 +39,7 @@ CREATE ROLE btl_admin WITH LOGIN;
 
 -- btl admin user has all rights to everything in the database
 GRANT ALL ON btl_qa TO btl_admin;
+GRANT ALL ON modules TO btl_admin;
 GRANT ALL ON SEQUENCE btl_qa_key_seq TO btl_admin;
 
 -- create btl read user
@@ -46,6 +47,7 @@ CREATE ROLE btl_read;
 
 -- btl read user has select rights on everything in the btl schema
 GRANT SELECT ON btl_qa TO btl_read;
+GRANT SELECT ON modules TO btl_read;
 GRANT SELECT ON SEQUENCE btl_qa_key_seq TO btl_read;
 
 -- create btl write user
@@ -53,6 +55,7 @@ CREATE ROLE btl_write;
 
 -- btl write user has select rights on everything in the btl schema
 GRANT SELECT, INSERT ON btl_qa TO btl_write;
+GRANT SELECT, INSERT ON modules TO btl_write;
 GRANT SELECT, USAGE ON SEQUENCE btl_qa_key_seq TO btl_write;
 
 -- create btl user

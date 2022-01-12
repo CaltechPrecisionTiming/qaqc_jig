@@ -10,7 +10,7 @@ from math import isnan
 import os
 import sys
 import random
-from .moduledb import get_modules, get_module_info
+from .moduledb import get_modules, get_module_info, ModuleUploadForm, upload_new_module
 from datetime import datetime
 import pytz
 
@@ -63,6 +63,24 @@ def time_from_now(dt):
         return "a year ago"
     else:
         return "%i years ago" % int(round(delta/(365.25*24*3600)))
+
+@app.route("/upload-new-module", methods=["GET","POST"])
+def upload_new_module_view():
+    if request.form:
+        form = ModuleUploadForm(request.form)
+    else:
+        form = ModuleUploadForm()
+
+    if request.method == "POST" and form.validate():
+        try:
+            upload_new_module(form)
+        except Exception as e:
+            flash(str(e),'danger')
+            return render_template("upload_new_module.html", form=form)
+        flash("Successfully submitted", 'success')
+        return redirect(url_for("upload_new_module_view"))
+
+    return render_template("upload_new_module.html", form=form)
 
 @app.route('/module-status')
 def module_status():

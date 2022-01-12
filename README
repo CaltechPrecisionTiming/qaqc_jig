@@ -7,7 +7,7 @@ should work on any recent Fedora, RHEL, CentOS, or Rocky Linux version.
 First, you should install hdf5, numpy, psycopg2, root, and pyroot with either:
 
 ```
-$ sudo dnf install hdf5 hdf5-devel python3-numpy python3-psycopg2 root python3-root
+$ sudo dnf install hdf5 hdf5-devel python3-numpy python3-psycopg2 root python3-root python3-h5py python3-matplotlib
 ```
 
 or

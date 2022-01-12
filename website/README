@@ -92,7 +92,7 @@ Finally, restart the database:
 Next, we install the software necessary to run the webserver:
 
 ```console
-# dnf install python3-flask python3-gunicorn python3-sqlalchemy python3-psycopg2 python3-pytz nginx httpd-tools
+# dnf install python3-flask python3-gunicorn python3-sqlalchemy python3-psycopg2 python3-pytz nginx httpd-tools python3-wtforms
 # systemctl start nginx
 # systemctl enable nginx
 ```
@@ -102,13 +102,22 @@ information:
 
 ```console
 DB_USER = "cms"
+DB_BTL_USER = "btl"
 DB_HOST = "localhost"
 DB_PORT = 5432
 DB_NAME = "btl_qa"
 DB_PASS = "password"
+SECRET_KEY = [secret key]
 ```
 
-changing `password` to the default cms password for the database.
+changing `password` to the default cms password for the database. You can
+generate a secure secret key by running:
+
+```console
+$ python
+>>> import os
+>>> os.urandom(12).hex()
+```
 
 Change the server_name in the nginx.conf configuration file:
 

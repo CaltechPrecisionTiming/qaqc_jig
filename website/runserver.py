@@ -1,4 +1,4 @@
 #!/usr/bin/env python
-from website import app
+from btl_testing import app
 
 app.run(debug=True)

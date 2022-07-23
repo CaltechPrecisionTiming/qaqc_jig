@@ -2182,7 +2182,7 @@ int main(int argc, char *argv[])
         /* FIXME: Here, we send software triggers just for testing the
          * software. In production, this line should be commented out. */
         printf("sending sw trigger\n");
-        for (i = 0; i < 100; i++) {
+        for (i = 0; i < 10; i++) {
 	    CAEN_DGTZ_SendSWtrigger(handle);
             usleep(10);
         }

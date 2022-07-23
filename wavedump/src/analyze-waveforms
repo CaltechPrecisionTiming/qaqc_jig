@@ -191,11 +191,11 @@ if __name__ == '__main__':
                     else:
                         # FIXME remove comments here when done testing
                         a = 100
-                        b = 800
+                        b = 400
                         # b= get_window(x,y,left=50,right=300)[0]
                         # a, b = get_spe_window(x, b, integration_time=args.IT, rewind=args.r)
                         # y -= np.median(y[:,x < x[0] + 100])
-                        y -= np.median(y, axis=-1)[:, np.newaxis]
+                        # y -= np.median(y, axis=-1)[:, np.newaxis]
                         low_filter_y = low_filter_SPE(x, y)
                         high_filter_y = high_filter_SPE(x, y)
                         no_SPE_trials = np.min(y[:, x < x[0] + 100], axis=-1) > -5 * iqr(high_filter_y[:, np.logical_and(x >= x[0], x < x[0] + 100)].flatten())

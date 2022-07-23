@@ -353,10 +353,10 @@ if __name__ == '__main__':
                     print(f'[{i}]: {f1.GetParameter(i)}')
                 
                 r = h.Fit(f1, 'SRB+')
-                f1.SetRange(f1.GetParameter(1) - h.GetStdDev(), f1.GetXmax()) 
+                # f1.SetRange(f1.GetParameter(1) - h.GetStdDev(), f1.GetXmax()) 
                 for i in range(6):
                     f1.ReleaseParameter(i) 
-                    f1.SetParameter(i, f1.GetParameter(i))
+                    # f1.SetParameter(i, f1.GetParameter(i))
                 
                 f1.SetParLimits(1, f1.GetParameter(1) - 0.25, f1.GetParameter(1) + 0.5) 
                 f1.SetParLimits(2, min(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1) 

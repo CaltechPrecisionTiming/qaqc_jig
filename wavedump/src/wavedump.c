@@ -1621,7 +1621,7 @@ WaveDumpConfig_t set_default_settings() {
 
     /* Set to enable external triggers, so we can trigger on the laser if we
      * want. */
-    // WDcfg.ExtTriggerMode = CAEN_DGTZ_TRGMODE_ACQ_ONLY;
+    WDcfg.ExtTriggerMode = CAEN_DGTZ_TRGMODE_ACQ_ONLY;
 
     /* Enable all channels. */
     WDcfg.EnableMask = 0xFF;
@@ -2094,7 +2094,7 @@ int main(int argc, char *argv[])
      * the instructions of how to set up self-trigger. */
     for (i = 0; i < 2; i++) {
         /* Subtract 50 from the minimum baseline to get the threshold. */
-        thresholds[i] -= 50;
+        thresholds[i] -= 5;
 
         if (thresholds[i] < 1e99) {
             
@@ -2108,15 +2108,12 @@ int main(int argc, char *argv[])
             }
 	    
 	    
-	    /* This sets which channels are allowed to cause a  trigger event. If a channel is not
+	    /* This sets which channels are allowed to cause a trigger event. If a channel is not
 	     * allowed, then even if it crosses the trigger threshold, the event will not
 	     * be acquired.
 	     *
 	     * When at least one channel in a group causes a trigger event, then
 	     * the signal from all the channels in that group are acquired. */
-
-	    /* When we have all 16 channels connected to modules, will we really want
-	     * all channels in a group to trigger just when one of them triggers? */
 	    printf("setting channel mask for group %i to 0x%02x\n", i, (int) (chmask >> i*8) & 0xff); // There used to be 16 here instead of 8
             ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8 + 256*i, (int) (chmask >> i*8) & 0xff);
 
@@ -2137,6 +2134,31 @@ int main(int argc, char *argv[])
     ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8, 0x00);
     ret = CAEN_DGTZ_WriteRegister(handle, 0x11A8, 0x00);
     if(ret) printf("failed to deactivate triggers!\n");
+
+    /* Enabling external trigger for laser */
+    ret = CAEN_DGTZ_ReadRegister(handle, 0x810C, &data);
+    if (ret) {
+        fprintf(stderr, "failed to read register 0x810C!\n");
+        exit(1);
+    }
+    data |= (1 << 30);
+    ret = CAEN_DGTZ_WriteRegister(handle, 0x810C, data);
+    if (ret) {
+        fprintf(stderr, "failed to write register 0x810C!\n");
+        exit(1);
+    }
+    ret = CAEN_DGTZ_ReadRegister(handle, 0x811C, &data);
+    if (ret) {
+        fprintf(stderr, "failed to read register 0x811C!\n");
+        exit(1);
+    }
+    data &= ~(1 << 10);
+    data &= ~(1 << 11);
+    ret = CAEN_DGTZ_WriteRegister(handle, 0x811C, data);
+    if (ret) {
+        fprintf(stderr, "failed to write register 0x811C!\n");
+        exit(1);
+    }
 
     /* Now, we switch back to output mode. */
     ret = CAEN_DGTZ_ReadRegister(handle, 0x8000, &data);
@@ -2177,15 +2199,15 @@ int main(int argc, char *argv[])
     /* Now, we go into the main loop where we get events. */
 
     int nread = 0;
-
+    int nzero = 0;
     while (!stop && total_events < nevents) {
         /* FIXME: Here, we send software triggers just for testing the
          * software. In production, this line should be commented out. */
-        printf("sending sw trigger\n");
-        for (i = 0; i < 10; i++) {
-	    CAEN_DGTZ_SendSWtrigger(handle);
-            usleep(10);
-        }
+        // printf("sending sw trigger\n");
+        // for (i = 0; i < 10; i++) {
+        //     usleep(1000);
+	//     CAEN_DGTZ_SendSWtrigger(handle);
+        // }
 
         ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
 
@@ -2206,8 +2228,12 @@ int main(int argc, char *argv[])
 
         if (NumEvents > WF_SIZE)
             NumEvents = WF_SIZE;
-
+// 	if (NumEvents == 0) {
+// 	    nzero += 1;
+// 	    printf("zero: %i ################################################################################\n", nzero);
+// 	}
         printf("got %i events\n", NumEvents);
+	printf("%i / %i\n", total_events + NumEvents, nevents);
 
         /* Analyze data */
         nread = 0;
@@ -2258,8 +2284,10 @@ int main(int argc, char *argv[])
         }
 
         total_events += nread;
-
+	
+	// printf("before\n");
         usleep(100000);
+	// printf("after\n");
     }
 
     if (stop)

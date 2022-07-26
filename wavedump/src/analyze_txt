@@ -113,7 +113,7 @@ if __name__ == '__main__':
                 b = 800
                 # b= get_window(x,y,left=50,right=300)[0]
                 # a, b = get_spe_window(x, b, integration_time=args.IT, rewind=args.r)
-                # y -= np.median(y[:,x < x[0] + 100])
+                y -= np.median(y[:,x < x[0] + 100])
                 # y -= np.median(y, axis=-1)[:, np.newaxis]
                 low_filter_y = low_filter_SPE(x, y)
                 high_filter_y = high_filter_SPE(x, y)

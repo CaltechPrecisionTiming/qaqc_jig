@@ -105,7 +105,7 @@ def analyze_filter_data(h, f_h):
         win = max(0.3, 20*noise_spread)
         raw_fit = ROOT.TF1('raw_fit', 'gaus', offset - win, offset + win)
         raw_fit.SetParameter(1, offset)
-        h.Fit(raw_fit, 'SRQ')
+        h.Fit(raw_fit, 'SRQ0')
         offset = raw_fit.GetParameter(1)
         raw_spread = raw_fit.GetParameter(2)
         return (offset, noise_spread, raw_spread)
@@ -317,8 +317,8 @@ if __name__ == '__main__':
                 f1.SetParameter(3, SPE_charge)
                 f1.SetParLimits(3, 0, 5)
 
-                f1.FixParameter(4, raw_spread)
-                f1.SetParLimits(4, 0.05, 0.5)
+                f1.FixParameter(4, noise_spread)
+                f1.SetParLimits(4, 0.005, 0.5)
                 
                 f1.FixParameter(5, D_SPE_CHARGE_SPREAD)
 
@@ -352,20 +352,17 @@ if __name__ == '__main__':
                 for i in range(6):
                     print(f'[{i}]: {f1.GetParameter(i)}')
                 
-                r = h.Fit(f1, 'SRB+')
+                r = h.Fit(f1, 'SRB0+')
                 # f1.SetRange(f1.GetParameter(1) - h.GetStdDev(), f1.GetXmax()) 
                 for i in range(6):
                     f1.ReleaseParameter(i) 
-                    # f1.SetParameter(i, f1.GetParameter(i))
                 
                 f1.SetParLimits(1, f1.GetParameter(1) - 0.25, f1.GetParameter(1) + 0.5) 
                 f1.SetParLimits(2, min(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1) 
                 f1.SetParLimits(3, min(0, f1.GetParameter(3) - 0.5), f1.GetParameter(3) + 0.5) 
                 f1.SetParLimits(4, 0, f1.GetParameter(4) + 2) 
                 f1.SetParLimits(5, 0, f1.GetParameter(5) + 2) 
-
-
-
+                
                 f1.SetLineColor(3)
                 r = h.Fit(f1, 'SR+')
                 

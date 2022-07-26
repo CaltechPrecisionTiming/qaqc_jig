@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+from __future__ import print_function, division
+import time
+
+SETTINGS = [\
+    ':TIMebase:RANGe',
+    ':ACQuire:SRATe:ANALog',
+    ':TIMebase:POSition',
+    ':ACQuire:MODE',
+    ':ACQuire:INTerpolate',
+    ':CHANnel1:SCALe',
+    ':CHANnel2:SCALe',
+    ':CHANnel3:SCALe',
+    ':CHANnel4:SCALe',
+    ':CHANnel1:DISPlay',
+    ':CHANnel2:DISPlay',
+    ':CHANnel3:DISPlay',
+    ':CHANnel4:DISPlay',
+    ':CHANnel1:OFFSet',
+    ':CHANnel2:OFFSet',
+    ':CHANnel3:OFFSet',
+    ':CHANnel4:OFFSet',
+    ':ACQuire:INTerpolate',
+    ':TRIGger:MODE',
+    ':TRIGger:EDGE:SOURce',
+    ':TRIGger:LEVel',
+    ':TRIGger:EDGE:SLOPe',
+    ':WAVeform:FORMat',
+    ':ACQuire:MODE',
+    ':ACQuire:SEGMented:COUNt',
+    ':WAVeform:SEGMented:ALL',
+    ':WAVeform:BYTEorder'
+]
+
+def get_settings(dpo):
+    """
+    Get all the current settings of the scope and return them as a dictionary
+    of key, value pairs. Most of the settings are simple key, value pairs which
+    indicate the setting and the value. We have one hack where since the
+    ":TRIGger:LEVel" command requires a channel argument we store the key as
+    ":TRIGger:LEVel CHANnel1," so that we can use the same simple method of setting
+    the value on the scope by sending the command "key value".
+    """
+    values = {}
+    for setting in SETTINGS:
+        if setting == ':TRIGger:LEVel':
+            for channel in ['CHANnel%i' % i for i in range(1,5)] + ['AUX']:
+                values["%s %s," % (setting,channel)] = dpo.query('%s? %s' % (setting,channel)).strip()
+        else:
+            values[setting] = dpo.query('%s?' % setting).strip()
+    return values
+
+def set_settings(dpo, settings):
+    """
+    Set the settings in the dictionary `settings` on the scope. Most of the
+    settings are simple key, value pairs but some have a more complicated
+    format for the key (see get_settings()).
+    """
+    for key, value in settings.items():
+        dpo.write('%s %s' % (key, value))
+
+def is_done(dpo):
+    """
+    Returns True if the scope is done completing the current operation.
+    """
+    return int(dpo.query("*OPC?")) == 1
+
+def wait_till_done(dpo):
+    """
+    Waits until the scope is done completing the current operation.
+    """
+    while not is_done(dpo):
+        time.sleep(0.1)
+
+def get_ip():
+    try:
+        with open('scope_ip_address.txt', 'r') as file:
+            return file.readline().strip()
+    except FileNotFoundError:
+        return None
+
+if __name__ == '__main__':
+    import sys
+    import os
+    import pyvisa as visa
+    from itertools import count
+    import numpy as np
+    import h5py
+    from argparse import ArgumentParser
+
+    ip = get_ip()
+
+    parser = ArgumentParser(description='Take data from the Agilent scope')
+    parser.add_argument('-n','--numEvents', type=int, default=500, help='number of events')
+    parser.add_argument('--timeout', type=int, default=2000, help='timeout (ms)')
+    if ip:
+        parser.add_argument('--ip-address', default=ip, help='ip address of scope')
+    else:
+        parser.add_argument('--ip-address', help='ip address of scope', required=True)
+    parser.add_argument('--settings', default=None, help='json file with settings', required=False)
+    parser.add_argument('-o','--output', default=None, help='output file name', required=True)
+    parser.add_argument('--ascii',default=False,action='store_true',help='use ascii format')
+    parser.add_argument('-j', '--segment-count', type=int, default=100, help='number of waveforms to acquire at a time')
+    args = parser.parse_args()
+
+    # establish communication with dpo
+    rm = visa.ResourceManager()
+    dpo = rm.open_resource('TCPIP::%s::INSTR' % args.ip_address)
+
+    if args.timeout:
+        dpo.timeout = args.timeout
+
+    print("*idn? = %s" % dpo.query('*idn?').strip())
+
+    if args.settings:
+        with h5py.File(args.settings,'r') as f:
+            settings = dict(f['settings'].attrs)
+        print("loading settings from %s" % args.settings)
+        set_settings(dpo,settings)
+
+    settings = get_settings(dpo)
+
+    wait_till_done(dpo)
+
+    dpo.write(":ACQuire:MODE RTIMe")
+
+    dpo.write(":system:header off")
+    if args.ascii:
+        dpo.write(":WAVeform:format ASCII")
+        args.segment_count = 1
+    else:
+        dpo.write(":WAVeform:FORMat WORD")
+        dpo.write(":ACQuire:MODE SEGMented")
+        dpo.write(":ACQuire:SEGMented:COUNt %i" % args.segment_count)
+        dpo.write(":WAVeform:SEGMented:ALL ON")
+        dpo.write(":WAVeform:BYTEorder LSBFirst")
+
+    f = h5py.File(args.output,"w")
+
+    f.create_group("settings")
+
+    for key, value in settings.items():
+        f['settings'].attrs[key] = value
+
+    enabled_channels = []
+    for i in range(1,5):
+        if int(dpo.query(":CHANnel%i:display?" % i)) == 1:
+            enabled_channels.append(i)
+
+    # start a timer
+    time0 = time.time()
+
+    try:
+        i = 0
+        while i < args.numEvents:
+            if i % 10 == 0:
+                print(".",end='')
+                sys.stdout.flush()
+
+            if not args.ascii:
+                if i + args.segment_count > args.numEvents:
+                    args.segment_count = args.numEvents - i
+                    dpo.write(":acquire:segmented:count %i" % args.segment_count)
+
+            try:
+                dpo.write(':digitize')
+                for j in enabled_channels:
+                    dpo.write(":WAVeform:source ch%i" % j)
+                    if i == 0:
+                        points = int(dpo.query(":WAVeform:points?"))
+
+                        if args.ascii:
+                            f.create_dataset("ch%i" % j, (args.numEvents, points), dtype='f4', chunks=(max(1,min(100, args.numEvents//100)), points), compression='gzip')
+                        else:
+                            f.create_dataset("ch%i" % j, (args.numEvents, points), dtype='i2', chunks=(max(1,min(100, args.numEvents//100)), points), compression='gzip')
+                        # x = xorg + np.linspace(0,xinc*n,n)
+                        f['ch%i' % j].attrs['xinc'] = float(dpo.query(":WAVeform:xincrement?"))
+                        f['ch%i' % j].attrs['xorg'] = float(dpo.query(":WAVeform:xorigin?"))
+                        f['ch%i' % j].attrs['yinc'] = float(dpo.query(":WAVeform:yincrement?"))
+                        f['ch%i' % j].attrs['yorg'] = float(dpo.query(":WAVeform:yorigin?"))
+                        f['ch%i' % j].attrs['points'] = points
+
+                    if args.ascii:
+                        f['ch%i' % j][i:i+args.segment_count] = np.fromstring(dpo.query(":WAVeform:DATA?"),dtype=np.float,sep=',')[:-1]
+                    else:
+                        f['ch%i' % j][i:i+args.segment_count] = np.array(dpo.query_binary_values(":WAVeform:DATA?",datatype='h')).reshape((args.segment_count,-1))
+            except visa.Error as e:
+                print("\nvisa error: %s" % str(e))
+                # Now we try to flush the buffers on the scope so we don't get
+                # protocol errors if our command which timed out sends data
+                # later
+                time.sleep(1)
+                try:
+                    dpo.read_raw()
+                except Exception as e:
+                    pass
+                continue
+            i += args.segment_count
+        print()
+    except KeyboardInterrupt:
+        print('\nctrl-c caught')
+        print('resizing datasets...')
+
+        for channel in enabled_channels:
+            f['ch%i' % channel].resize((i, f['ch%i' % channel].shape[1]))
+    finally:
+        f.close()
+        elapsed = time.time() - time0
+
+        if i > 0:
+            print('Completed %i events in %.3f seconds.' % (i, elapsed))
+            print('Averaged %.5f seconds per acquisition.' % (elapsed/i))
+            print("Wrote to file '%s'." % args.output)
+
+        # At this point, I consistently get errors if I try to talk to the
+        # scope, so we'll just close the connection, try to restore it and
+        # reset the settings.
+        dpo.close()
+        dpo = rm.open_resource('TCPIP::%s::INSTR' % args.ip_address)
+        set_settings(dpo,settings)
+
+        dpo.close()

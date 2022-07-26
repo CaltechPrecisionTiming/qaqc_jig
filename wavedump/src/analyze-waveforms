@@ -34,9 +34,13 @@ def get_spe_window(x, start, integration_time):
     """
     time_per_index = x[1] - x[0]
     a = int(np.abs(x - start).argmin())
+    if a >= len(x) - 1:
+        print('SPE integration start is at max. Setting it to ten below max.')
+        a = len(x) - 11
     b = int(np.round(a + integration_time / time_per_index))
     if b > len(x) - 1:
         print('SPE integration time is too long. Setting upper bound to max.')
+        b = len(x) - 1
     return (a,b)
 
 
@@ -180,9 +184,6 @@ if __name__ == '__main__':
                             charge[channel] = integrate(x,y, a, b)
                     else:
                         a, b = get_spe_window(x, args.s, args.IT)
-                        print(len(x))
-                        print(a)
-                        print(b)
                         # y -= np.median(y[:,x < x[0] + 100])  # per chuck median subtraction
                         y -= np.median(y, axis=-1)[:, np.newaxis]  # per event median subtraction
                         # low_filter_y = low_filter_SPE(x, y)
@@ -218,7 +219,7 @@ if __name__ == '__main__':
                     plt.suptitle(channel)
                 if args.pdf:
                     prname=filename[:len(filename)-5]
-                    plt.savefig("./FiguresAnalysis/"+prname+"_"+str(channel)+"_TimeVolt"+".pdf")
+                    plt.savefig("./FiguresAnalysis/"+prname+"_"+str(channel)+f"_TimeVolt_{a}_{b}"+".pdf")
                 
                 # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
                 # if (show_channel == channel or 'base_' + show_channel == channel) and (args.plot or args.pdf):
@@ -260,7 +261,7 @@ if __name__ == '__main__':
             plt.legend()
         if args.pdf:
             prname=filename[:len(filename)-5]
-            plt.savefig("./FiguresAnalysis/"+prname+"_"+str(channel)+".pdf")
+            plt.savefig("./FiguresAnalysis/"+prname+"_"+str(channel)+f"_{a}_{b}.pdf")
         h.Write()
 
     # The prefix `f_` will be used to denote objects that correspond to filtered data.
@@ -283,31 +284,31 @@ if __name__ == '__main__':
         #     plt.legend()
         f_h.Write()
         
-        if args.plot:  # TODO: This part is only for testing
-            # FIXME
-            plt.figure()
-            bins = get_bins(average[channel]) 
-            plt.hist(average[channel],bins=bins,histtype='step',label='avg_'+channel)
-            plt.legend()
-            # FIXME
-            plt.figure()
-            plt.plot(np.arange(len(average[channel])), average[channel], label='avg_'+channel)
-            plt.legend()
-            num = 0
-            for x in average[channel]:
-                if x <= -35:
-                    num += 1
-            print(f'num: {num}')
-            # FIXME
-            plt.figure()
-            bins = get_bins(std[channel])
-            plt.hist(std[channel],bins=bins,histtype='step',label='std_'+channel)
-            plt.legend()
-            # FIXME
-            print(len(std[channel]))
-            plt.figure()
-            plt.plot(np.arange(len(std[channel])), std[channel], label='std_'+channel)
-            plt.legend()
+        # if args.plot:  # TODO: This part is only for testing
+        #     # FIXME
+        #     plt.figure()
+        #     bins = get_bins(average[channel]) 
+        #     plt.hist(average[channel],bins=bins,histtype='step',label='avg_'+channel)
+        #     plt.legend()
+        #     # FIXME
+        #     plt.figure()
+        #     plt.plot(np.arange(len(average[channel])), average[channel], label='avg_'+channel)
+        #     plt.legend()
+        #     num = 0
+        #     for x in average[channel]:
+        #         if x <= -35:
+        #             num += 1
+        #     print(f'num: {num}')
+        #     # FIXME
+        #     plt.figure()
+        #     bins = get_bins(std[channel])
+        #     plt.hist(std[channel],bins=bins,histtype='step',label='std_'+channel)
+        #     plt.legend()
+        #     # FIXME
+        #     print(len(std[channel]))
+        #     plt.figure()
+        #     plt.plot(np.arange(len(std[channel])), std[channel], label='std_'+channel)
+        #     plt.legend()
 
     f.Close()
 

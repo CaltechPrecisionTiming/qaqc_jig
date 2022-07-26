@@ -30,21 +30,15 @@ date=$(date +%m%d%Y)
 # * Time
 Time=$(date +%k":"%M":"%S)
 # * Bias Voltage
-BV="45"
-# * Integration Start Time
-s="200"
-# * Integration Time
-IT="200"
+BV="42"
 # * number of events
 ne=10000
 # * Active channel - if left as empty string, all channels are analyzed.
 active="ch1"
 # * Extra
-EXTRA="dark"
+EXTRA="SPE_Charge"
 
 # Creating filenames
-spe_hdf5="spe_${date}_${Time}_${BV}v_${EXTRA}.hdf5"
-spe_root="spe_${date}_${Time}_${BV}v_${EXTRA}.root"
 
 
 python3 clear_temp_data.py
@@ -63,14 +57,50 @@ read
 
 # SPE ANALYSIS
 if [ "$src" = true ] ; then
+	spe_hdf5="CAEN_${active}_${date}_${Time}_${BV}v_${EXTRA}.hdf5"
+	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_LASER_${EXTRA}.root"
+	
 	make
 	./wavedump -o $spe_hdf5 -n $ne --barcode $Lcode --voltage $BV
+	
+	# * Integration Start Time.
+	s="-100"
+	# * Integration Duration
+	IT="100"
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./fit-histograms $spe_root --pdf 
+	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "LASER_$EXTRA"
+	
+	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_DARK_${EXTRA}.root"
+	# * Integration Start Time.
+	s="0"
+	# * Integration Duration
+	IT="195"
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./fit-histograms $spe_root --pdf 
+	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
 else
+	spe_hdf5="SCOPE_${active}_${date}_${Time}_${BV}v_${EXTRA}.hdf5"
+	spe_root="SCOPE_${active}_${date}_${Time}_${BV}v_LASER_${EXTRA}.root"
+	
 	./acquire-waveforms -n $ne --ip-address $ipad -o $spe_hdf5
+	
+	# * Integration Start Time.
+	s="40"
+	# * Integration Duration
+	IT="100"
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./fit-histograms $spe_root --pdf 
+	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "SCOPE" --extra "LASER_$EXTRA"
+	
+	spe_root="SCOPE_${active}_${date}_${Time}_${BV}v_DARK_${EXTRA}.root"
+	# * Integration Start Time.
+	s="200"
+	# * Integration Duration
+	IT="195"
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./fit-histograms $spe_root --pdf 
+	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "SCOPE" --extra "DARK_${IT}_${EXTRA}" 
 fi
-./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
-./fit-histograms $spe_root --pdf 
-
-python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "SCOPE" --extra $EXTRA
 
 set -edd data to csv / excel automatically

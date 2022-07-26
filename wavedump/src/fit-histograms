@@ -181,9 +181,9 @@ if __name__ == '__main__':
             if h.ClassName() != 'TH1F' and h.ClassName() != 'TH1D':
                 continue
 
-            if h.GetEntries() <= 1000:
-                print('<= 1000 entries; skipping fit')
-                continue
+            # if h.GetEntries() <= 1000:
+            #     print('<= 1000 entries; skipping fit')
+            #     continue
 
             if h.GetName().startswith('f_'):
                 filtered_histograms[h.GetName()] = h
@@ -303,7 +303,7 @@ if __name__ == '__main__':
                 l = -np.log(prob_zero)
                 
                 # SPE_charge = average_distance_from(offset, h) / l * 0.1
-                SPE_charge = min(2, iqr(h) / l * 0.3)
+                SPE_charge = min(5, iqr(h) / l * 0.5)
 
                 f1.SetRange(offset - raw_spread, f1.GetXmax())
                 
@@ -360,8 +360,8 @@ if __name__ == '__main__':
                 f1.SetParLimits(1, f1.GetParameter(1) - 0.25, f1.GetParameter(1) + 0.5) 
                 f1.SetParLimits(2, min(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1) 
                 f1.SetParLimits(3, min(0, f1.GetParameter(3) - 0.5), f1.GetParameter(3) + 0.5) 
-                f1.SetParLimits(4, 0, f1.GetParameter(4) + 2) 
-                f1.SetParLimits(5, 0, f1.GetParameter(5) + 2) 
+                f1.SetParLimits(4, 0, f1.GetParameter(4) + 0.5) 
+                f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.5) 
                 
                 f1.SetLineColor(3)
                 r = h.Fit(f1, 'SR+')

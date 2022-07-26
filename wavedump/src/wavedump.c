@@ -12,7 +12,7 @@
 #define WF_SIZE 10000
 #define BS_SIZE 10
 #define RECORD_LENGTH 1024
-#define POST_TRIGGER 0
+#define POST_TRIGGER 60
 
 char *GitSHA1(void);
 char *GitDirty(void);
@@ -2152,6 +2152,7 @@ int main(int argc, char *argv[])
         fprintf(stderr, "failed to read register 0x811C!\n");
         exit(1);
     }
+    data |= 1;
     data &= ~(1 << 10);
     data &= ~(1 << 11);
     ret = CAEN_DGTZ_WriteRegister(handle, 0x811C, data);

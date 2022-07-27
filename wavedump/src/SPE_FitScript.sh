@@ -61,7 +61,7 @@ if [ "$src" = true ] ; then
 	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_LASER_${EXTRA}.root"
 	
 	make
-	./wavedump -o $spe_hdf5 -n $ne --barcode $Lcode --voltage $BV
+	./wavedump -o $spe_hdf5 -n $ne --barcode $Lcode --voltage $BV --trigger "external"
 	
 	# * Integration Start Time.
 	s="-100"

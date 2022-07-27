@@ -1619,9 +1619,6 @@ WaveDumpConfig_t set_default_settings() {
     //int TriggerEdge;
     //CAEN_DGTZ_IOLevel_t FPIOtype;
 
-    /* Set to enable external triggers, so we can trigger on the laser if we
-     * want. */
-    WDcfg.ExtTriggerMode = CAEN_DGTZ_TRGMODE_ACQ_ONLY;
 
     /* Enable all channels. */
     WDcfg.EnableMask = 0xFF;
@@ -1726,7 +1723,9 @@ int main(int argc, char *argv[])
     double voltage = -1;
     int barcode = 0;
     uint32_t data;
-    bool sodium = false;
+    bool self = false;
+    bool external = false;
+    bool software = false;
 
     CAEN_DGTZ_X742_EVENT_t *Event742 = NULL;
 
@@ -1736,8 +1735,6 @@ int main(int argc, char *argv[])
     int ReloadCfgStatus = 0x7FFFFFFF; // Init to the bigger positive number
 
     memset(&WDrun, 0, sizeof(WDrun));
-
-    
     
     for (i = 1; i < argc; i++) {
         if (!strcmp(argv[i],"-n") && i < argc - 1) {
@@ -1746,8 +1743,15 @@ int main(int argc, char *argv[])
             output_filename = argv[++i];
         } else if (!strcmp(argv[i],"--help")) {
             print_help();
-	} else if (!strcmp(argv[i],"--sodium")) {
-	    sodium = true;
+	} else if (!strcmp(argv[i],"--trigger")) {
+	    char *trig = argv[++i];
+	    if (strcmp(trig, "self") == 0) {
+		self = true;
+	    } else if (strcmp(trig, "external") == 0) {
+		external = true;
+	    } else {
+		software = true;
+	    }
         } else if (!strcmp(argv[i],"-b") || !strcmp(argv[i],"--barcode")) {
             barcode = atoi(argv[++i]);
         } else if (!strcmp(argv[i],"-v") || !strcmp(argv[i],"--voltage")) {
@@ -1756,6 +1760,8 @@ int main(int argc, char *argv[])
             config_filename = argv[i];
         }
     }
+
+    software = !(self || external);
 
     if (!output_filename || barcode == 0 || voltage < 0)
         print_help();
@@ -1771,26 +1777,30 @@ int main(int argc, char *argv[])
      * Make separate methods for the settings needed for
      * 511 and SPE. */
     WDcfg = set_default_settings();
-    // if (sodium) {
-    //     WDcfg = set_511_settings();
-    // } else {
-    //     WDcfg = set_spe_settings();
-    // }
-
-    if (config_filename) {
-        printf("Opening Configuration File %s\n", config_filename);
-        f_ini = fopen(config_filename, "r");
-        if (f_ini == NULL) {
-            fprintf(stderr, "couldn't find configuration file '%s'\n", config_filename);
-            exit(1);
-        }
-        memset(&WDcfg, 0, sizeof(WDcfg));
-        ParseConfigFile(f_ini, &WDcfg);
-        fclose(f_ini);
+    
+    /* Set to enable external triggers, so we can trigger on the laser if we
+     * want. */
+    if (external) {
+        WDcfg.ExtTriggerMode = CAEN_DGTZ_TRGMODE_ACQ_ONLY;
+    } else {
+        WDcfg.ExtTriggerMode = CAEN_DGTZ_TRGMODE_DISABLED;
     }
 
     WDcfg.voltage = voltage;
     WDcfg.barcode = barcode;
+    
+    /* config file is an outdated method to program digitizer */
+    // if (config_filename) {
+    //     printf("Opening Configuration File %s\n", config_filename);
+    //     f_ini = fopen(config_filename, "r");
+    //     if (f_ini == NULL) {
+    //         fprintf(stderr, "couldn't find configuration file '%s'\n", config_filename);
+    //         exit(1);
+    //     }
+    //     memset(&WDcfg, 0, sizeof(WDcfg));
+    //     ParseConfigFile(f_ini, &WDcfg);
+    //     fclose(f_ini);
+    // }
 
     /* Open the digitizer. */
     ret = CAEN_DGTZ_OpenDigitizer(0, 0, 0, 0, &handle);
@@ -2089,78 +2099,85 @@ int main(int argc, char *argv[])
         }
     }
 
+    if (self) {
+        /* Page 45 of file:///home/cptlab/Downloads/UM4270_DT5742_UserManual_rev10.pdf gives
+         * the instructions of how to set up self-trigger. */
+        for (i = 0; i < 2; i++) {
+            /* Subtract 50 from the minimum baseline to get the threshold. */
+            thresholds[i] -= 5;
 
-    /* Page 45 of file:///home/cptlab/Downloads/UM4270_DT5742_UserManual_rev10.pdf gives
-     * the instructions of how to set up self-trigger. */
-    for (i = 0; i < 2; i++) {
-        /* Subtract 50 from the minimum baseline to get the threshold. */
-        thresholds[i] -= 5;
+            if (thresholds[i] < 1e99) {
+                
+                /* This sets the trigger level */
+                printf("setting trigger threshold for group %i to %i\n", i, (int) thresholds[i]);
+                // ret = CAEN_DGTZ_WriteRegister(handle, 0x1080 + 256*i, (int) thresholds[i]);
 
-        if (thresholds[i] < 1e99) {
-            
-	    /* This sets the trigger level */
-	    printf("setting trigger threshold for group %i to %i\n", i, (int) thresholds[i]);
-            // ret = CAEN_DGTZ_WriteRegister(handle, 0x1080 + 256*i, (int) thresholds[i]);
+                if (ret) {
+                    fprintf(stderr, "failed to write register 0x%04x!\n", 0x1080 + 256*i);
+                    exit(1);
+                }
+                
+                
+                /* This sets which channels are allowed to cause a trigger event. If a channel is not
+                 * allowed, then even if it crosses the trigger threshold, the event will not
+                 * be acquired.
+                 *
+                 * When at least one channel in a group causes a trigger event, then
+                 * the signal from all the channels in that group are acquired. */
+                printf("setting channel mask for group %i to 0x%02x\n", i, (int) (chmask >> i*8) & 0xff); // There used to be 16 here instead of 8
+                ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8 + 256*i, (int) (chmask >> i*8) & 0xff);
 
-            if (ret) {
-                fprintf(stderr, "failed to write register 0x%04x!\n", 0x1080 + 256*i);
-                exit(1);
-            }
-	    
-	    
-	    /* This sets which channels are allowed to cause a trigger event. If a channel is not
-	     * allowed, then even if it crosses the trigger threshold, the event will not
-	     * be acquired.
-	     *
-	     * When at least one channel in a group causes a trigger event, then
-	     * the signal from all the channels in that group are acquired. */
-	    printf("setting channel mask for group %i to 0x%02x\n", i, (int) (chmask >> i*8) & 0xff); // There used to be 16 here instead of 8
-            ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8 + 256*i, (int) (chmask >> i*8) & 0xff);
+                if (ret) {
+                    fprintf(stderr, "failed to write register 0x%04x!\n", 0x10A8 + 256*i);
+                    exit(1);
+                }
+            } else {
+                ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8 + 256*i, 0);
 
-            if (ret) {
-                fprintf(stderr, "failed to write register 0x%04x!\n", 0x10A8 + 256*i);
-                exit(1);
-            }
-        } else {
-            ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8 + 256*i, 0);
-
-            if (ret) {
-                fprintf(stderr, "failed to write register 0x%04x!\n", 0x10A8 + 256*i);
-                exit(1);
+                if (ret) {
+                    fprintf(stderr, "failed to write register 0x%04x!\n", 0x10A8 + 256*i);
+                    exit(1);
+                }
             }
         }
     }
-    // FIXME remove after testing.
-    ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8, 0x00);
-    ret = CAEN_DGTZ_WriteRegister(handle, 0x11A8, 0x00);
-    if(ret) printf("failed to deactivate triggers!\n");
+
+    /* Deactivating ability to self trigger */
+    if (external || software) {
+        ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8, 0x00);
+        if(ret) printf("failed to deactivate triggers!\n");
+        ret = CAEN_DGTZ_WriteRegister(handle, 0x11A8, 0x00);
+        if(ret) printf("failed to deactivate triggers!\n");
+    }
 
     /* Enabling external trigger for laser */
-    ret = CAEN_DGTZ_ReadRegister(handle, 0x810C, &data);
-    if (ret) {
-        fprintf(stderr, "failed to read register 0x810C!\n");
-        exit(1);
+    if (external) {
+        ret = CAEN_DGTZ_ReadRegister(handle, 0x810C, &data);
+        if (ret) {
+            fprintf(stderr, "failed to read register 0x810C!\n");
+            exit(1);
+        }
+        data |= (1 << 30);
+        ret = CAEN_DGTZ_WriteRegister(handle, 0x810C, data);
+        if (ret) {
+            fprintf(stderr, "failed to write register 0x810C!\n");
+            exit(1);
+        }
+        ret = CAEN_DGTZ_ReadRegister(handle, 0x811C, &data);
+        if (ret) {
+            fprintf(stderr, "failed to read register 0x811C!\n");
+            exit(1);
+        }
+        data |= 1;
+        data &= ~(1 << 10);
+        data &= ~(1 << 11);
+        ret = CAEN_DGTZ_WriteRegister(handle, 0x811C, data);
+        if (ret) {
+            fprintf(stderr, "failed to write register 0x811C!\n");
+            exit(1);
+        }
     }
-    data |= (1 << 30);
-    ret = CAEN_DGTZ_WriteRegister(handle, 0x810C, data);
-    if (ret) {
-        fprintf(stderr, "failed to write register 0x810C!\n");
-        exit(1);
-    }
-    ret = CAEN_DGTZ_ReadRegister(handle, 0x811C, &data);
-    if (ret) {
-        fprintf(stderr, "failed to read register 0x811C!\n");
-        exit(1);
-    }
-    data |= 1;
-    data &= ~(1 << 10);
-    data &= ~(1 << 11);
-    ret = CAEN_DGTZ_WriteRegister(handle, 0x811C, data);
-    if (ret) {
-        fprintf(stderr, "failed to write register 0x811C!\n");
-        exit(1);
-    }
-
+    
     /* Now, we switch back to output mode. */
     ret = CAEN_DGTZ_ReadRegister(handle, 0x8000, &data);
 
@@ -2202,13 +2219,14 @@ int main(int argc, char *argv[])
     int nread = 0;
     int nzero = 0;
     while (!stop && total_events < nevents) {
-        /* FIXME: Here, we send software triggers just for testing the
-         * software. In production, this line should be commented out. */
-        // printf("sending sw trigger\n");
-        // for (i = 0; i < 10; i++) {
-        //     usleep(1000);
-	//     CAEN_DGTZ_SendSWtrigger(handle);
-        // }
+        if (software) {
+            /* Sending software triggers for SPE analysis without laser */
+	    printf("sending sw trigger\n");
+            for (i = 0; i < 100; i++) {
+                usleep(1000);
+	        CAEN_DGTZ_SendSWtrigger(handle);
+            }
+	}
 
         ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
 
@@ -2229,10 +2247,6 @@ int main(int argc, char *argv[])
 
         if (NumEvents > WF_SIZE)
             NumEvents = WF_SIZE;
-// 	if (NumEvents == 0) {
-// 	    nzero += 1;
-// 	    printf("zero: %i ################################################################################\n", nzero);
-// 	}
         printf("got %i events\n", NumEvents);
 	printf("%i / %i\n", total_events + NumEvents, nevents);
 

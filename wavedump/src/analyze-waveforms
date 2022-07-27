@@ -91,7 +91,7 @@ def chunks(lst, n):
 
 def convert_data(f, channel, start, stop):
     if 'data_source' in list(f.attrs):
-        if f.attrs['data_source'] == b'CAEN':  # outputs as b'CAEN'?
+        if f.attrs['data_source'] == b'CAEN':
             
             xinc = 1/(f.attrs['drs4_frequency'] * 10**6)
             points = f.attrs['record_length']
@@ -132,7 +132,6 @@ def high_filter_SPE(time, y):
     nyquist = (0.5 * (time[1] - time[0]))**(-1)
     cutoff = 5**(-1)  # Cut off frequency for the filter measured in inverse nanoseconds
     b, a = signal.butter(filter_order, min(1, cutoff/nyquist), btype='highpass', output='ba')
-    # sos = signal.butter(filter_order, min(1, cutoff/nyquist), btype='highpass', output='sos')
     filter_data = signal.lfilter(b, a, y)
     return filter_data
 
@@ -141,11 +140,11 @@ if __name__ == '__main__':
     import ROOT
     import matplotlib.pyplot as plt
 
-    parser = ArgumentParser(description='Analyze data from the Agilent scope')
+    parser = ArgumentParser(description='Analyze SPE and 511 charges')
     parser.add_argument('filenames',nargs='+',help='input filenames (hdf5 format)')
     parser.add_argument('-o','--output', default=None, help='output file name', required=True)
     parser.add_argument('--sodium', default=False, action='store_true', help='flag to indicate data is from a sodium source')
-    parser.add_argument('--laser', default=False, action='store_true', help='flag to indicate data is from a laser source')
+    # parser.add_argument('--laser', default=False, action='store_true', help='flag to indicate data is from a laser source')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
     parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
     parser.add_argument('--pdf', default=False, action='store_true', help='prints pdfs')
@@ -184,8 +183,8 @@ if __name__ == '__main__':
                             charge[channel] = integrate(x,y, a, b)
                     else:
                         a, b = get_spe_window(x, args.s, args.IT)
-                        # y -= np.median(y[:,x < x[0] + 100])  # per chuck median subtraction
-                        y -= np.median(y, axis=-1)[:, np.newaxis]  # per event median subtraction
+                        y -= np.median(y[:,x < x[0] + 100])  # per chuck median subtraction
+                        # y -= np.median(y, axis=-1)[:, np.newaxis]  # per event median subtraction
                         # low_filter_y = low_filter_SPE(x, y)
                         high_filter_y = high_filter_SPE(x, y)
                         # no_SPE_trials = np.min(y[:, x < x[0] + 100], axis=-1) > -5 * iqr(high_filter_y[:, np.logical_and(x >= x[0], x < x[0] + 100)].flatten())

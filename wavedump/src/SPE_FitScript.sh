@@ -30,13 +30,13 @@ date=$(date +%m%d%Y)
 # * Time
 Time=$(date +%k":"%M":"%S)
 # * Bias Voltage
-BV="42"
+BV="45"
 # * number of events
-ne=100000
+ne=30000
 # * Active channel - if left as empty string, all channels are analyzed.
-active="ch0"
+active="ch15"
 # * Extra
-EXTRA="SPE_Charge"
+EXTRA="hf_baseline_-25_200"
 
 # Creating filenames
 
@@ -58,24 +58,37 @@ read
 # SPE ANALYSIS
 if [ "$src" = true ] ; then
 	spe_hdf5="CAEN_${active}_${date}_${Time}_${BV}v_${EXTRA}.hdf5"
-	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_LASER_${EXTRA}.root"
-	
 	make
 	./wavedump -o $spe_hdf5 -n $ne --barcode $Lcode --voltage $BV --trigger "external"
 	
 	# * Integration Start Time.
-	s="-100"
+	s="-125"
 	# * Integration Duration
 	IT="100"
+	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_LASER_${EXTRA}.root"
 	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "LASER_$EXTRA"
 	
-	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_DARK_${EXTRA}.root"
 	# * Integration Start Time.
-	s="0"
+	s="200"
+	# * Integration Duration
+	IT="100"
+	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./fit-histograms $spe_root --pdf 
+	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
+	
 	# * Integration Duration
 	IT="200"
+	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./fit-histograms $spe_root --pdf 
+	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
+	
+	# * Integration Duration
+	IT="300"
+	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
 	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"

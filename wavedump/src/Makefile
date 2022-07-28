@@ -1,6 +1,6 @@
 release_hdr := $(shell sh -c './mkreleasehdr.sh')
 
-OPTIMIZATION?=-O0
+OPTIMIZATION?=-O2
 CFLAGS=$(OPTIMIZATION) -Wall -g
 CFLAGS+= -fPIC -DLINUX
 

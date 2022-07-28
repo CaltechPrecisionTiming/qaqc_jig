@@ -1247,7 +1247,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
     unsigned int filter_info;
     hid_t aid, atype, attr;
 
-    chunk[0] = 100;
+    chunk[0] = 1024;
     chunk[1] = 1024;
 
     /* Check if file exists. */

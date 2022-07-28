@@ -18,17 +18,23 @@ import numpy as np
 try:
     with open('Fit_Data.csv', 'r') as file:
         reader = csv.DictReader(file)
-        SCOPE_dark = []
-        SCOPE_dark_195 = []
-        SCOPE_laser = []
-        dark = [[] for _ in range(16)]
-        dark_195 = [[] for _ in range(16)]
+        # SCOPE_dark = []
+        # SCOPE_dark_195 = []
+        # SCOPE_laser = []
+        dark_100 = [[] for _ in range(16)]
+        dark_200 = [[] for _ in range(16)]
+        dark_300 = [[] for _ in range(16)]
         laser = [[] for _ in range(16)]
         for row in reader:
-            val = float(row['SPE Charge'])
-            if row['Bias'] != '45':
+            if not 'hf_baseline' in row['Extra']:
                 continue
+            
+            if float(row['Bias']) != 45:
+                continue
+            
+            val = float(row['SPE Charge'])
             if row['Source'] == 'SCOPE':
+                continue
                 if row['Extra'].startswith('LASER'):
                     SCOPE_laser.append(val) 
                 elif row['Extra'].startswith('DARK_195'):
@@ -39,22 +45,26 @@ try:
                 idx = int(row['Channel'][2:])
                 if row['Extra'].startswith('LASER'):
                     laser[idx].append(val) 
-                elif row['Extra'].startswith('DARK_195'):
-                    dark_195[idx].append(val)
-                elif row['Extra'].startswith('DARK'):
-                    dark[idx].append(val)
-        dark = np.mean(dark, axis=-1)
-        dark_195 = np.mean(dark_195, axis=-1)
+                elif row['Extra'].startswith('DARK_100'):
+                    dark_100[idx].append(val)
+                elif row['Extra'].startswith('DARK_200'):
+                    dark_200[idx].append(val)
+                elif row['Extra'].startswith('DARK_300'):
+                    dark_300[idx].append(val)
+        dark_100 = np.mean(dark_100, axis=-1)
+        dark_200 = np.mean(dark_200, axis=-1)
+        dark_300 = np.mean(dark_300, axis=-1)
         laser = np.mean(laser, axis=-1)
 
-        print(f'SCOPE laser SPE: {np.mean(SCOPE_laser)}')
-        print(f'SCOPE dark 100 SPE: {np.mean(SCOPE_dark)}')
-        print(f'SCOPE dark 195 SPE: {np.mean(SCOPE_dark_195)}')
+        # print(f'SCOPE laser SPE: {np.mean(SCOPE_laser)}')
+        # print(f'SCOPE dark 100 SPE: {np.mean(SCOPE_dark)}')
+        # print(f'SCOPE dark 195 SPE: {np.mean(SCOPE_dark_195)}')
 
         plt.figure()
         plt.plot(np.arange(16), laser, label='Laser 100ns')
-        plt.plot(np.arange(16), dark, label='Dark 100ns')
-        plt.plot(np.arange(16), dark_195, label='Dark 195ns')
+        plt.plot(np.arange(16), dark_100, label='Dark 100ns')
+        plt.plot(np.arange(16), dark_200, label='Dark 200ns')
+        plt.plot(np.arange(16), dark_300, label='Dark 300ns')
         plt.suptitle('SPE Charge Data over each CAEN Channel with 45V SiPM Bias')
         plt.xlabel("Channel")
         plt.ylabel("Charge (pC)")

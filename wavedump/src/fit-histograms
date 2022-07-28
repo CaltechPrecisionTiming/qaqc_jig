@@ -302,23 +302,29 @@ if __name__ == '__main__':
                 prob_zero = num_zero / h.GetEntries()
                 l = -np.log(prob_zero)
                 
+                # SPE Charge estimated using the method from this forum : https://math.stackexchange.com/questions/3689141/calculating-the-mean-and-standard-deviation-of-a-gaussian-mixture-model-of-two-c
+                prob_one = l * np.exp(-l)
+                SPE_loc = (h.GetMean() - prob_zero*offset) / prob_one
+                SPE_charge = max(zero_peak_end - offset, min(3, SPE_loc - offset))
                 # SPE_charge = average_distance_from(offset, h) / l * 0.1
-                SPE_charge = min(5, iqr(h) / l * 0.5)
+                # f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.5) 
+                # SPE_charge = 2
+                # SPE_charge = max(zero_peak_end, min(4, iqr(h) / l * 0.7))
 
-                f1.SetRange(offset - raw_spread, f1.GetXmax())
+                f1.SetRange(offset - 0.7 * raw_spread, f1.GetXmax())
                 
                 f1.SetParameter(0, scale)
-                f1.SetParLimits(0, scale * 0.001, scale * 100)
+                f1.SetParLimits(0, scale, scale * 100)
 
                 f1.FixParameter(1, offset)
 
                 f1.SetParameter(2, l)
 
                 f1.SetParameter(3, SPE_charge)
-                f1.SetParLimits(3, 0, 5)
+                f1.SetParLimits(3, zero_peak_end - offset, 4)
 
                 f1.FixParameter(4, noise_spread)
-                f1.SetParLimits(4, 0.005, 0.5)
+                f1.SetParLimits(4, 0.05, 0.5)
                 
                 f1.FixParameter(5, D_SPE_CHARGE_SPREAD)
 
@@ -354,14 +360,14 @@ if __name__ == '__main__':
                 
                 r = h.Fit(f1, 'SRB0+')
                 # f1.SetRange(f1.GetParameter(1) - h.GetStdDev(), f1.GetXmax()) 
-                for i in range(5):
+                for i in range(6):
                     f1.ReleaseParameter(i) 
                 
                 f1.SetParLimits(1, f1.GetParameter(1) - 0.25, f1.GetParameter(1) + 0.5) 
-                f1.SetParLimits(2, min(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1) 
-                f1.SetParLimits(3, min(0, f1.GetParameter(3) - 0.5), f1.GetParameter(3) + 0.5) 
+                f1.SetParLimits(2, max(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1) 
+                f1.SetParLimits(3, max(0, f1.GetParameter(3) - 0.5), f1.GetParameter(3) + 0.5) 
                 f1.SetParLimits(4, 0, f1.GetParameter(4) + 0.5) 
-                # f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.5) 
+                f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.1) 
                 
                 f1.SetLineColor(3)
                 r = h.Fit(f1, 'SR+')

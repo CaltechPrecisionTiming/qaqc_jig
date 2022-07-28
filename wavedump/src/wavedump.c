@@ -1676,7 +1676,7 @@ WaveDumpConfig_t set_default_settings() {
      *   1 = 2.5 GHz
      *   2 = 1 GHz
      *   3 = 750 MHz */
-    WDcfg.DRS4Frequency = (CAEN_DGTZ_DRS4Frequency_t) 1;
+    WDcfg.DRS4Frequency = (CAEN_DGTZ_DRS4Frequency_t) 2;
 
     //int StartupCalibration;
     //DAC_Calibration_data DAC_Calib;
@@ -2301,7 +2301,7 @@ int main(int argc, char *argv[])
         total_events += nread;
 	
 	// printf("before\n");
-        usleep(100000);
+        usleep(1000);
 	// printf("after\n");
     }
 

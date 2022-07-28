@@ -67,7 +67,10 @@ def integrate(x, data, a, b):
     
     # i = v/r
     # divide by 50 ohms to convert to a charge
-    return -np.trapz(data[:,a:b],x=x[a:b])*1000/50.0
+    if np.ndim(data) == 2:
+        return -np.trapz(data[:,a:b],x=x[a:b])*1000/50.0
+    else:
+        return -np.trapz(data[a:b],x=x[a:b])*1000/50.0
 
 def get_bins(x):
     """
@@ -130,7 +133,7 @@ def low_filter_SPE(time, y):
 def high_filter_SPE(time, y):
     filter_order = 2
     nyquist = (0.5 * (time[1] - time[0]))**(-1)
-    cutoff = 5**(-1)  # Cut off frequency for the filter measured in inverse nanoseconds
+    cutoff = 25**(-1)  # Cut off frequency for the filter measured in inverse nanoseconds
     b, a = signal.butter(filter_order, min(1, cutoff/nyquist), btype='highpass', output='ba')
     filter_data = signal.lfilter(b, a, y)
     return filter_data
@@ -146,7 +149,7 @@ if __name__ == '__main__':
     parser.add_argument('--sodium', default=False, action='store_true', help='flag to indicate data is from a sodium source')
     # parser.add_argument('--laser', default=False, action='store_true', help='flag to indicate data is from a laser source')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
-    parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
+    parser.add_argument('--chunks', default=20000, type=int, help='number of waveforms to process at a time')
     parser.add_argument('--pdf', default=False, action='store_true', help='prints pdfs')
     parser.add_argument('--IT', default=300, type=float, help='SPE integration length')
     parser.add_argument('--s', default=50, type=float, help='start time of the SPE integration')
@@ -156,9 +159,11 @@ if __name__ == '__main__':
 
     charge = {}
     f_charge = {}
+    pos_charge = {}
     average = {}
     std = {}
     active_ch = args.active
+    pos_sig = np.array([])
     for filename in args.filenames:
         with h5py.File(filename) as f:
             for channel in f:
@@ -183,28 +188,64 @@ if __name__ == '__main__':
                             charge[channel] = integrate(x,y, a, b)
                     else:
                         a, b = get_spe_window(x, args.s, args.IT)
-                        y -= np.median(y[:,x < x[0] + 100])  # per chuck median subtraction
-                        # y -= np.median(y, axis=-1)[:, np.newaxis]  # per event median subtraction
+                        print(f'Before cut: {len(y)}')
+                        ma = -200
+                        mb = 200
+                        # y -= np.median(y[:,x < x[0] + 100])  # per chuck median subtraction
+                        # y -= np.median(y[:, np.logical_and(x >= ma, x < mb)], axis=-1)[:, np.newaxis]  # per event median subtraction
+                        y -= np.median(y, axis=-1)[:, np.newaxis]  # per event median subtraction
                         # low_filter_y = low_filter_SPE(x, y)
                         high_filter_y = high_filter_SPE(x, y)
-                        # no_SPE_trials = np.min(y[:, x < x[0] + 100], axis=-1) > -5 * iqr(high_filter_y[:, np.logical_and(x >= x[0], x < x[0] + 100)].flatten())
+                        
+                        SPE_trials = np.min(y[:, np.logical_and(x >= ma, x < mb)], axis=-1) < -2 * iqr(high_filter_y[:, np.logical_and(x >= ma, x < mb)].flatten())
+                        
+                        SPE_trials_idx = [i for i in range(len(y)) if SPE_trials[i]]
+
+                        y = np.delete(y, SPE_trials_idx, axis=0)
+                        y -= np.median(y[:, np.logical_and(x >= ma, x < mb)], axis=-1)[:, np.newaxis]  # per event median subtraction
+
+                        print(f'After cut: {len(y)}')
+                        if len(y) == 0:
+                            print('All trials were removed')
+                            exit()
                         # y -= np.median(y[no_SPE_trials][:,x < x[0] + 100])
+                        pos_y = []
+                        for i in range(len(y)):
+                            if integrate(x, y[i], a, b) < -1.5:
+                                pos_y.append(y[i])
+                                print(f'{i}: positive integral')
+                        pos_y = np.array(pos_y)
+                        # pos_y = np.array([s for s in y if integrate(x, s, a, b) < -1.5])
+                        # for i in range(len(y)):
+                        #     if y[i] in pos_y:
+                        #         print(f'{i}: positive integral')
+                        #     else:
+                        #         print(f'##########################')
                         if channel in charge:
+                            # pos_sig = np.concatenate((pos_sig, pos_y))
+                            # pos_charge[channel] = np.concatenate((pos_charge[channel],integrate(x,pos_y, a, b)))
+
                             charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
                             f_charge[channel] = np.concatenate((f_charge[channel], integrate(x, high_filter_y, a, b))) 
-                            average[channel] = np.concatenate((average[channel], np.median(y, axis=-1))) 
-                            std[channel] = np.concatenate((std[channel], np.std(y, axis=-1)))
+                            # average[channel] = np.concatenate((average[channel], np.median(y, axis=-1))) 
+                            # std[channel] = np.concatenate((std[channel], np.std(y, axis=-1)))
                         else:
+                            if len(pos_y) == 0:
+                                pos_y = np.array([[0]*1024])
+                                for _ in range(100): pos_y = np.vstack([pos_y, np.array([0]*1024)])
+                            pos_charge[channel] = integrate(x,pos_y, a, b)
+                            pos_sig = np.copy(pos_y)
+                            
                             charge[channel] = integrate(x,y, a, b)
                             f_charge[channel] = integrate(x, high_filter_y, a, b)
-                            average[channel] = np.median(y, axis=-1)
-                            std[channel] = np.std(y, axis=-1)
+                            # average[channel] = np.median(y, axis=-1)
+                            # std[channel] = np.std(y, axis=-1)
                     
                 if args.plot or args.pdf:
                     plt.figure()
                     plt.subplot(2,1,1)
                     # print(np.shape(y))
-                    plt.plot(x,y[:100].T)
+                    plt.plot(x,y[:2].T)
                     plt.xlabel("Time (ns)")
                     plt.ylabel("Voltage (V)")
                     plt.axvline(x[a])
@@ -218,24 +259,42 @@ if __name__ == '__main__':
                     plt.suptitle(channel)
                 if args.pdf:
                     prname=filename[:len(filename)-5]
-                    plt.savefig("./FiguresAnalysis/"+prname+"_"+str(channel)+f"_TimeVolt_{a}_{b}"+".pdf")
+                    plt.savefig("./FiguresAnalysis/"+prname+"_"+str(channel)+f"_TimeVolt_{args.s}_{args.IT}"+".pdf")
                 
                 # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
-                # if (show_channel == channel or 'base_' + show_channel == channel) and (args.plot or args.pdf):
-                #     plt.figure()
-                #     plt.subplot(2,1,1)
-                #     plt.plot(x,high_filter_y[:100].T)
-                #     plt.xlabel("Time (ns)")
-                #     plt.ylabel("Voltage (V)")
-                #     plt.axvline(x[a])
-                #     plt.axvline(x[b])
-                #     plt.subplot(2,1,2)
-                #     plt.plot(x,np.median(low_filter_y,axis=0))
-                #     plt.xlabel("Time (ns)")
-                #     plt.ylabel("Voltage (V)")
-                #     plt.axvline(x[a])
-                #     plt.axvline(x[b])
-                #     plt.suptitle(channel)
+                if (active_ch == channel) and (args.plot or args.pdf):
+                    plt.figure()
+                    plt.subplot(2,1,1)
+                    plt.plot(x,high_filter_y[:100].T)
+                    plt.xlabel("Time (ns)")
+                    plt.ylabel("Voltage (V)")
+                    plt.axvline(x[a])
+                    plt.axvline(x[b])
+                    plt.subplot(2,1,2)
+                    plt.plot(x,np.median(high_filter_y,axis=0))
+                    plt.xlabel("Time (ns)")
+                    plt.ylabel("Voltage (V)")
+                    plt.axvline(x[a])
+                    plt.axvline(x[b])
+                    plt.suptitle(channel)
+                
+                print('pos num: ' + str(len(pos_sig)))
+                if args.plot or args.pdf:
+                    plt.figure()
+                    plt.subplot(2,1,1)
+                    plt.plot(x,pos_sig[:5].T)
+                    plt.xlabel("Time (ns)")
+                    plt.ylabel("Voltage (V)")
+                    plt.axvline(x[a])
+                    plt.axvline(x[b])
+                    plt.axhline(-2 * iqr(high_filter_y[:, np.logical_and(x >= ma, x < mb)].flatten()))
+                    plt.subplot(2,1,2)
+                    plt.plot(x,np.median(pos_sig,axis=0))
+                    plt.xlabel("Time (ns)")
+                    plt.ylabel("Voltage (V)")
+                    plt.axvline(x[a])
+                    plt.axvline(x[b])
+                    plt.suptitle(f'{channel}_pos_sig')
 
     f = ROOT.TFile(args.output,"recreate")
     for channel in charge:
@@ -284,6 +343,12 @@ if __name__ == '__main__':
         f_h.Write()
         
         # if args.plot:  # TODO: This part is only for testing
+        #     for i in range(10):
+        #         pos_charge[channel] = np.append(pos_charge[channel], 0)
+        #     plt.figure()
+        #     bins = get_bins(pos_charge[channel])
+        #     plt.hist(pos_charge[channel], bins=bins, histtype='step', label='pos_sig_'+channel)
+        #     plt.legend()
         #     # FIXME
         #     plt.figure()
         #     bins = get_bins(average[channel]) 

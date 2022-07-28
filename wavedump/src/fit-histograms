@@ -354,14 +354,14 @@ if __name__ == '__main__':
                 
                 r = h.Fit(f1, 'SRB0+')
                 # f1.SetRange(f1.GetParameter(1) - h.GetStdDev(), f1.GetXmax()) 
-                for i in range(6):
+                for i in range(5):
                     f1.ReleaseParameter(i) 
                 
                 f1.SetParLimits(1, f1.GetParameter(1) - 0.25, f1.GetParameter(1) + 0.5) 
                 f1.SetParLimits(2, min(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1) 
                 f1.SetParLimits(3, min(0, f1.GetParameter(3) - 0.5), f1.GetParameter(3) + 0.5) 
                 f1.SetParLimits(4, 0, f1.GetParameter(4) + 0.5) 
-                f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.5) 
+                # f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.5) 
                 
                 f1.SetLineColor(3)
                 r = h.Fit(f1, 'SR+')

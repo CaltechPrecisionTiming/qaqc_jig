@@ -55,7 +55,7 @@ try:
         plt.plot(np.arange(16), laser, label='Laser 100ns')
         plt.plot(np.arange(16), dark, label='Dark 100ns')
         plt.plot(np.arange(16), dark_195, label='Dark 195ns')
-        plt.suptitle('SPE Charge Data over each CAEN Channel')
+        plt.suptitle('SPE Charge Data over each CAEN Channel with 45V SiPM Bias')
         plt.xlabel("Channel")
         plt.ylabel("Charge (pC)")
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))

@@ -20,7 +20,7 @@ date +"%D %T"
 
 ### DATA SOURCiE
 # true takes data from CAEN, false from scope
-src=false
+src=true
 
 ### VARIABLES
 # * LYSO barcode
@@ -32,9 +32,9 @@ Time=$(date +%k":"%M":"%S)
 # * Bias Voltage
 BV="42"
 # * number of events
-ne=10000
+ne=100000
 # * Active channel - if left as empty string, all channels are analyzed.
-active="ch1"
+active="ch0"
 # * Extra
 EXTRA="SPE_Charge"
 
@@ -75,7 +75,7 @@ if [ "$src" = true ] ; then
 	# * Integration Start Time.
 	s="0"
 	# * Integration Duration
-	IT="195"
+	IT="200"
 	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
@@ -97,7 +97,7 @@ else
 	# * Integration Start Time.
 	s="200"
 	# * Integration Duration
-	IT="195"
+	IT="200"
 	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "SCOPE" --extra "DARK_${IT}_${EXTRA}" 

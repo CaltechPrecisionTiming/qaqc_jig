@@ -26,7 +26,7 @@ try:
         dark_300 = [[] for _ in range(16)]
         laser = [[] for _ in range(16)]
         for row in reader:
-            if not 'hf_baseline' in row['Extra']:
+            if not 'hf_bl_constfit' in row['Extra']:
                 continue
             
             if float(row['Bias']) != 45:
@@ -55,6 +55,13 @@ try:
         dark_200 = np.mean(dark_200, axis=-1)
         dark_300 = np.mean(dark_300, axis=-1)
         laser = np.mean(laser, axis=-1)
+
+        la = np.mean(laser)
+        d200a = np.mean(dark_200)
+        
+        print(f'Laser average: {la}')
+        print(f'Dark 200 average: {d200a}')
+        print(f'Dark 200 is {((d200a - la)/la) * 100}% off from laser')
 
         # print(f'SCOPE laser SPE: {np.mean(SCOPE_laser)}')
         # print(f'SCOPE dark 100 SPE: {np.mean(SCOPE_dark)}')

@@ -6,6 +6,7 @@ import sys
 import csv
 import os
 import ROOT
+from ROOT import TMath
 
 # DEFAULT VALUES FOR SPE FIT:
 D_OFFSET = 0
@@ -16,9 +17,9 @@ D_SPE_CHARGE_SPREAD = 0
 D_ZERO_PEAK_SPREAD = 0.4
 
 def iqr(h):
-    pass
-    h = ROOT.TH1F('h_iqr', 'h_iqr', 10000, -6, 6)
-    h.FillRandom('gaus', 500000)
+    """
+    Returns the iqr of the histogram `h`
+    """
     l = None
     r = None
     total = h.GetEntries()
@@ -43,12 +44,20 @@ def iqr(h):
     return r-l
 
 def average_distance_from(val, h):
+    """
+    Standard deviation calculation, except use `val` instead of the mean.
+    """
     d2 = 0
     for i in range(h.GetMaximumBin() + 2):
         d2 += (val - h.GetXaxis().GetBinCenter(i))**2 * h.GetBinContent(i)
     return np.sqrt(d2)
 
 def save_as_csv(data_type, value, value_err, channel):
+    """
+    Saves charge data in `temp_data.csv`.
+    `temp_data.csv` is read by `save_spe_data.py`, which
+    organizes the data and saves it to `Fit_Data.csv`.
+    """
     with open ('temp_data.csv', 'a') as file:
         headers = [
             'Data Type',
@@ -72,6 +81,8 @@ def remove_bad_peaks(h, x_pos, win):
     If the mean of the fitted gaussian is less than or equal to `win * 0.25` away from `a`, then `a` is called a good peak.
     
     Returns an array of all the good peaks in `x_pos`.
+
+    This method no longer used to fit charge histograms.
     """
     rm = []
     for i in range(len(x_pos)):
@@ -89,10 +100,16 @@ def remove_bad_peaks(h, x_pos, win):
 
 def analyze_filter_data(h, f_h):
     """
-    Fits the filtered charge integral histogram `f_h` with a gaussian. `h` is the unfiltered histogram.
+    Fits the filtered charge histogram `f_h` with a gaussian,
+    and gets the mean and standard  deviation of this gaussian: `f_m` and `f_std`.
     
+    Then, fits `h` (the unfiltered charge histogram) with a gaussian around `f_m`,
+    and gets the standard deviation of this gaussian: `std`.
 
-    Returns the mean and standard devidation (in this order) of this gaussian as a tuple.
+    Returns `(f_m, f_std, std)`
+
+    If `f_h` is passed as `None`, only default values are returned, specified as global constants
+    in this module.
     """
     if f_h == None:
         return (D_OFFSET, D_NOISE_SPREAD, D_ZERO_PEAK_SPREAD)
@@ -111,6 +128,10 @@ def analyze_filter_data(h, f_h):
         return (offset, noise_spread, raw_spread)
 
 def peaks(h, width=4, height=0.05):
+    """
+    Finds peaks in hisogram `h`. `height` is measured as a fraction of the highest peak.
+    Peaks lower than `<highest peak>*height` will not be searched for.
+    """
     spec = ROOT.TSpectrum()
     highest_peak = None
     n_pks = spec.Search(h, width, "nobackground", height)               
@@ -126,8 +147,60 @@ def peaks(h, width=4, height=0.05):
     # print(f'Good peaks: {x_pos}')
 
 def get_bin_num(h, val):
+    """
+    Gets the bin number of `val` if `val` was placed into the histogram `h`.
+    Does NOT add `val` to `h`.
+    """
     x_axis = h.GetXaxis()
     return x_axis.FindBin(val)
+
+class poisson_model:
+    def __call__(self, x, p):
+        # number of peaks
+        n = 10
+        
+        # Original model in root syntax:
+        # string = "[0]*(" + "+".join(["TMath::Poisson(%i,[2])*TMath::Gaus(x-[1],[3]*%i,TMath::Sqrt([4]^2+[5]^2*%i))" % (i,i,i) for i in range(0,n)]) + ")"
+        
+        model = 0
+        for i in range(n):
+            model += TMath.Poisson(i, p[2]) * TMath.Gaus(x[0]-p[1], i*p[3], TMath.Sqrt(p[4]**2 + i*(p[5]**2)), False)
+        model *= p[0]
+        return model
+
+def B_coeff(i, N):
+    """
+    Helper function for the vinogradov model.
+    """
+    if i == 0 and x == 0:
+        return 1
+    elif i == 0 and x > 0:
+        return 0
+    else:
+        return (fac(x)*fac(x-1)) / (fac(i)*fac(i - 1)*fac(x-i))
+
+def fac(x):
+    """
+    factorial
+    """
+    return np.math.factorial(x)
+
+def vinogradov(N, l, ps):
+    """
+    Returns probability of getting `N` PEs in the integration window. 
+    `l` is the mean number of primary PEs.
+    `ps` is the probability that a primary PE causes a secondary PE.
+    See this paper for a more detailed explanation:
+    https://arxiv.org/pdf/2106.13168.pdf
+    """
+    pass
+
+class vinogradov_model:
+    def __call__(self, x, p):
+        # number of peaks
+        n = 10
+        model = 0
+        pass
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -145,6 +218,7 @@ if __name__ == '__main__':
     # parser.add_argument('--SPE_FLR', default=-0.1, type=float, help='Right limit on the spe fit')
     parser.add_argument('--NA_GF', default=50, type=float, help='Right limit on the spe fit')
     parser.add_argument('--chi2', default=False, action='store_true', help='Save the ndof and chi2 value of the fit to csv')
+    parser.add_argument('--root_func', default=False, action='store_true')
 
     args = parser.parse_args()
     
@@ -154,7 +228,8 @@ if __name__ == '__main__':
     for filename in args.filenames:
         f = ROOT.TFile(filename,"UPDATE")
         keycount=0
-
+        
+        # raw is unfiltered
         raw_histograms = {}
         filtered_histograms = {}
         for key in f.GetListOfKeys():
@@ -284,8 +359,11 @@ if __name__ == '__main__':
 
                 print("Using the following fit string: '%s'" % string)
                 # *** we could set a threshold/break to find when the Y axis /charge goes above a certain values from the smallest X to set the first value (-0.4 as of the time of this comment)
-                
-                f1 = ROOT.TF1("f1", string, h.GetMean() - 2 * h.GetStdDev(), h.GetMean() + 4 * h.GetStdDev())
+                if args.root_func: 
+                    f1 = ROOT.TF1("f1", string, h.GetMean() - 2 * h.GetStdDev(), h.GetMean() + 4 * h.GetStdDev())
+                else:
+                    model = poisson_model()
+                    f1 = ROOT.TF1("f1", model, h.GetMean() - 2 * h.GetStdDev(), h.GetMean() + 4 * h.GetStdDev(), 6)
                
                 scale = h.GetEntries() * 0.075
 
@@ -302,7 +380,8 @@ if __name__ == '__main__':
                 prob_zero = num_zero / h.GetEntries()
                 l = -np.log(prob_zero)
                 
-                # SPE Charge estimated using the method from this forum : https://math.stackexchange.com/questions/3689141/calculating-the-mean-and-standard-deviation-of-a-gaussian-mixture-model-of-two-c
+                # SPE Charge estimated using the method from this forum:
+                # https://math.stackexchange.com/questions/3689141/calculating-the-mean-and-standard-deviation-of-a-gaussian-mixture-model-of-two-c
                 prob_one = l * np.exp(-l)
                 SPE_loc = (h.GetMean() - prob_zero*offset) / prob_one
                 SPE_charge = max(zero_peak_end - offset, min(3, SPE_loc - offset))
@@ -310,8 +389,10 @@ if __name__ == '__main__':
                 # f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.5) 
                 # SPE_charge = 2
                 # SPE_charge = max(zero_peak_end, min(4, iqr(h) / l * 0.7))
+                
+                print(f'iqr: {iqr(h)}')
 
-                f1.SetRange(offset - 0.7 * raw_spread, f1.GetXmax())
+                f1.SetRange(offset - raw_spread, f1.GetXmax())
                 
                 f1.SetParameter(0, scale)
                 f1.SetParLimits(0, scale, scale * 100)
@@ -412,6 +493,10 @@ if __name__ == '__main__':
                 #if n > 1:
                 #    print("peak 2 = %.4f +/- %.4f" % (f1.GetParameter(4), f1.GetParError(4)))
                 
+                with open('func_temp.txt', 'a') as file:
+                    for i in range(6):
+                        file.write(str(f1.GetParameter(i)) + '\n')
+
                 save_as_csv('SPE', f1.GetParameter(3), f1.GetParError(3), h.GetName())
 
                 h.GetXaxis().SetRangeUser(-4, 6)

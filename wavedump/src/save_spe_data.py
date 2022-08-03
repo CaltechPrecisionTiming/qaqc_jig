@@ -17,14 +17,15 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument('--BV', required=True, type=float, help='SiPM Bias Voltage')
+    parser.add_argument('--BV', type=float, help='SiPM Bias Voltage')
     # parser.add_argument('--jp', required=True, type=int, help='jumper position on the PCB board')
     # parser.add_argument('--sipm_num', required=True, type=int, help='SiPM Number')
-    parser.add_argument('--n', required=True, type=int, help='Number of events')
-    parser.add_argument('--date', required=True, help='Date data was taken')
-    parser.add_argument('--time', required=True, help='Time data was taken')
+    parser.add_argument('--n', type=int, help='Number of events')
+    parser.add_argument('--date', help='Date data was taken')
+    parser.add_argument('--time', help='Time data was taken')
     parser.add_argument('--extra', help='Any notes about this set of data')
-    parser.add_argument('--source', required=True, help='CAEN or SCOPE')
+    parser.add_argument('--source', help='CAEN or SCOPE')
+    parser.add_argument('-o', '--output', default='Fit_Data.csv', help='output csv filename')
     args = parser.parse_args()
 
     try: 
@@ -36,7 +37,7 @@ if __name__ == '__main__':
         print("No data to save to csv")
         exit()
     
-    with open('Fit_Data.csv', 'a', newline='') as file:
+    with open(args.output, 'a', newline='') as file:
         headers = [
             'Channel',
             'SPE Charge',
@@ -57,7 +58,7 @@ if __name__ == '__main__':
         ]
         
         writer = csv.DictWriter(file, headers)
-        if os.stat('Fit_Data.csv').st_size == 0:
+        if os.stat(args.output).st_size == 0:
             writer.writeheader()
         
         rows = {}

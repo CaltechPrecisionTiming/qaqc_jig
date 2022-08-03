@@ -207,24 +207,44 @@ if __name__ == '__main__':
                         print(f'Before cut: {len(y)}')
                         # y -= np.median(y[:,x < x[0] + 100])  # per chuck median subtraction
                         
-                        ################################
-                        # per sample average subtraction
-                        ################################
-
-                        
+                        high_filter_y = high_filter_SPE(x, y)
                         y -= np.median(y, axis=-1)[:, np.newaxis]  # per event median subtraction
                         
+                        ################################
+                        # per sample median subtraction
+                        ################################
+                        # `s` for samples
+                        # s = y.T
+                        # s_mask = s > -10*iqr(high_filter_y.flatten())
+                        # good_s = [s[i, s_mask[i]] for i in range(len(s))]
+                        # print(f'average number of good samples: {np.mean([len(sub) for sub in good_s])}')
+                        # sample_medians = np.array([np.median(sub) for sub in good_s])
+                        # y -= sample_medians
                         
-                        high_filter_y = high_filter_SPE(x, y)
+                        ################################
+                        # Subtract off median between `ma` and `mb` if there is no SPE between `ma` and `mb`, else, subtract off the total median in this range using `no_SPE_trials_mask`.
+                        ################################
+                        # ma = -25
+                        # mb = 200
+                        # m_mask = np.logical_and(x>=ma, x<mb)
+                        # no_SPE_trials_mask = np.min(y[:, m_mask], axis=-1) > -2 * iqr(high_filter_y[:, m_mask].flatten())
+                        # y -= np.array([np.median(y[i, m_mask]) if no_SPE_trials_mask[i] else np.median((y[no_SPE_trials_mask, :])[:, m_mask]) for i in range(len(y))])[:, np.newaxis]
+                       
+                        no_SPE_mask = y > -0.25*iqr(high_filter_y.flatten())
+                        y -= np.array([np.median(y[i, no_SPE_mask[i]]) for i in range(len(y))])[:, np.newaxis]
+                        i_mask = np.logical_and(x>=args.s, x<args.s+args.IT)
+                        y -= np.median(y[:, i_mask])
 
+                        ################################
                         # Delete all trials that have an SPE between `ma` and `mb`
-                        ma = 50
-                        mb = 300
-                        SPE_trials = np.min(y[:, np.logical_and(x >= ma, x < mb)], axis=-1) < -2 * iqr(high_filter_y[:, np.logical_and(x >= ma, x < mb)].flatten())
-                        SPE_trials_idx = [i for i in range(len(y)) if SPE_trials[i]]
-                        y = np.delete(y, SPE_trials_idx, axis=0)
-                        # Subtract off the median between `ma` and `mb` per event
-                        y -= np.median(y[:, np.logical_and(x >= ma, x < mb)], axis=-1)[:, np.newaxis]  # per event median subtraction
+                        ################################
+                        # ma = -25
+                        # mb = 200
+                        # SPE_trials = np.min(y[:, np.logical_and(x >= ma, x < mb)], axis=-1) < -2 * iqr(high_filter_y[:, np.logical_and(x >= ma, x < mb)].flatten())
+                        # SPE_trials_idx = [i for i in range(len(y)) if SPE_trials[i]]
+                        # y = np.delete(y, SPE_trials_idx, axis=0)
+                        # # Subtract off the median between `ma` and `mb` per event
+                        # y -= np.median(y[:, np.logical_and(x >= ma, x < mb)], axis=-1)[:, np.newaxis]  # per event median subtraction
 
                         print(f'After cut: {len(y)}')
                         if len(y) == 0:
@@ -248,6 +268,8 @@ if __name__ == '__main__':
                     plt.ylabel("Voltage (V)")
                     plt.axvline(x[a])
                     plt.axvline(x[b])
+                    # plt.axvline(ma, color='red')
+                    # plt.axvline(mb, color='red')
                     plt.subplot(2,1,2)
                     plt.plot(x,np.median(y,axis=0))
                     plt.xlabel("Time (ns)")

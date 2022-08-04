@@ -8,6 +8,37 @@ from scipy import signal
 def iqr(x):
     return np.percentile(x,75) - np.percentile(x,25)
 
+def get_threshold_crossing(x, data, threshold=0.4, rising=True):
+    """
+    Returns the times at which the waveforms in `x` cross 40% of their minimum
+    value.
+    """
+    data = np.asarray(data)
+    argmin = np.argmin(data,axis=-1)
+    thresholds = threshold*data[np.arange(data.shape[0]),argmin]
+    if rising:
+        il = data.shape[1]-np.argmax(((np.arange(data.shape[1]) < argmin[:,np.newaxis]) & (data > thresholds[:,np.newaxis]))[:,::-1],axis=-1)-1
+        ir = il + 1
+        ir[ir >= data.shape[1]] = data.shape[1]-1
+        i = np.arange(data.shape[0])
+        return x[il] + (thresholds-data[i,il])*(x[ir]-x[il])/(data[i,ir]-data[i,il])
+    else:
+        il = data.shape[1]-np.argmax(((np.arange(data.shape[1]) > argmin[:,np.newaxis]) & (data < thresholds[:,np.newaxis]))[:,::-1],axis=-1)-1
+        ir = il + 1
+        ir[ir >= data.shape[1]] = data.shape[1]-1
+        i = np.arange(data.shape[0])
+        return x[il] + (thresholds-data[i,il])*(x[ir]-x[il])/(data[i,ir]-data[i,il])
+
+def get_rise_time(x, data):
+    t10 = get_threshold_crossing(x, data, 0.1)
+    t90 = get_threshold_crossing(x, data, 0.9)
+    return t90 - t10
+
+def get_fall_time(x, data):
+    t10 = get_threshold_crossing(x, data, 0.1, rising=False)
+    t90 = get_threshold_crossing(x, data, 0.9, rising=False)
+    return t10 - t90
+
 def get_times(x, data, baseline=10):
     """
     Returns the times at which the waveforms in `x` cross 40% of their minimum
@@ -233,24 +264,24 @@ if __name__ == '__main__':
                         ################################
                         # For each event, subtract off the median of all points that lie above `cutoff`. Then, across all events, subtract off the median of all points between `a` and `b`.
                         ################################
-                        cutoff = -2*iqr(high_filter_y.flatten())
-                        no_SPE_mask = y > cutoff 
-                        y -= np.array([np.median(y[i, no_SPE_mask[i]]) for i in range(len(y))])[:, np.newaxis]
-                        i_mask = np.logical_and(x>=args.s, x<args.s+args.IT)
-                        y -= np.median(y[:, i_mask])
+                        # cutoff = -2*iqr(high_filter_y.flatten())
+                        # no_SPE_mask = y > cutoff 
+                        # y -= np.array([np.median(y[i, no_SPE_mask[i]]) for i in range(len(y))])[:, np.newaxis]
+                        # i_mask = np.logical_and(x>=args.s, x<args.s+args.IT)
+                        # y -= np.median(y[:, i_mask])
 
                         ################################
                         # Delete all trials that have an SPE between `ma` and `mb`
                         ################################
-                        # ma = -25
-                        # mb = 200
-                        # SPE_trials = np.min(y[:, np.logical_and(x >= ma, x < mb)], axis=-1) < -2 * iqr(high_filter_y[:, np.logical_and(x >= ma, x < mb)].flatten())
-                        # SPE_trials_idx = [i for i in range(len(y)) if SPE_trials[i]]
-                        # y = np.delete(y, SPE_trials_idx, axis=0)
-                        # # Subtract off the median between `ma` and `mb` per event
-                        # y -= np.median(y[:, np.logical_and(x >= ma, x < mb)], axis=-1)[:, np.newaxis]  # per event median subtraction
-                        # if len(y) == 0:
-                        #     print('All trials were removed')
+                        ma = -25
+                        mb = 200
+                        SPE_trials = np.min(y[:, np.logical_and(x >= ma, x < mb)], axis=-1) < -2 * iqr(high_filter_y[:, np.logical_and(x >= ma, x < mb)].flatten())
+                        SPE_trials_idx = [i for i in range(len(y)) if SPE_trials[i]]
+                        y = np.delete(y, SPE_trials_idx, axis=0)
+                        # Subtract off the median between `ma` and `mb` per event
+                        y -= np.median(y[:, np.logical_and(x >= ma, x < mb)], axis=-1)[:, np.newaxis]  # per event median subtraction
+                        if len(y) == 0:
+                            print('All trials were removed')
 
                         if channel in charge:
                             charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))

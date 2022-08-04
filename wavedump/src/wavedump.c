@@ -8,6 +8,7 @@
 #include "hdf5.h"
 #include "unistd.h" /* for access(). */
 #include "signal.h" /* for SIGINT. */
+#include <sys/statvfs.h>
 
 #define WF_SIZE 10000
 #define BS_SIZE 10
@@ -1704,6 +1705,14 @@ void print_wfdata(float data[WF_SIZE][32][1024]) {
 
 int main(int argc, char *argv[])
 {
+    struct statvfs st;
+    statvfs("/home", &st);
+    double free_space = ((double)st.f_bfree * st.f_frsize) / pow(2, 30);
+    printf("Free Space remaining in /home: %f", free_space);
+    if (free_space < 10) {
+	printf("Too little space available! Try deleting some hdf5 files. Quitting...");
+	return 0;
+    }
     WaveDumpConfig_t WDcfg;
     WaveDumpRun_t WDrun;
     CAEN_DGTZ_ErrorCode ret = CAEN_DGTZ_Success;

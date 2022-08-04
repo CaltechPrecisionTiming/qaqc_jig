@@ -2213,9 +2213,6 @@ int main(int argc, char *argv[])
     //     }
     // }
 
-
-
-
     CAEN_DGTZ_SWStartAcquisition(handle);
 
     /* Now, we go into the main loop where we get events. */
@@ -2292,8 +2289,6 @@ int main(int argc, char *argv[])
             nread += 1;
         }
 	
-	// print_wfdata(wfdata);
-
         if (nread > 0) {
             printf("writing %i events to file\n", nread);
             if (add_to_output_file(output_filename, wfdata, bdata, nread, chmask, nsamples, &WDcfg)) {
@@ -2304,9 +2299,7 @@ int main(int argc, char *argv[])
 
         total_events += nread;
 	
-	// printf("before\n");
         usleep(1000);
-	// printf("after\n");
     }
 
     if (stop)

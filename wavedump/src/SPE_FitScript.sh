@@ -38,11 +38,6 @@ active="ch15"
 # * Extra
 EXTRA="vino_cutoff"
 
-# Creating filenames
-
-
-python3 clear_temp_data.py
-
 echo "---CHECKLIST---"
 if [ "$src" = true ] ; then
 	echo "SOURCE: CAEN"

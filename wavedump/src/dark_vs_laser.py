@@ -26,7 +26,7 @@ try:
         dark_300 = [[] for _ in range(16)]
         laser = [[] for _ in range(16)]
         for row in reader:
-            if not 'hf_bl_constfit' in row['Extra']:
+            if not 'vino_cutoff' in row['Extra']:
                 continue
             
             if float(row['Bias']) != 45:

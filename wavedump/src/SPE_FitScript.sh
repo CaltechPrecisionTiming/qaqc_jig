@@ -18,7 +18,7 @@ date +"%D %T"
 # IF variable gives error "Command not recognize"
 # Remember that the equal sign can have no spaces to the variable name
 
-### DATA SOURCiE
+### DATA SOURCE
 # true takes data from CAEN, false from scope
 src=true
 
@@ -32,11 +32,11 @@ Time=$(date +%k":"%M":"%S)
 # * Bias Voltage
 BV="45"
 # * number of events
-ne=100000
+ne=10000
 # * Active channel - if left as empty string, all channels are analyzed.
 active="ch15"
 # * Extra
-EXTRA="hf_bl_constfit_-25_200"
+EXTRA="vino_cutoff"
 
 # Creating filenames
 
@@ -70,28 +70,28 @@ if [ "$src" = true ] ; then
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "LASER_$EXTRA"
 	
-	# # * Integration Start Time.
-	# s="200"
-	# # * Integration Duration
-	# IT="100"
-	# spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
-	# ./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
-	# ./fit-histograms $spe_root --pdf 
-	# python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
-	# 
-	# # * Integration Duration
-	# IT="200"
-	# spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
-	# ./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
-	# ./fit-histograms $spe_root --pdf 
-	# python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
-	# 
-	# # * Integration Duration
-	# IT="300"
-	# spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
-	# ./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
-	# ./fit-histograms $spe_root --pdf 
-	# python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
+	# * Integration Start Time.
+	s="200"
+	# * Integration Duration
+	IT="100"
+	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./fit-histograms $spe_root --pdf 
+	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
+	
+	# * Integration Duration
+	IT="200"
+	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./fit-histograms $spe_root --pdf 
+	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
+	
+	# * Integration Duration
+	IT="300"
+	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./fit-histograms $spe_root --pdf 
+	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
 else
 	spe_hdf5="SCOPE_${active}_${date}_${Time}_${BV}v_${EXTRA}.hdf5"
 	spe_root="SCOPE_${active}_${date}_${Time}_${BV}v_LASER_${EXTRA}.root"

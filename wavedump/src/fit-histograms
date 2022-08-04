@@ -6,9 +6,10 @@ import sys
 import csv
 import os
 import ROOT
+from ROOT import gROOT
 from ROOT import TMath
 
-#ROOT.ROOT.EnableThreadSafety()
+# ROOT.ROOT.EnableThreadSafety()
 
 # DEFAULT VALUES FOR SPE FIT:
 D_OFFSET = 0
@@ -85,8 +86,6 @@ def remove_bad_peaks(h, x_pos, win):
     If the mean of the fitted gaussian is less than or equal to `win * 0.25` away from `a`, then `a` is called a good peak.
     
     Returns an array of all the good peaks in `x_pos`.
-
-    This method no longer used to fit charge histograms.
     """
     rm = []
     for i in range(len(x_pos)):
@@ -108,15 +107,15 @@ def analyze_filter_data(h, f_h):
     and gets the mean and standard  deviation of this gaussian: `f_m` and `f_std`.
     
     Then, fits `h` (the unfiltered charge histogram) with a gaussian around `f_m`,
-    and gets the standard deviation of this gaussian: `std`.
+    and gets the mean, standard deviation, and scale of this gaussian: `m`, `std`, `scale`.
 
-    Returns `(f_m, f_std, std)`
+    Returns `(m, f_std, std, scale)`
 
     If `f_h` is passed as `None`, only default values are returned, specified as global constants
-    in this module.
+    in this module (except for the default scale, which is proportional to the entries in `h`).
     """
     if f_h == None:
-        return (D_OFFSET, D_NOISE_SPREAD, D_ZERO_PEAK_SPREAD)
+        return (D_OFFSET, D_NOISE_SPREAD, D_ZERO_PEAK_SPREAD, h.GetEntries()*0.075)
     else:
         filter_fit = ROOT.TF1('filter_fit', 'gaus', f_h.GetMean() - 2*f_h.GetStdDev(), f_h.GetMean() + 2*f_h.GetStdDev())
         f_h.Fit(filter_fit, 'SRQ0')
@@ -127,15 +126,17 @@ def analyze_filter_data(h, f_h):
         raw_fit = ROOT.TF1('raw_fit', 'gaus', offset - win, offset + win)
         raw_fit.SetParameter(1, offset)
         for _ in range(3):
-            h.Fit(raw_fit, 'SRQ0')
+            h.Fit(raw_fit, 'SRQ')
             offset = raw_fit.GetParameter(1)
             raw_fit.SetRange(offset-win, offset+win)
         raw_spread = raw_fit.GetParameter(2)
-        return (offset, noise_spread, raw_spread)
+        scale = raw_fit.GetParameter(0)
+        return (offset, noise_spread, raw_spread, scale)
 
 def peaks(h, width=4, height=0.05):
     """
-    Finds peaks in hisogram `h`. `height` is measured as a fraction of the highest peak.
+    Finds peaks in hisogram `h`.
+    `height` is measured as a fraction of the highest peak.
     Peaks lower than `<highest peak>*height` will not be searched for.
     """
     spec = ROOT.TSpectrum()
@@ -157,8 +158,7 @@ def get_bin_num(h, val):
     Gets the bin number of `val` if `val` was placed into the histogram `h`.
     Does NOT add `val` to `h`.
     """
-    x_axis = h.GetXaxis()
-    return x_axis.FindBin(val)
+    return h.GetXaxis().FindBin(val)
 
 class poisson_model:
     """
@@ -267,8 +267,14 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     
+    if not args.plot:
+        # Disables the canvas from ever popping up
+        gROOT.SetBatch()
     
+    canvas = []
     canvas_count = 1
+    if os.path.exists('temp_data.csv'):
+        os.remove('temp_data.csv')
 
     for filename in args.filenames:
         f = ROOT.TFile(filename,"UPDATE")
@@ -300,10 +306,6 @@ if __name__ == '__main__':
 
             if h.ClassName() != 'TH1F' and h.ClassName() != 'TH1D':
                 continue
-
-            # if h.GetEntries() <= 1000:
-            #     print('<= 1000 entries; skipping fit')
-            #     continue
 
             if h.GetName().startswith('f_'):
                 filtered_histograms[h.GetName()] = h
@@ -382,17 +384,17 @@ if __name__ == '__main__':
                 h.Write()
                 if args.pdf:
                     print("*** Print PDF 1:")
-                    c = ROOT.TCanvas("c%i" % canvas_count)
+                    canvas.append(ROOT.TCanvas("c%i" % canvas_count))
                     canvas_count += 1
                     h.Draw()
-                    c.Update()
+                    canvas[-1].Update()
                     prname=filename[:len(filename)-5]
-                    c.Print("./FiguresFit/"+prname+"_Key_"+str(keycount)+".pdf")
+                    canvas[-1].Print("./FiguresFit/"+prname+"_Key_"+str(keycount)+".pdf")
                 elif args.plot:
-                    c = ROOT.TCanvas("c%i" % canvas_count)
+                    canvas.append(ROOT.TCanvas("c%i" % canvas_count))
                     canvas_count += 1
                     h.Draw()
-                    c.Update()
+                    canvas[-1].Update()
             else:
                 print("Single P.h.e:")
                 string = "[0]*(" + "+".join(["TMath::Poisson(%i,[2])*TMath::Gaus(x-[1],[3]*%i,TMath::Sqrt([4]^2+[5]^2*%i))" % (i,i,i) for i in range(0,n)]) + ")"
@@ -404,17 +406,16 @@ if __name__ == '__main__':
                 if args.root_func: 
                     f1 = ROOT.TF1("f1", string, h.GetMean() - 2 * h.GetStdDev(), h.GetMean() + 4 * h.GetStdDev())
                 else:
+                    # declaring `model` here is necessary - passing `vinogradov_mode()` as an argument directly won't work.
                     model = vinogradov_model()
                     f1 = ROOT.TF1("f1", model, h.GetMean() - 2 * h.GetStdDev(), h.GetMean() + 4 * h.GetStdDev(), 7)
                     f1.FixParameter(6, 0)
                
-                scale = h.GetEntries() * 0.075
-
                 if f'f_{h.GetName()}' in filtered_histograms:
                     print('Using filtered data!')
-                    offset, noise_spread, raw_spread = analyze_filter_data(h, filtered_histograms[f'f_{h.GetName()}'])
+                    offset, noise_spread, raw_spread, scale = analyze_filter_data(h, filtered_histograms[f'f_{h.GetName()}'])
                 else:
-                    offset, noise_spread, raw_spread = analyze_filter_data(h, None)
+                    offset, noise_spread, raw_spread, scale = analyze_filter_data(h, None)
 
                 # `l`, short for lambda, which is the average number of PEs measured in the integration window.
                 zero_peak_end = offset + 2 * raw_spread
@@ -428,18 +429,14 @@ if __name__ == '__main__':
                 SPE_charge = h.GetMean()
                 SPE_charge -= offset * sum([vinogradov(i, l, f1.GetParameter(6)) for i in range(n)])
                 SPE_charge /= sum([vinogradov(i, l, f1.GetParameter(6)) * i for i in range(n)])
-                SPE_charge = min(3, SPE_charge)
-                SPe_charge = max(zero_peak_end - offset, SPE_charge)
+                SPE_charge = min(4, SPE_charge)
+                SPE_charge = max(zero_peak_end - offset, SPE_charge)
 
-                # SPE_charge = average_distance_from(offset, h) / l * 0.1
-                # f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.5) 
-                # SPE_charge = 2
-                # SPE_charge = max(zero_peak_end, min(4, iqr(h) / l * 0.7))
+                f1.SetRange(offset - 1.5*raw_spread, offset + 5*h.GetStdDev())
                 
-                f1.SetRange(offset - raw_spread, f1.GetXmax())
-                
-                f1.SetParameter(0, scale)
-                f1.SetParLimits(0, scale*0.1, scale * 100)
+                f1.FixParameter(0, scale)
+                # f1.SetParameter(0, scale)
+                # f1.SetParLimits(0, scale*0.1, scale * 100)
                 
                 f1.FixParameter(1, offset)
                 
@@ -451,74 +448,69 @@ if __name__ == '__main__':
                 f1.FixParameter(4, raw_spread)
                 
                 f1.FixParameter(5, D_SPE_CHARGE_SPREAD)
+                
+                # The following indented block is code older than June 2022
+                    # if len(x_pos) >= 1:
+                    #     if len(x_pos) == 1:
+                    #         f1.FixParameter(1, float(x_pos))  
+                    #         f1.SetRange(f1.GetParameter(1) - h.GetStdDev() * 0.5, f1.GetXmax()) 
+                    #     else:
+                    #         f1.FixParameter(1, float(x_pos[0]))  
+                    #         f1.SetRange(f1.GetParameter(1) - h.GetStdDev() * 0.5, float(x_pos[-1]) + h.GetStdDev() * 0.5) 
+                    # if len(x_pos) > 1:
+                    #     found_SPE_peak = True
+                    #     f1.FixParameter(3, float(x_pos[1]) - f1.GetParameter(1))
+                    # if not found_SPE_peak:
+                    #     f1.SetParameter(3,0.8)                
+                    #     f1.SetParLimits(3,0.1,5.)
+                    # if len(x_pos) == 0:
+                    #     f1.SetParameter(1, -0.08)
+                    #     f1.SetParLimits(1,-1,1)
 
-                # if len(x_pos) >= 1:
-                #     if len(x_pos) == 1:
-                #         f1.FixParameter(1, float(x_pos))  
-                #         f1.SetRange(f1.GetParameter(1) - h.GetStdDev() * 0.5, f1.GetXmax()) 
-                #     else:
-                #         f1.FixParameter(1, float(x_pos[0]))  
-                #         f1.SetRange(f1.GetParameter(1) - h.GetStdDev() * 0.5, float(x_pos[-1]) + h.GetStdDev() * 0.5) 
-                # if len(x_pos) > 1:
-                #     found_SPE_peak = True
-                #     f1.FixParameter(3, float(x_pos[1]) - f1.GetParameter(1))
-                # if not found_SPE_peak:
-                #     f1.SetParameter(3,0.8)                
-                #     f1.SetParLimits(3,0.1,5.)
-                # if len(x_pos) == 0:
-                #     f1.SetParameter(1, -0.08)
-                #     f1.SetParLimits(1,-1,1)
+                    #for j, i in enumerate(range(0,n*3,3)):
+                    #    print(i)
+                    #    f1.SetParameter(i,y_pos[j])
+                    #    f1.SetParameter(i+1,x_pos[j])
+                    #    f1.FixParameter(i+1,x_pos[j])
+                    #    f1.SetParameter(i+2,0.02)
+                    #    f1.FixParameter(i+2,0.02)
 
-                #for j, i in enumerate(range(0,n*3,3)):
-                #    print(i)
-                #    f1.SetParameter(i,y_pos[j])
-                #    f1.SetParameter(i+1,x_pos[j])
-                #    f1.FixParameter(i+1,x_pos[j])
-                #    f1.SetParameter(i+2,0.02)
-                #    f1.FixParameter(i+2,0.02)
-
-                #r = h.Fit(f1, 'ILMSRN+')
+                    #r = h.Fit(f1, 'ILMSRN+')
+                
                 for i in range(6):
                     print(f'[{i}]: {f1.GetParameter(i)}')
                 
-                print("fit srb0+")
-                r = h.Fit(f1, 'SRB0+')
+                r = h.Fit(f1, 'SRB+')
 
-                # for i in [1, 3]:
-                #     f1.FixParameter(i, f1.GetParameter(i))
-                # f1.ReleaseParameter(2)
-                # f1.SetParLimits(2, max(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1) 
-                # f1.ReleaseParameter(4)
-                # f1.SetParLimits(4, 0, f1.GetParameter(4) + 0.5) 
-                # f1.ReleaseParameter(5)
-                # f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.1) 
-                # 
-                # f1.SetLineColor(4)
-                # r = h.Fit(f1, 'SRB+')
-                 
                 for i in range(7):
                     f1.ReleaseParameter(i) 
-                
-                f1.SetParLimits(1, f1.GetParameter(1) - 0.25, f1.GetParameter(1) + 0.5) 
+                f1.FixParameter(1, f1.GetParameter(1)) 
+                f1.FixParameter(4, f1.GetParameter(4)) 
+                # f1.SetParLimits(1, f1.GetParameter(1) - 0.1, f1.GetParameter(1) + 0.1) 
                 f1.SetParLimits(2, max(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1) 
                 f1.SetParLimits(3, max(zero_peak_end-offset, f1.GetParameter(3) - 1), f1.GetParameter(3) + 1) 
-                f1.SetParLimits(4, 0, f1.GetParameter(4) + 0.5) 
+                # f1.SetParLimits(4, 0, f1.GetParameter(4) + 0.5) 
                 f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.1) 
                 f1.SetParLimits(6, 0, 0.25) 
                 
                 f1.SetLineColor(3)
                 r = h.Fit(f1, 'SR+')
                 
-                #*** Store parameter p3 in csv/txt + print in screen only that one to avoid errors 
-                
-                #for j, i in enumerate(range(0,n*3,3)):
-                #    print(i)
-                #    f1.ReleaseParameter(i)
-                #    f1.ReleaseParameter(i+1)
-                #    f1.ReleaseParameter(i+2)
+                # Older than June 2022
+                    #*** Store parameter p3 in csv/txt + print in screen only that one to avoid errors 
+                    
+                    #for j, i in enumerate(range(0,n*3,3)):
+                    #    print(i)
+                    #    f1.ReleaseParameter(i)
+                    #    f1.ReleaseParameter(i+1)
+                    #    f1.ReleaseParameter(i+2)
 
-                #r = h.Fit(f1, 'ILMSR+')
-                print("if args.chi2")
+                    #r = h.Fit(f1, 'ILMSR+')
+                    
+                    #print("peak 1 = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
+                    #if n > 1:
+                    #    print("peak 2 = %.4f +/- %.4f" % (f1.GetParameter(4), f1.GetParError(4)))
+                
                 if args.chi2:
                     with open('chi2_fit_data.csv', 'a') as csv_file:
                         headers = [
@@ -541,22 +533,11 @@ if __name__ == '__main__':
                         print(f1.GetProb())
                         print(f1.GetChisquare())
                 
-                print("getting fit error")
                 r = r.Get()
-                print("done getting fit error")
                 if not r.IsValid():
                     print("Fit error!")
-                    # continue
 
-                #print("peak 1 = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
-                #if n > 1:
-                #    print("peak 2 = %.4f +/- %.4f" % (f1.GetParameter(4), f1.GetParError(4)))
                 
-                print("fun_temp")
-                with open('func_temp.txt', 'a') as file:
-                    for i in range(6):
-                        file.write(str(f1.GetParameter(i)) + '\n')
-
                 save_as_csv('SPE', f1.GetParameter(3), f1.GetParError(3), h.GetName())
 
                 print("after saving csv")
@@ -566,19 +547,19 @@ if __name__ == '__main__':
                 filtered_histograms[f'f_{h.GetName()}'].Write()
 
                 if args.plot:
-                    c = ROOT.TCanvas(f"c{canvas_count}")
+                    canvas.append(ROOT.TCanvas("c%i" % canvas_count))
                     canvas_count += 1
                     print("Drawing")
                     h.Draw()
-                    c.Update()
+                    canvas[-1].Update()
                 if args.pdf:
                     print("***Print to PDF 2:")
-                    c = ROOT.TCanvas("c%i" % canvas_count)
+                    canvas.append(ROOT.TCanvas("c%i" % canvas_count))
                     canvas_count += 1
                     h.Draw()
-                    c.Update()
+                    canvas[-1].Update()
                     prname=filename[:len(filename)-5]
-                    c.Print("./FiguresFit/"+prname+"_Key_"+str(keycount)+".pdf")
+                    canvas[-1].Print("./FiguresFit/"+prname+"_Key_"+str(keycount)+".pdf")
                     
         if args.plot:
             input()

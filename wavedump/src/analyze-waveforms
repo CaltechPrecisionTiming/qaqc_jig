@@ -30,8 +30,8 @@ def get_spe_window(x, start, integration_time):
     """
     Returns the indicies over which the SPE analysis should be integrated.
 
-    `start` and `integration_time` are in time units, not indexes.
-    `start` is also relative to the trigger, so `start = 0` is not 
+    `start` and `integration_time` are in nanoseconds, not indexes.
+    `start` is relative to the trigger, so `start = 0` is not 
     the first sample, but rather the time the trigger fired.
     """
     time_per_index = x[1] - x[0]
@@ -66,7 +66,6 @@ def integrate(x, data, a, b):
     """
     Integrate all waveforms in `data` with times `x`.
     """
-    
     # i = v/r
     # divide by 50 ohms to convert to a charge
     if np.ndim(data) == 2:
@@ -176,13 +175,14 @@ if __name__ == '__main__':
     charge = {}
     f_charge = {}
     # `average` and `std` just used for testing.
-    average = {}
-    std = {}
+    # average = {}
+    # std = {}
     # Only active channel is analyzed, unless it's the empty string, in which case all channels are analyzed.
     active_ch = args.active
     for filename in args.filenames:
         with h5py.File(filename) as f:
             for channel in f:
+                # All relevant channels, from scope and digitizer, should be in this format: 'ch<channel number>'.
                 if channel == 'settings':
                     continue
                 if channel.startswith('b'):  # baseline channel, only relevant for testing
@@ -204,7 +204,6 @@ if __name__ == '__main__':
                             charge[channel] = integrate(x,y, a, b)
                     else:
                         a, b = get_spe_window(x, args.s, args.IT)
-                        print(f'Before cut: {len(y)}')
                         # y -= np.median(y[:,x < x[0] + 100])  # per chuck median subtraction
                         
                         high_filter_y = high_filter_SPE(x, y)
@@ -212,6 +211,7 @@ if __name__ == '__main__':
                         
                         ################################
                         # per sample median subtraction
+                        # This method is not good because the SPE signal gets diminished.
                         ################################
                         # `s` for samples
                         # s = y.T
@@ -229,8 +229,12 @@ if __name__ == '__main__':
                         # m_mask = np.logical_and(x>=ma, x<mb)
                         # no_SPE_trials_mask = np.min(y[:, m_mask], axis=-1) > -2 * iqr(high_filter_y[:, m_mask].flatten())
                         # y -= np.array([np.median(y[i, m_mask]) if no_SPE_trials_mask[i] else np.median((y[no_SPE_trials_mask, :])[:, m_mask]) for i in range(len(y))])[:, np.newaxis]
-                       
-                        no_SPE_mask = y > -0.25*iqr(high_filter_y.flatten())
+                      
+                        ################################
+                        # For each event, subtract off the median of all points that lie above `cutoff`. Then, across all events, subtract off the median of all points between `a` and `b`.
+                        ################################
+                        cutoff = -2*iqr(high_filter_y.flatten())
+                        no_SPE_mask = y > cutoff 
                         y -= np.array([np.median(y[i, no_SPE_mask[i]]) for i in range(len(y))])[:, np.newaxis]
                         i_mask = np.logical_and(x>=args.s, x<args.s+args.IT)
                         y -= np.median(y[:, i_mask])
@@ -245,10 +249,9 @@ if __name__ == '__main__':
                         # y = np.delete(y, SPE_trials_idx, axis=0)
                         # # Subtract off the median between `ma` and `mb` per event
                         # y -= np.median(y[:, np.logical_and(x >= ma, x < mb)], axis=-1)[:, np.newaxis]  # per event median subtraction
+                        # if len(y) == 0:
+                        #     print('All trials were removed')
 
-                        print(f'After cut: {len(y)}')
-                        if len(y) == 0:
-                            print('All trials were removed')
                         if channel in charge:
                             charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
                             f_charge[channel] = np.concatenate((f_charge[channel], integrate(x, high_filter_y, a, b))) 
@@ -268,6 +271,7 @@ if __name__ == '__main__':
                     plt.ylabel("Voltage (V)")
                     plt.axvline(x[a])
                     plt.axvline(x[b])
+                    plt.axhline(cutoff, color='red')
                     # plt.axvline(ma, color='red')
                     # plt.axvline(mb, color='red')
                     plt.subplot(2,1,2)
@@ -282,21 +286,21 @@ if __name__ == '__main__':
                     plt.savefig("./FiguresAnalysis/"+prname+"_"+str(channel)+f"_TimeVolt_{args.s}_{args.IT}"+".pdf")
                 
                 # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
-                if (active_ch == channel) and (args.plot or args.pdf):
-                    plt.figure()
-                    plt.subplot(2,1,1)
-                    plt.plot(x,high_filter_y[:100].T)
-                    plt.xlabel("Time (ns)")
-                    plt.ylabel("Voltage (V)")
-                    plt.axvline(x[a])
-                    plt.axvline(x[b])
-                    plt.subplot(2,1,2)
-                    plt.plot(x,np.median(high_filter_y,axis=0))
-                    plt.xlabel("Time (ns)")
-                    plt.ylabel("Voltage (V)")
-                    plt.axvline(x[a])
-                    plt.axvline(x[b])
-                    plt.suptitle(channel)
+                # if (active_ch == channel) and (args.plot or args.pdf):
+                #     plt.figure()
+                #     plt.subplot(2,1,1)
+                #     plt.plot(x,high_filter_y[:100].T)
+                #     plt.xlabel("Time (ns)")
+                #     plt.ylabel("Voltage (V)")
+                #     plt.axvline(x[a])
+                #     plt.axvline(x[b])
+                #     plt.subplot(2,1,2)
+                #     plt.plot(x,np.median(high_filter_y,axis=0))
+                #     plt.xlabel("Time (ns)")
+                #     plt.ylabel("Voltage (V)")
+                #     plt.axvline(x[a])
+                #     plt.axvline(x[b])
+                #     plt.suptitle(channel)
                 
     f = ROOT.TFile(args.output,"recreate")
     for channel in charge:
@@ -333,18 +337,11 @@ if __name__ == '__main__':
         f_h.Write()
         
         # if args.plot:  # TODO: This part is only for testing
-        #     for i in range(10):
-        #         pos_charge[channel] = np.append(pos_charge[channel], 0)
-        #     plt.figure()
-        #     bins = get_bins(pos_charge[channel])
-        #     plt.hist(pos_charge[channel], bins=bins, histtype='step', label='pos_sig_'+channel)
-        #     plt.legend()
-        #     # FIXME
         #     plt.figure()
         #     bins = get_bins(average[channel]) 
         #     plt.hist(average[channel],bins=bins,histtype='step',label='avg_'+channel)
         #     plt.legend()
-        #     # FIXME
+        #
         #     plt.figure()
         #     plt.plot(np.arange(len(average[channel])), average[channel], label='avg_'+channel)
         #     plt.legend()
@@ -353,17 +350,16 @@ if __name__ == '__main__':
         #         if x <= -35:
         #             num += 1
         #     print(f'num: {num}')
-        #     # FIXME
+        #
         #     plt.figure()
         #     bins = get_bins(std[channel])
         #     plt.hist(std[channel],bins=bins,histtype='step',label='std_'+channel)
         #     plt.legend()
-        #     # FIXME
         #     print(len(std[channel]))
+        #
         #     plt.figure()
         #     plt.plot(np.arange(len(std[channel])), std[channel], label='std_'+channel)
         #     plt.legend()
-
     f.Close()
 
     if args.plot:

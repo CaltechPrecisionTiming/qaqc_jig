@@ -1,3 +1,10 @@
+"""
+Takes data from `temp_data.csv` (created by `fit-histograms`) and stores in an output csv file.
+
+Author: Kai Svenson
+Date: Aug. 4, 2022
+"""
+
 import csv
 import os
 import sys
@@ -78,15 +85,6 @@ if __name__ == '__main__':
                     channel['LO'] =  peak / spe / ENERGY
                     channel['LO Under Err'] = ((peak - peakerr) / (spe + speerr)) / ENERGY - channel['LO']
                     channel['LO Over Err'] = ((peak + peakerr) / (spe - speerr)) / ENERGY - channel['LO']
-                # for i in range(ch_spec_args+2, len(sys.argv)-1, 2):
-                #     channel[sys.argv[i]] = sys.argv[i+1]
-
-        # if 'channel1' in rows.keys():
-        #     rows['channel1']['SiPM Number'] = sys.argv[2]
-        #     rows['channel1']['Jumper Position'] = sys.argv[3]
-        # if 'channel2' in rows.keys():
-        #     rows['channel2']['SiPM Number'] = sys.argv[4]
-        #     rows['channel2']['Jumper Position'] = sys.argv[5]
        
         for channel in rows.values():
             channel['Bias'] = args.BV

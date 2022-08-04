@@ -2,14 +2,13 @@
 from __future__ import print_function, division
 import h5py
 import numpy as np
+import scipy as sp
 import sys
 import csv
 import os
 import ROOT
 from ROOT import gROOT
 from ROOT import TMath
-
-# ROOT.ROOT.EnableThreadSafety()
 
 # DEFAULT VALUES FOR SPE FIT:
 D_OFFSET = 0
@@ -19,43 +18,13 @@ D_NOISE_SPREAD = 0.01
 D_SPE_CHARGE_SPREAD = 0
 D_ZERO_PEAK_SPREAD = 0.4
 # Number of peaks we use for SPE fitting
-n = 20
+num_peaks = 20
 
 def iqr(h):
-    """
-    Returns the iqr of the histogram `h`
-    """
-    l = None
-    r = None
-    total = h.GetEntries()
-    i = 0
-    n = h.GetBinContent(i)
-    while n / total < 0.25:
-        i += 1
-        n += h.GetBinContent(i)
-    high_prob = n / total
-    n -= h.GetBinContent(i)
-    i -= 1
-    low_prob = n / total
-    l = (((0.25 - low_prob) / (high_prob - low_prob)) * h.GetBinWidth(i)) + h.GetBinLowEdge(i)
-    while n / total < 0.75:
-        i += 1
-        n += h.GetBinContent(i)
-    high_prob = n / total
-    n -= h.GetBinContent(i)
-    i -= 1
-    low_prob = n / total
-    r = (((0.75 - low_prob) / (high_prob - low_prob)) * h.GetBinWidth(i)) + h.GetBinLowEdge(i)
-    return r-l
-
-def average_distance_from(val, h):
-    """
-    Standard deviation calculation, except use `val` instead of the mean.
-    """
-    d2 = 0
-    for i in range(h.GetMaximumBin() + 2):
-        d2 += (val - h.GetXaxis().GetBinCenter(i))**2 * h.GetBinContent(i)
-    return np.sqrt(d2)
+    probSum = np.array([0.25, 0.75], dtype=np.double)
+    q = np.zeros(2, dtype=np.double)
+    h.GetQuantiles(2, q, probSum)
+    return q[1] - q[0]
 
 def save_as_csv(data_type, value, value_err, channel):
     """
@@ -80,27 +49,6 @@ def save_as_csv(data_type, value, value_err, channel):
             'Err Abs': value_err
         })
 
-def remove_bad_peaks(h, x_pos, win):
-    """
-    At each value (`a`) in `x_pos`, fits a gaussian to `h` in the window `(a - win, a + win)`.
-    If the mean of the fitted gaussian is less than or equal to `win * 0.25` away from `a`, then `a` is called a good peak.
-    
-    Returns an array of all the good peaks in `x_pos`.
-    """
-    rm = []
-    for i in range(len(x_pos)):
-        ge = ROOT.TF1("ge", 'gaus', x_pos[i] - win, x_pos[i] + win)
-        ge.SetLineColor(3)
-        if i == 0:
-            r = h.Fit(ge, 'SRQ')
-        else:
-            r = h.Fit(ge, 'SRQ+')
-        print(f'Peak {i} difference: {np.abs(x_pos[i] - ge.GetParameter(1))}')
-        if np.abs(x_pos[i] - ge.GetParameter(1)) > win * 0.25:
-            rm.append(i) 
-    x_pos = np.delete(x_pos, rm)
-    return x_pos
-
 def analyze_filter_data(h, f_h):
     """
     Fits the filtered charge histogram `f_h` with a gaussian,
@@ -114,24 +62,21 @@ def analyze_filter_data(h, f_h):
     If `f_h` is passed as `None`, only default values are returned, specified as global constants
     in this module (except for the default scale, which is proportional to the entries in `h`).
     """
-    if f_h == None:
-        return (D_OFFSET, D_NOISE_SPREAD, D_ZERO_PEAK_SPREAD, h.GetEntries()*0.075)
-    else:
-        filter_fit = ROOT.TF1('filter_fit', 'gaus', f_h.GetMean() - 2*f_h.GetStdDev(), f_h.GetMean() + 2*f_h.GetStdDev())
-        f_h.Fit(filter_fit, 'SRQ0')
-        offset = filter_fit.GetParameter(1)
-        noise_spread = filter_fit.GetParameter(2)
-        
-        win = max(0.3, 20*noise_spread)
-        raw_fit = ROOT.TF1('raw_fit', 'gaus', offset - win, offset + win)
-        raw_fit.SetParameter(1, offset)
-        for _ in range(3):
-            h.Fit(raw_fit, 'SRQ')
-            offset = raw_fit.GetParameter(1)
-            raw_fit.SetRange(offset-win, offset+win)
-        raw_spread = raw_fit.GetParameter(2)
-        scale = raw_fit.GetParameter(0)
-        return (offset, noise_spread, raw_spread, scale)
+    filter_fit = ROOT.TF1('filter_fit', 'gaus', f_h.GetMean() - 2*f_h.GetStdDev(), f_h.GetMean() + 2*f_h.GetStdDev())
+    f_h.Fit(filter_fit, 'SRQ0')
+    offset = filter_fit.GetParameter(1)
+    noise_spread = filter_fit.GetParameter(2)
+    
+    win = max(0.3, 20*noise_spread)
+    raw_fit = ROOT.TF1('raw_fit', 'gaus', offset - win, offset + win)
+    raw_fit.SetParameter(1, offset)
+    for _ in range(3):
+        h.Fit(raw_fit, 'SRQ')
+        offset = raw_fit.GetParameter(1)
+        raw_fit.SetRange(offset-win, offset+win)
+    raw_spread = raw_fit.GetParameter(2)
+    scale = raw_fit.GetParameter(0)
+    return (offset, noise_spread, raw_spread, scale)
 
 def peaks(h, width=4, height=0.05):
     """
@@ -174,7 +119,7 @@ class poisson_model:
         # string = "[0]*(" + "+".join(["TMath::Poisson(%i,[2])*TMath::Gaus(x-[1],[3]*%i,TMath::Sqrt([4]^2+[5]^2*%i))" % (i,i,i) for i in range(0,n)]) + ")"
         
         model = 0
-        for i in range(n):
+        for i in range(num_peaks):
             model += TMath.Poisson(i, p[2]) * TMath.Gaus(x[0]-p[1], i*p[3], TMath.Sqrt(p[4]**2 + i*(p[5]**2)), False)
         model *= p[0]
         return model
@@ -223,7 +168,7 @@ class vinogradov_model:
     """
     def __call__(self, x, p):
         model = 0
-        for i in range(n):
+        for i in range(num_peaks):
             model += vinogradov(i, p[2], p[6]) * TMath.Gaus(x[0]-p[1], i*p[3], TMath.Sqrt(p[4]**2 + i*(p[5]**2)), False)
         model *= p[0]
         return model
@@ -415,7 +360,10 @@ if __name__ == '__main__':
                     print('Using filtered data!')
                     offset, noise_spread, raw_spread, scale = analyze_filter_data(h, filtered_histograms[f'f_{h.GetName()}'])
                 else:
-                    offset, noise_spread, raw_spread, scale = analyze_filter_data(h, None)
+                    offset = D_OFFSET
+                    noise_spread = D_NOISE_SPREAD
+                    raw_spread = D_ZERO_PEAK_SPREAD
+                    scale = h.GetEntries()*0.075
 
                 # `l`, short for lambda, which is the average number of PEs measured in the integration window.
                 zero_peak_end = offset + 2 * raw_spread
@@ -423,6 +371,7 @@ if __name__ == '__main__':
                 num_zero = h.Integral(0, get_bin_num(h, zero_peak_end))
                 prob_zero = num_zero / h.GetEntries()
                 l = -np.log(prob_zero)
+                num_peaks = max(20, min(2, sp.stats.poisson.ppf(0.95, l)))
                 
                 # SPE Charge estimated using the method from this forum:
                 # https://math.stackexchange.com/questions/3689141/calculating-the-mean-and-standard-deviation-of-a-gaussian-mixture-model-of-two-c
@@ -495,6 +444,9 @@ if __name__ == '__main__':
                 
                 f1.SetLineColor(3)
                 r = h.Fit(f1, 'SR+')
+                r = r.Get()
+                if not r.IsValid():
+                    print("Fit error!")
                 
                 # Older than June 2022
                     #*** Store parameter p3 in csv/txt + print in screen only that one to avoid errors 
@@ -533,14 +485,8 @@ if __name__ == '__main__':
                         print(f1.GetProb())
                         print(f1.GetChisquare())
                 
-                r = r.Get()
-                if not r.IsValid():
-                    print("Fit error!")
-
-                
                 save_as_csv('SPE', f1.GetParameter(3), f1.GetParError(3), h.GetName())
 
-                print("after saving csv")
                 h.SetAxisRange(-4, 6, "X")
                 h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
                 h.Write()
@@ -549,7 +495,6 @@ if __name__ == '__main__':
                 if args.plot:
                     canvas.append(ROOT.TCanvas("c%i" % canvas_count))
                     canvas_count += 1
-                    print("Drawing")
                     h.Draw()
                     canvas[-1].Update()
                 if args.pdf:

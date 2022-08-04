@@ -2099,6 +2099,17 @@ int main(int argc, char *argv[])
         }
     }
 
+    /* This is how the CAEN API says to set self-triggers, but we found that it didn't work,
+     * so we wrote directly to the registers instead. Maybe it has to do with the order
+     * in which we're programming the digitizer.*/
+    // ret = CAEN_DGTZ_SetChannelSelfTrigger(handle, CAEN_DGTZ_TRGMODE_ACQ_ONLY, 0xffff);
+    // 
+    // if (ret) {
+    //     fprintf(stderr, "failed to set self trigger!\n");
+    //     exit(1);
+    // }
+    
+    /* Set the channels to trigger on themselves */
     if (self) {
         /* Page 45 of file:///home/cptlab/Downloads/UM4270_DT5742_UserManual_rev10.pdf gives
          * the instructions of how to set up self-trigger. */
@@ -2204,13 +2215,6 @@ int main(int argc, char *argv[])
 
 
 
-    /* Set the channels to trigger on themselves */
-    // ret = CAEN_DGTZ_SetChannelSelfTrigger(handle, CAEN_DGTZ_TRGMODE_ACQ_ONLY, 0xffff);
-    // 
-    // if (ret) {
-    //     fprintf(stderr, "failed to set self trigger!\n");
-    //     exit(1);
-    // }
 
     CAEN_DGTZ_SWStartAcquisition(handle);
 

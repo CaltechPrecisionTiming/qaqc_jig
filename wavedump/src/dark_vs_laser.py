@@ -1,26 +1,24 @@
+"""
+Compares SPE charge measurements taken with the laser to those taken with dark counts with different integration times.
+Note: to select which series of data to view, the file must be modified manually.
+When writing to the data file (via `save_spe_data.py`), make sure to include keywords in the 'Extra' column so that you can filter out the trials you want to compare.
+
+Author: Kai Svenson
+Date: Aug. 4, 2022
+"""
+
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
-# from argparse import ArgumentParser
-# 
-# parser = ArgumentParser()
-# parser.add_argument('--sodium', default=False, action='store_true', help='flag to indicate data is from a sodium source')
-# parser.add_argument('--laser', default=False, action='store_true', help='flag to indicate data is from a laser source')
-# parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
-# parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
-# parser.add_argument('--pdf', default=False, action='store_true', help='prints pdfs')
-# parser.add_argument('--IT', default=300, type=float, help='SPE integration length')
-# parser.add_argument('--s', default=50, type=float, help='start time of the SPE integration')
-# parser.add_argument('--active', default=None, help='Only take data from a single channel. If not specified, all channels are analyzed.')
-# 
-# args = parser.parse_args()
+from argparse import ArgumentParser
+ 
+parser = ArgumentParser()
+parser.add_argument('-d', '--data_file', default='Fit_Data.csv', help='csv file to read SPE data from')
+args = parser.parse_args()
 
 try:
-    with open('Fit_Data.csv', 'r') as file:
+    with open(args.data_file, 'r') as file:
         reader = csv.DictReader(file)
-        # SCOPE_dark = []
-        # SCOPE_dark_195 = []
-        # SCOPE_laser = []
         dark_100 = [[] for _ in range(16)]
         dark_200 = [[] for _ in range(16)]
         dark_300 = [[] for _ in range(16)]
@@ -63,10 +61,6 @@ try:
         print(f'Dark 200 average: {d200a}')
         print(f'Dark 200 is {((d200a - la)/la) * 100}% off from laser')
 
-        # print(f'SCOPE laser SPE: {np.mean(SCOPE_laser)}')
-        # print(f'SCOPE dark 100 SPE: {np.mean(SCOPE_dark)}')
-        # print(f'SCOPE dark 195 SPE: {np.mean(SCOPE_dark_195)}')
-
         plt.figure()
         plt.plot(np.arange(16), laser, label='Laser 100ns')
         plt.plot(np.arange(16), dark_100, label='Dark 100ns')
@@ -78,9 +72,7 @@ try:
         plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         plt.subplots_adjust(right=0.75)
         plt.show()
-        input()
 except FileNotFoundError:
-    print('No data')
-    exit()
-                
+    print(f"Couldn't open file {args.data_file}")
+    exit(1)
 

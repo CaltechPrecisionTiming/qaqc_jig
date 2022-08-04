@@ -1,3 +1,8 @@
+"""
+Calculates 511 and SPE charge by fitting ROOT histograms.
+Temporarily saves charge data in `temp_data.csv`. This file can be read by `save_charge_data.py` in order to save it to a more permanent and filled out csv file.
+"""
+
 #!/usr/bin/env python3
 from __future__ import print_function, division
 import h5py

@@ -6,7 +6,7 @@ set -e
 #Commands required to measure SPE charge
 #Script follows here:
 
-# * ipadress
+# * ipadress of Agilent oscilloscope in CPT Lab
 ipad="192.168.0.182"
 
 echo "Starting Time:"

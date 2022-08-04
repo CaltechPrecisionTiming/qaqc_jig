@@ -1,3 +1,7 @@
+"""
+Creates charge histograms from hdf5 files made from `wavedump` or `acquire-waveforms`.
+"""
+
 #!/usr/bin/env python3
 from __future__ import print_function, division
 import h5py

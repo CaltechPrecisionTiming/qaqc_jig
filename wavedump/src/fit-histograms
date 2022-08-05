@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-Calculates 511 and SPE charge by fitting ROOT histograms.
-Temporarily saves charge data in `temp_data.csv`. This file can be read by `save_charge_data.py` in order to save it to a more permanent and filled out csv file.
+Calculates 511 and SPE charge by fitting ROOT histograms.  Temporarily saves
+charge data in a user specified csv file. This file can be read by `save_charge_data.py`
+in order to save it to a more permanent and filled out csv file.
 """
 
 from __future__ import print_function, division
@@ -33,9 +34,9 @@ def iqr(h):
 
 def save_as_csv(data_type, value, value_err, channel, output):
     """
-    Saves charge data in `temp_data.csv`.
-    `temp_data.csv` is read by `save_spe_data.py`, which
-    organizes the data and saves it to `Fit_Data.csv`.
+    Saves charge data in `output` (csv format). `output` can be read by
+    `save_charge_data.py`, which organizes the data and saves it to a more
+    permanent csv file.
     """
     with open (output, 'a') as file:
         headers = [
@@ -56,16 +57,14 @@ def save_as_csv(data_type, value, value_err, channel, output):
 
 def analyze_filter_data(h, f_h):
     """
-    Fits the filtered charge histogram `f_h` with a gaussian,
-    and gets the mean and standard  deviation of this gaussian: `f_m` and `f_std`.
+    Fits the filtered charge histogram `f_h` with a gaussian, and gets the mean
+    and standard  deviation of this gaussian: `f_m` and `f_std`.
     
-    Then, fits `h` (the unfiltered charge histogram) with a gaussian around `f_m`,
-    and gets the mean, standard deviation, and scale of this gaussian: `m`, `std`, `scale`.
+    Then, fits `h` (the unfiltered charge histogram) with a gaussian around
+    `f_m`, and gets the mean, standard deviation, and scale of this gaussian:
+    `m`, `std`, `scale`.
 
     Returns `(m, f_std, std, scale)`
-
-    If `f_h` is passed as `None`, only default values are returned, specified as global constants
-    in this module (except for the default scale, which is proportional to the entries in `h`).
     """
     filter_fit = ROOT.TF1('filter_fit', 'gaus', f_h.GetMean() - 2*f_h.GetStdDev(), f_h.GetMean() + 2*f_h.GetStdDev())
     f_h.Fit(filter_fit, 'SRQ0')
@@ -86,15 +85,19 @@ def analyze_filter_data(h, f_h):
     scale = raw_fit.GetParameter(0)
     return (offset, noise_spread, raw_spread, scale)
 
-def peaks(h, width=4, height=0.05):
+def peaks(h, width=4, height=0.05, options=""):
     """
-    Finds peaks in hisogram `h`.
-    `height` is measured as a fraction of the highest peak.
-    Peaks lower than `<highest peak>*height` will not be searched for.
+    Finds peaks in hisogram `h`. `height` is measured as a fraction of the
+    highest peak.  Peaks lower than `<highest peak>*height` will not be
+    searched for.
+
+    Returns an array of the peak locations, sorted in charge order, lowest to
+    highest `x_pos`, and the location of the highest peak:
+    (`x_pos`, `highest_peak`)
     """
     spec = ROOT.TSpectrum()
     highest_peak = None
-    n_pks = spec.Search(h, width, "nobackground", height)               
+    n_pks = spec.Search(h, width, options, height)               
     x_pos = spec.GetPositionX()
     x_pos = np.array([x_pos[i] for i in range(n_pks)])
     if len(x_pos) != 0:
@@ -131,16 +134,16 @@ class poisson_model:
 
 def fac(x):
     """
-    Returns x!. We use the gamma function here instead since it works even for non-integer values and is generally faster than calling math.factorial(x).
+    Returns x!. We use the gamma function here instead since it works even for
+    non-integer values and is generally faster than calling math.factorial(x).
     """
     return np.math.gamma(x+1)
 
 def vinogradov(N, l, ps):
     """
-    Returns probability of getting `N` PEs in the integration window. 
-    `l` is the mean number of primary PEs.
-    `ps` is the probability that a primary PE causes a secondary PE.
-    See this paper for a more detailed explanation:
+    Returns probability of getting `N` PEs in the integration window.  `l` is
+    the mean number of primary PEs.  `ps` is the probability that a primary PE
+    causes a secondary PE.  See this paper for a more detailed explanation:
     https://arxiv.org/pdf/2106.13168.pdf
     """
     model = 0
@@ -163,6 +166,11 @@ def B_coeff(i, N):
 
 class vinogradov_model:
     """
+    We assume that each photoelectron (PE) peak is gaussian. We add the PE
+    distributions together, each weighted by a probability given by
+    `vinogradov`. The whole distribution is then convolved with a single
+    gaussian to model the noise of the signal.
+    
     p[0]: overall scale
     p[1]: offset
     p[2]: mean number of SPEs in integration window
@@ -244,76 +252,85 @@ if __name__ == '__main__':
                 filtered_histograms[h.GetName()] = h
             else:
                 raw_histograms[h.GetName()] = h
-        
         for h in raw_histograms.values():
             print(h.GetName())
-            if args.sodium:
-                # Peak searching using the TSpectrum class. See ROOT
-                # documentation for details.
-                # https://root.cern.ch/root/htmldoc/guides/spectrum/Spectrum.html#processing-and-visualization-functions
 
-                # *** depending on the overvoltage the peak dimension with
-                # respect to the noise makes changes needed on the second
-                # value. A more efficient way would be to create a bisection
-                # and stop it when it detects only the 2 biggest peaks.
-                # The number of found peaks and their positions are written into
-                # the members fNpeaks and fPositionX 
-                # Search(const TH1 * hin, Double_t sigma = 2, Option_t * option = "", Double_t threshold = 0.05)
-                # Peaks with amplitude < th*Amax are discarded. If too small ->
-                # detects peaks after the 511 peak. The code right now detects
-                # the last peak (that doesn't have a huge width) as the 511
-                # peak. Other option is to iterate through the y positions and
-                # keep always the latest peak with an increase over the
-                # previous ones? first derivative with respect to max/min
-                # closest to zero 	
-                
+            if args.sodium:
+                if h.GetEntries() <= 1000:
+                    print('Too few entries in histogram (<= 1000), skipping fit.')
+                    continue
+               ###########################
+               # 511 Peak Finding Strategy
+               # 
+               # 1. We use ROOT's histogram peak finding algorithm to search
+               #    for peaks in the 511 histogram (see the method `peaks` in this
+               #    module).
+               # 
+               # 2. We assume that there will always be at least two peaks
+               #    found. We iterate through the peaks in charge order, starting
+               #    with the largest charge.
+               # 
+               # 3. We fit each peak with a gaussian. The first peak we find
+               #    that is above a threshold proportioanl to the number of
+               #    entries is the one we take as the 511 peak. Most of the time,
+               #    this just means we're taking the peak with the largest charge.
+               ###########################
+               
+               # Older than June 2022:
+                    # Peak searching using the TSpectrum class. See ROOT
+                    # documentation for details.
+                    # https://root.cern.ch/root/htmldoc/guides/spectrum/Spectrum.html#processing-and-visualization-functions
+
+                    # *** depending on the overvoltage the peak dimension with
+                    # respect to the noise makes changes needed on the second
+                    # value. A more efficient way would be to create a bisection
+                    # and stop it when it detects only the 2 biggest peaks.
+                    # The number of found peaks and their positions are written into
+                    # the members fNpeaks and fPositionX 
+                    # Search(const TH1 * hin, Double_t sigma = 2, Option_t * option = "", Double_t threshold = 0.05)
+                    # Peaks with amplitude < th*Amax are discarded. If too small ->
+                    # detects peaks after the 511 peak. The code right now detects
+                    # the last peak (that doesn't have a huge width) as the 511
+                    # peak. Other option is to iterate through the y positions and
+                    # keep always the latest peak with an increase over the
+                    # previous ones? first derivative with respect to max/min
+                    # closest to zero 	
+
                 h.GetListOfFunctions().Clear()
                 spec = ROOT.TSpectrum()
-                if args.BV == 42:
-                    n_pks = spec.Search(h, 1, "", 0.01)
-                elif args.BV > 42:
-                    n_pks = spec.Search(h, 1, "", 0.005)
+                if args.bias == 42:
+                    x_pos = peaks(h, width=2, height=0.1, options="nobackground")[0]
+                elif args.bias > 42:
+                    x_pos = peaks(h, width=2, hight=0.05, options="nobackground")[0]
                 else:
                     print("Don't know how to fit 511 peak for bias voltages less than 42 volts! Quitting...",file=sys.stderr)
                     sys.exit(1)
                 
-                x_pos = spec.GetPositionX()
-                y_pos = spec.GetPositionY()
-
-                x_pos = np.array([x_pos[i] for i in range(n_pks)])
-                y_pos = np.array([y_pos[i] for i in range(n_pks)])
                 print("Peak charge full list:")
                 print(x_pos)
-                ind = np.argsort(x_pos)
-                x_pos = x_pos[ind]
-                y_pos = y_pos[ind]
-                                      
-                n = len(x_pos)
-               
+                
                 f1 = None
-                win = 0.3 * h.GetStdDev()
-                for i in range(n-1, -1, -1):
+                win = 0.2 * h.GetStdDev()
+                for i in range(len(x_pos)-1, -1, -1):
                     peak = x_pos[i]
                     if peak < x_pos[0] + 0.01*h.GetStdDev():
-                        continue
+                        # All the remaining peaks will be closer to `x_pos[0]`.
+                        break
                     print(f'Fitting this peak! {peak}')
                     f1 = ROOT.TF1("f1","gaus", peak-win, peak+win)
                     r = h.Fit(f1, 'ILMSR+')
                     r = r.Get()
                     if not r.IsValid():
                         continue
-                    if f1.GetParameter(0) > h.GetEntries() / 200:
+                    if f1.GetParameter(0) > h.GetEntries() / 150:
+                        # Found the 511 peak
                         break
                 if f1 == None:
-                    peak = x_pos[-1]
-                    f1 = ROOT.TF1("f1","gaus", peak-win, peak+win)
-                    h.Fit(f1, 'ILMSR+')
-
-
-                #*** Store values in txt/csv file
-                print("511 peak = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
-                if args.output:
-                    save_as_csv('sodium', f1.GetParameter(1), f1.GetParError(1), h.GetName(), args.output)
+                    print("Didn't find the 511 peak! Will not save data or print pdfs.")
+                else:
+                    print("511 peak = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
+                    if args.output:
+                        save_as_csv('sodium', f1.GetParameter(1), f1.GetParError(1), h.GetName(), args.output)
 
                 h.Write()
                 if args.plot or args.print_pdfs:
@@ -321,15 +338,50 @@ if __name__ == '__main__':
                     canvas_count += 1
                     h.Draw()
                     canvas[-1].Update()
-                if args.print_pdfs:
+                if args.print_pdfs and f1:
                     print("*** Print PDF 1:")
                     root, ext = os.path.splitext(filename)
                     canvas[-1].Print(os.path.join(args.print_pdfs, f"{root}_{h.GetName()}.pdf"))
             else:
-                print("Single P.h.e:")
+                ###########################
+                # SPE Fitting Strategy
+                # 
+                # 1. We use a 7 parameter model to fit the SPE charge histogram.
+                #    See `vinogradov_model` in this module for an explanation.
+                # 
+                # 2. Each SPE histogram should have a corresponding filtered
+                #    charge histogram. It's created the same way, except with the
+                #    signal passed through a digital high pass filter. See
+                #    `analyze-waveforms` to see how this is done.
+                # 
+                # 3. From the filtered histogram, we estimate the voltage
+                #    offset, std. of the noise, std. of the zero peak, and the
+                #    overall scale (see `analyze_filter_data` in this module).
+                # 
+                # 4. We estimate the average number of SPEs in the integration
+                #    window (`l`) as follows:
+                #    4.1. Count all the entries in the zero peak
+                #    4.2. Divide by total entries, giving probability that there
+                #         are no SPEs in the integration window: P(no SPEs).
+                #    4.3. The vinogradov distribution is approximately poisson.
+                #         Since a poisson distribution only depends on its mean,
+                #         having P(no SPEs) gives us `l`.
+                # 
+                # 5. The SPE charge (mu) is estimated using this equation:
+                #    h.GetMean() = P(no SPEs)*(offset) + P(1 SPE)*(mu + offset) + P(2 SPEs)*(2*mu + offset) + ...
+                # 
+                # 6. Two fits are preformed. The first fit keeps several
+                #    parameters fixed so that we get distinguishable peaks. The
+                #    second fit releases most parameters to preform a final, clean
+                #    fit of everything. Exactly which parameters get fixed or
+                #    relased is still under active development as of the time of
+                #    this comment: Aug. 5, 2022.
+                ###########################
+                print("SPE FIT")
                 string = "[0]*(" + "+".join(["TMath::Poisson(%i,[2])*TMath::Gaus(x-[1],[3]*%i,TMath::Sqrt([4]^2+[5]^2*%i))" % (i,i,i) for i in range(0,num_peaks)]) + ")"
-
-                # *** we could set a threshold/break to find when the Y axis /charge goes above a certain values from the smallest X to set the first value (-0.4 as of the time of this comment)
+                
+                # Older than June 2022:
+                    # *** we could set a threshold/break to find when the Y axis /charge goes above a certain values from the smallest X to set the first value (-0.4 as of the time of this comment)
                 if args.root_func: 
                     f1 = ROOT.TF1("f1", string, h.GetMean() - 2 * h.GetStdDev(), h.GetMean() + 4 * h.GetStdDev())
                 else:
@@ -386,7 +438,8 @@ if __name__ == '__main__':
                 r = h.Fit(f1, 'SRB+')
 
                 for i in range(7):
-                    f1.ReleaseParameter(i) 
+                    f1.ReleaseParameter(i)
+
                 f1.FixParameter(1, f1.GetParameter(1)) 
                 f1.FixParameter(4, f1.GetParameter(4)) 
                 # f1.SetParLimits(1, f1.GetParameter(1) - 0.1, f1.GetParameter(1) + 0.1) 

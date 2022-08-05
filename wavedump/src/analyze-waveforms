@@ -242,11 +242,10 @@ if __name__ == '__main__':
                         a, b = get_spe_window(x, args.start_time, args.integration_time)
                         
                         high_filter_y = high_filter_SPE(x, y)
-                        y -= np.median(y, axis=-1)[:, np.newaxis]  # per event median subtraction
                         
                         ################################
                         # INTEGRATION METHODS
-                        # 0: Only per event median subtraction
+                        # 0: Only per event median subtraction (preformed in every method).
                         # 1 (default): For each event, subtract off the median of all points that lie above `cutoff`.
                         #              Then, across all events, subtract off the median of all points between `a` and `b`.
                         # 2: Per sample median subtraction. This method is not good because the SPE signal gets diminished.
@@ -254,6 +253,10 @@ if __name__ == '__main__':
                         # 4: Same as 3, except no trials are deleted. Trials that have an SPE between `ma` and `mb` get reduced by the total median
                         #    between `ma` and `mb` of events that don't have an SPE in this range.
                         ################################
+                        
+                        # Integration Method 0:
+                        y -= np.median(y, axis=-1)[:, np.newaxis]  # per event median subtraction
+                        
                         if args.integration_method == 1:
                             cutoff = -2*iqr(high_filter_y.flatten())
                             no_SPE_mask = y > cutoff 
@@ -284,7 +287,7 @@ if __name__ == '__main__':
                             m_mask = np.logical_and(x>=ma, x<mb)
                             no_SPE_trials_mask = np.min(y[:, m_mask], axis=-1) > -2 * iqr(high_filter_y[:, m_mask].flatten())
                             y -= np.array([np.median(y[i, m_mask]) if no_SPE_trials_mask[i] else np.median((y[no_SPE_trials_mask, :])[:, m_mask]) for i in range(len(y))])[:, np.newaxis]
-                        else:
+                        elif args.integration_method != 0:
                             print('Not a valid integration method. Defaulting to integration method 0')
 
                         if channel in charge:

@@ -1636,6 +1636,9 @@ WaveDumpConfig_t set_default_settings() {
      * Otherwise, WDcfg.DCoffset[i] is used. */
     for (i = 0; i < MAX_SET; i++) {
         for (j = 0; j < MAX_SET; j++) {
+            /* In theory, our signal is mostly negative, so an offset near
+             * 0x0000 should work. However, we don't see SPEs until setting the offset to
+             * about at least 0x6000 */
             WDcfg.DCoffsetGrpCh[i][j] = 0x7FFF;
         }
     }

@@ -1,9 +1,9 @@
+#!/usr/bin/env python3
 """
 Calculates 511 and SPE charge by fitting ROOT histograms.
 Temporarily saves charge data in `temp_data.csv`. This file can be read by `save_charge_data.py` in order to save it to a more permanent and filled out csv file.
 """
 
-#!/usr/bin/env python3
 from __future__ import print_function, division
 import h5py
 import numpy as np
@@ -207,13 +207,13 @@ if __name__ == '__main__':
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
     parser.add_argument('--BV', type=int,default=42, help='Bias Voltage input')
     #parser.add_argument('--peakper', type=double, default=0, help='Direct change of maximum percentage change from maximum peak')
-    parser.add_argument('--pdf', default=False, action='store_true', help='Save the fit canvas as pdf')
     parser.add_argument('--ObjKeep', type=int,default=2,  help='Number of objects to fit')
     # parser.add_argument('--SPE_FLL', default=-0.1, type=float, help='Left limit on the spe fit')
     # parser.add_argument('--SPE_FLR', default=-0.1, type=float, help='Right limit on the spe fit')
     parser.add_argument('--NA_GF', default=50, type=float, help='Right limit on the spe fit')
     parser.add_argument('--chi2', default=False, action='store_true', help='Save the ndof and chi2 value of the fit to csv')
     parser.add_argument('--root_func', default=False, action='store_true')
+    parser.add_argument("--print_pdfs", default=None, type=str, help="Folder to save pdfs in")
 
     args = parser.parse_args()
     
@@ -338,8 +338,8 @@ if __name__ == '__main__':
                     canvas_count += 1
                     h.Draw()
                     canvas[-1].Update()
-                    prname=filename[:len(filename)-5]
-                    canvas[-1].Print("./FiguresFit/"+prname+"_Key_"+str(keycount)+".pdf")
+                    root, ext = os.path.splitext(filename)
+                    canvas[-1].Print(os.path.join(args.print_pdfs, f"{root}_Key_{keycount}.pdf"))
                 elif args.plot:
                     canvas.append(ROOT.TCanvas("c%i" % canvas_count))
                     canvas_count += 1
@@ -508,9 +508,8 @@ if __name__ == '__main__':
                     canvas_count += 1
                     h.Draw()
                     canvas[-1].Update()
-                    prname=filename[:len(filename)-5]
-                    canvas[-1].Print("./FiguresFit/"+prname+"_Key_"+str(keycount)+".pdf")
-                    
+                    root, ext = os.path.splitext(filename)
+                    canvas[-1].Print(os.path.join(args.print_pdfs, f"{root}_Key_{keycount}.pdf"))
         if args.plot:
             input()
         f.Close()

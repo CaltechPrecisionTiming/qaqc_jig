@@ -61,7 +61,7 @@ if [ "$src" = true ] ; then
 	# * Integration Duration
 	IT="100"
 	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_LASER_${EXTRA}.root"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf -s $s -it $IT --active $active
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "LASER_$EXTRA"
 	
@@ -70,21 +70,21 @@ if [ "$src" = true ] ; then
 	# * Integration Duration
 	IT="100"
 	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf -s $s -it $IT --active $active
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
 	
 	# * Integration Duration
 	IT="200"
 	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf -s $s -it $IT --active $active
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
 	
 	# * Integration Duration
 	IT="300"
 	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf -s $s -it $IT --active $active
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
 else
@@ -97,7 +97,7 @@ else
 	s="40"
 	# * Integration Duration
 	IT="100"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf -s $s -it $IT --active $active
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "SCOPE" --extra "LASER_$EXTRA"
 	
@@ -106,7 +106,7 @@ else
 	s="200"
 	# * Integration Duration
 	IT="200"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf --s $s --IT $IT --active $active
+	./analyze-waveforms $spe_hdf5 -o $spe_root --pdf -s $s -it $IT --active $active
 	./fit-histograms $spe_root --pdf 
 	python3 save_spe_data.py --BV $BV --n $ne --date $date --time $Time --source "SCOPE" --extra "DARK_${IT}_${EXTRA}" 
 fi

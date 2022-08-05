@@ -1628,15 +1628,15 @@ WaveDumpConfig_t set_default_settings() {
     /* Set to trigger on negative pulses. */
     for (i = 0; i < MAX_SET; i++)
 	WDcfg.PulsePolarity[i] = CAEN_DGTZ_PulsePolarityNegative;
-
-    /* Set the DC offset of the channels. Not sure exactly what the difference between DCoffset and DCoffsetGrpCh is. */
-    int dc = 0;
-    int val;
+    
+    /* Set the DC offset of the channels. 
+     * WDcfg.DCoffset[i] sets a common offset to group `i`.
+     * WDcfg.DCoffsetGrpCh[i][j] sets the offset of group `i`, channel `j`
+     * If WDcfg.DCoffsetGrpCh[i][j] is set, then that value will be used.
+     * Otherwise, WDcfg.DCoffset[i] is used. */
     for (i = 0; i < MAX_SET; i++) {
-	val = (int)((dc+50) * 65535 / 100); // DC offset (percent of the dynamic range, -50 to 50)
-        WDcfg.DCoffset[i] = val;
         for (j = 0; j < MAX_SET; j++) {
-            WDcfg.DCoffsetGrpCh[i][j] = val;
+            WDcfg.DCoffsetGrpCh[i][j] = 0x7FFF;
         }
     }
 
@@ -2108,9 +2108,10 @@ int main(int argc, char *argv[])
         }
     }
 
-    /* This is how the CAEN API says to set self-triggers, but we found that it didn't work,
-     * so we wrote directly to the registers instead. Maybe it has to do with the order
-     * in which we're programming the digitizer.*/
+    /* This is how the CAEN API says to set self-triggers, but we found that it
+ * didn't work, so we wrote directly to the registers instead. Maybe it has to
+ * do with the order in which we're programming the digitizer. These methods
+ * are usually called in `Program_Digitizer`. */
     // ret = CAEN_DGTZ_SetChannelSelfTrigger(handle, CAEN_DGTZ_TRGMODE_ACQ_ONLY, 0xffff);
     // 
     // if (ret) {

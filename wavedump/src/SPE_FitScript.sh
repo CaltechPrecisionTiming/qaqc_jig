@@ -67,26 +67,13 @@ if [ "$src" = true ] ; then
 	
 	# * Integration Start Time.
 	s="200"
-	# * Integration Duration
-	IT="100"
-	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -it $IT --active $active
-	./fit-histograms -o temp_data.csv $spe_root --print_pdfs FiguresFit 
-	python3 save_spe_data.py --bias $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
-	
-	# * Integration Duration
-	IT="200"
-	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -it $IT --active $active
-	./fit-histograms -o temp_data.csv $spe_root --print_pdfs FiguresFit 
-	python3 save_spe_data.py --bias $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
-	
-	# * Integration Duration
-	IT="300"
-	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -it $IT --active $active
-	./fit-histograms -o temp_data.csv $spe_root --print_pdfs FiguresFit 
-	python3 save_spe_data.py --bias $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
+	for IT in 100 200 300
+	do
+		spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
+		./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -it $IT --active $active
+		./fit-histograms -o temp_data.csv $spe_root --print_pdfs FiguresFit 
+		python3 save_spe_data.py --bias $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
+	done
 else
 	spe_hdf5="SCOPE_${active}_${date}_${Time}_${BV}v_${EXTRA}.hdf5"
 	spe_root="SCOPE_${active}_${date}_${Time}_${BV}v_LASER_${EXTRA}.root"

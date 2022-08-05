@@ -1633,7 +1633,7 @@ WaveDumpConfig_t set_default_settings() {
     int dc = 0;
     int val;
     for (i = 0; i < MAX_SET; i++) {
-	val = (int)((dc+50) * 65535 / 100); ///DC offset (percent of the dynamic range, -50 to 50)
+	val = (int)((dc+50) * 65535 / 100); // DC offset (percent of the dynamic range, -50 to 50)
         WDcfg.DCoffset[i] = val;
         for (j = 0; j < MAX_SET; j++) {
             WDcfg.DCoffsetGrpCh[i][j] = val;
@@ -2214,13 +2214,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "failed to write register 0x8000!\n");
         exit(1);
     }
-
-    // for (i = 0; i < 16; i++) {
-    //     ret = CAEN_DGTZ_SetChannelDCOffset(handle, i, 0x7FFF);
-    // 	if (ret) {
-    //         fprintf(stderr, "failed to set DC offset for one of the channels\n");
-    //     }
-    // }
 
     CAEN_DGTZ_SWStartAcquisition(handle);
 

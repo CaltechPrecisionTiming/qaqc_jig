@@ -1,5 +1,5 @@
 """
-Takes data from `temp_data.csv` (created by `fit-histograms`) and stores in an output csv file.
+Takes data from a temporary csv file (created by `fit-histograms`) and stores in an output csv file.
 
 Author: Kai Svenson
 Date: Aug. 4, 2022
@@ -33,16 +33,21 @@ if __name__ == '__main__':
     parser.add_argument('--extra', help='Any notes about this set of data')
     parser.add_argument('--source', help='CAEN or SCOPE')
     parser.add_argument('-o', '--output', default='Fit_Data.csv', help='output csv filename')
+    parser.add_argument('-r', '--read', default=None, help='csv filename to read from')
     args = parser.parse_args()
 
+    if not args.read:
+        print('No file to read from. Quitting...', file=stderr)
+        sys.exit(1)
+
     try: 
-        with open('temp_data.csv', 'r') as file:
+        with open(args.read, 'r') as file:
             reader = csv.DictReader(file)
             for row in reader:
                 data.append(row)
     except FileNotFoundError:
-        print("No data to save to csv")
-        exit()
+        print("Could not open file to read from", file=stderr)
+        sys.exit(1)
     
     with open(args.output, 'a', newline='') as file:
         headers = [

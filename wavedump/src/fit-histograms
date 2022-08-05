@@ -332,7 +332,7 @@ if __name__ == '__main__':
                 save_as_csv('sodium', f1.GetParameter(1), f1.GetParError(1), h.GetName())
 
                 h.Write()
-                if args.pdf:
+                if args.print_pdfs:
                     print("*** Print PDF 1:")
                     canvas.append(ROOT.TCanvas("c%i" % canvas_count))
                     canvas_count += 1
@@ -502,7 +502,7 @@ if __name__ == '__main__':
                     canvas_count += 1
                     h.Draw()
                     canvas[-1].Update()
-                if args.pdf:
+                if args.print_pdfs:
                     print("***Print to PDF 2:")
                     canvas.append(ROOT.TCanvas("c%i" % canvas_count))
                     canvas_count += 1

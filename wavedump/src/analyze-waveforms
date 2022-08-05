@@ -72,7 +72,7 @@ def get_spe_window(x, start, integration_time):
     time_per_index = x[1] - x[0]
     a = int(np.abs(x - start).argmin())
     if a >= len(x) - 1:
-        print('SPE integration start exceeds the acquisition window! Quitting...', file=sys.stderr)
+        print('SPE integration start time exceeds the acquisition window! Quitting...', file=sys.stderr)
         sys.exit(1)
     b = int(np.round(a + integration_time / time_per_index))
     if b > len(x) - 1:
@@ -164,27 +164,23 @@ def convert_data(f, channel, start, stop):
             y = f[channel][start:stop]
     return x*1e9, y
 
-def low_filter_SPE(time, y):
+def low_filter_SPE(x, y):
     """
-    Returns `y` through a low pass filter. Edit the cutoff frequency by 
-    editing the function itself. `time` is just the temporal spacing between
-    the samples in `y`.
+    Returns `y` through a low pass filter. Edit the cutoff frequency by modifying the filter defined below.
     """
     filter_order = 2
-    nyquist = (0.5 * (time[1] - time[0]))**(-1)
+    nyquist = (0.5 * (x[1] - x[0]))**(-1)
     cutoff = 5**(-1)
     b, a = signal.butter(filter_order, min(1, cutoff/nyquist), btype='lowpass', output='ba')
     filter_data = signal.lfilter(b, a, y)
     return filter_data
 
-def high_filter_SPE(time, y):
+def high_filter_SPE(x, y):
     """
-    Returns `y` through a high pass filter. Edit the cutoff frequency by 
-    editing the function itself. `time` is just the temporal spacing between
-    the samples in `y`.
+    Returns `y` through a high pass filter. Edit the cutoff frequency by modifying the filter defined below.
     """
     filter_order = 2
-    nyquist = (0.5 * (time[1] - time[0]))**(-1)
+    nyquist = (0.5 * (x[1] - x[0]))**(-1)
     cutoff = 5**(-1)  # Cut off frequency for the filter measured in inverse nanoseconds
     b, a = signal.butter(filter_order, min(1, cutoff/nyquist), btype='highpass', output='ba')
     filter_data = signal.lfilter(b, a, y)
@@ -201,11 +197,11 @@ if __name__ == '__main__':
     parser.add_argument('--sodium', default=False, action='store_true', help='flag to indicate data is from a sodium source')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
     parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
-    parser.add_argument('-it', '--integration_time', default=300, type=float, help='SPE integration length')
-    parser.add_argument('-s', '--start_time',  default=50, type=float, help='start time of the SPE integration')
+    parser.add_argument('-it', '--integration_time', default=300, type=float, help='SPE integration length in nanoseconds.')
+    parser.add_argument('-s', '--start_time',  default=50, type=float, help='start time of the SPE integration in nanoseconds.')
     parser.add_argument('--active', default=None, help='Only take data from a single channel. If not specified, all channels are analyzed.')
     parser.add_argument('-im', '--integration_method', type=int, default=1, help='Select a method of integration. Methods described in __main__')
-    parser.add_argument("--print_pdfs", default=None, type=str, help="Folder to save pdfs in")
+    parser.add_argument("--print_pdfs", default=None, type=str, help="Folder to save pdfs in.")
 
     args = parser.parse_args()
 

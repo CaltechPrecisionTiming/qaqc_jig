@@ -1687,10 +1687,17 @@ WaveDumpConfig_t set_default_settings() {
     return WDcfg;
 }
 
-WaveDumpConfig_t set_511_settings(){
+WaveDumpConfig_t set_511_settings()
+{
+    /* In the future we may want to have one function that programs all the
+     * setttings. I'm not sure if this is possible due to the order we need to do
+     * things in. For example, before we can set the trigger threshold, we have to
+     * take baseline data. */
 }
 
-WaveDumpConfig_t set_spe_settings(){
+WaveDumpConfig_t set_spe_settings()
+{
+    /* See `set_511_settings`. */
 }
 
 void print_wfdata(float data[WF_SIZE][32][1024]) {
@@ -1753,15 +1760,15 @@ int main(int argc, char *argv[])
             output_filename = argv[++i];
         } else if (!strcmp(argv[i],"--help")) {
             print_help();
-	} else if (!strcmp(argv[i],"--trigger")) {
-	    char *trig = argv[++i];
-	    if (strcmp(trig, "self") == 0) {
-		self = true;
-	    } else if (strcmp(trig, "external") == 0) {
-		external = true;
-	    } else {
-		software = true;
-	    }
+        } else if (!strcmp(argv[i],"--trigger")) {
+            char *trig = argv[++i];
+            if (strcmp(trig, "self") == 0) {
+                self = true;
+            } else if (strcmp(trig, "external") == 0) {
+                external = true;
+            } else {
+                software = true;
+            }
         } else if (!strcmp(argv[i],"-b") || !strcmp(argv[i],"--barcode")) {
             barcode = atoi(argv[++i]);
         } else if (!strcmp(argv[i],"-v") || !strcmp(argv[i],"--voltage")) {
@@ -1788,29 +1795,21 @@ int main(int argc, char *argv[])
      * 511 and SPE. */
     WDcfg = set_default_settings();
     
-    /* Set to enable external triggers, so we can trigger on the laser if we
-     * want. */
-    if (external) {
-        WDcfg.ExtTriggerMode = CAEN_DGTZ_TRGMODE_ACQ_ONLY;
-    } else {
-        WDcfg.ExtTriggerMode = CAEN_DGTZ_TRGMODE_DISABLED;
-    }
-
     WDcfg.voltage = voltage;
     WDcfg.barcode = barcode;
     
-    /* config file is an outdated method to program digitizer */
-    // if (config_filename) {
-    //     printf("Opening Configuration File %s\n", config_filename);
-    //     f_ini = fopen(config_filename, "r");
-    //     if (f_ini == NULL) {
-    //         fprintf(stderr, "couldn't find configuration file '%s'\n", config_filename);
-    //         exit(1);
-    //     }
-    //     memset(&WDcfg, 0, sizeof(WDcfg));
-    //     ParseConfigFile(f_ini, &WDcfg);
-    //     fclose(f_ini);
-    // }
+    /* config file parsing */
+    if (config_filename) {
+        printf("Opening Configuration File %s\n", config_filename);
+        f_ini = fopen(config_filename, "r");
+        if (f_ini == NULL) {
+            fprintf(stderr, "couldn't find configuration file '%s'\n", config_filename);
+            exit(1);
+        }
+        memset(&WDcfg, 0, sizeof(WDcfg));
+        ParseConfigFile(f_ini, &WDcfg);
+        fclose(f_ini);
+    }
 
     /* Open the digitizer. */
     ret = CAEN_DGTZ_OpenDigitizer(0, 0, 0, 0, &handle);
@@ -1934,7 +1933,7 @@ int main(int argc, char *argv[])
                 uint32_t GroupMask = 0;
 
                 // Disable Automatic Corrections
-		if ((ret = CAEN_DGTZ_DisableDRS4Correction(handle)) != CAEN_DGTZ_Success)
+                if ((ret = CAEN_DGTZ_DisableDRS4Correction(handle)) != CAEN_DGTZ_Success)
                     goto QuitProgram;
 
                 // Load the Correction Tables from the Digitizer flash
@@ -1943,8 +1942,8 @@ int main(int argc, char *argv[])
 
                 if(WDcfg.UseManualTables != -1) { // The user wants to use some custom tables
                     uint32_t gr;
-					int32_t clret;
-					
+                                        int32_t clret;
+                                        
                     GroupMask = WDcfg.UseManualTables;
 
                     for(gr = 0; gr < WDcfg.MaxGroupNumber; gr++) {
@@ -1959,7 +1958,7 @@ int main(int argc, char *argv[])
                 SaveCorrectionTables("X742Table", GroupMask, X742Tables);
             }
             else { // Use Automatic Corrections
-		if ((ret = CAEN_DGTZ_LoadDRS4CorrectionData(handle, WDcfg.DRS4Frequency)) != CAEN_DGTZ_Success)
+                if ((ret = CAEN_DGTZ_LoadDRS4CorrectionData(handle, WDcfg.DRS4Frequency)) != CAEN_DGTZ_Success)
                     goto QuitProgram;
                 if ((ret = CAEN_DGTZ_EnableDRS4Correction(handle)) != CAEN_DGTZ_Success)
                     goto QuitProgram;
@@ -2232,12 +2231,12 @@ int main(int argc, char *argv[])
     while (!stop && total_events < nevents) {
         if (software) {
             /* Sending software triggers for SPE analysis without laser */
-	    printf("sending sw trigger\n");
+            printf("sending sw trigger\n");
             for (i = 0; i < 100; i++) {
                 usleep(1000);
-	        CAEN_DGTZ_SendSWtrigger(handle);
+                CAEN_DGTZ_SendSWtrigger(handle);
             }
-	}
+        }
 
         ret = CAEN_DGTZ_ReadData(handle, CAEN_DGTZ_SLAVE_TERMINATED_READOUT_MBLT, buffer, &BufferSize);
 

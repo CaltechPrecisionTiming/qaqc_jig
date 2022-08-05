@@ -1289,11 +1289,11 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
         H5Sclose(aid);
         H5Aclose(attr);
 
-	/* Creating an attribute for the root group
-	 * that flags this file as being data collected from
-	 * the CAEN digitizer. */
+        /* Creating an attribute for the root group
+         * that flags this file as being data collected from
+         * the CAEN digitizer. */
         aid = H5Screate(H5S_SCALAR);
-	atype = H5Tcopy(H5T_C_S1);
+        atype = H5Tcopy(H5T_C_S1);
         H5Tset_size(atype, 100);
         H5Tset_strpad(atype, H5T_STR_NULLTERM);
         attr = H5Acreate2(file, "data_source", atype, aid, H5P_DEFAULT, H5P_DEFAULT);
@@ -1409,25 +1409,25 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
         H5Aclose(attr);
         H5Tclose(atype);
         
-	/* Writing the baseline data to the file
-	 * in separate datasets */
-	for (i = 0; i < 32; i++) {
+        /* Writing the baseline data to the file
+         * in separate datasets */
+        for (i = 0; i < 32; i++) {
             if (!(chmask & (1 << i))) continue;
-      	    maxdims[0] = BS_SIZE;
+            maxdims[0] = BS_SIZE;
             maxdims[1] = nsamples;
             dims[0] = BS_SIZE;
             dims[1] = nsamples;
             
-	    space = H5Screate_simple(2, dims, maxdims);
+            space = H5Screate_simple(2, dims, maxdims);
             
             float wdata[BS_SIZE][1024];
-	    for (j = 0; j < BS_SIZE; j++)
+            for (j = 0; j < BS_SIZE; j++)
                 for (k = 0; k < nsamples; k++)
                     wdata[j][k] = baseline_data[j][i][k];
 
             sprintf(dset_name, "base_ch%i", i);
             
-	    dset = H5Dcreate(file, dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            dset = H5Dcreate(file, dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
             /* Write the data to the dataset. */
             status = H5Dwrite(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, wdata);
@@ -1441,8 +1441,8 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
                 return 1;
             }
         }
-	/* Writing the actual data to the file */
-	for (i = 0; i < 32; i++) {
+        /* Writing the actual data to the file */
+        for (i = 0; i < 32; i++) {
             if (!(chmask & (1 << i))) continue;
             /* Create dataspace with unlimited dimensions. */
             maxdims[0] = H5S_UNLIMITED;
@@ -1575,7 +1575,8 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
             return 1;
         }
     }
-
+    
+    status = H5Fclose(file);
     if (status) {
         fprintf(stderr, "error closing hdf5 file.\n");
         return 1;

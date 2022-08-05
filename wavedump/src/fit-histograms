@@ -7,7 +7,7 @@ Temporarily saves charge data in `temp_data.csv`. This file can be read by `save
 from __future__ import print_function, division
 import h5py
 import numpy as np
-import scipy as sp
+from scipy.stats import poisson
 import sys
 import csv
 import os
@@ -31,13 +31,13 @@ def iqr(h):
     h.GetQuantiles(2, q, probSum)
     return q[1] - q[0]
 
-def save_as_csv(data_type, value, value_err, channel):
+def save_as_csv(data_type, value, value_err, channel, output):
     """
     Saves charge data in `temp_data.csv`.
     `temp_data.csv` is read by `save_spe_data.py`, which
     organizes the data and saves it to `Fit_Data.csv`.
     """
-    with open ('temp_data.csv', 'a') as file:
+    with open (output, 'a') as file:
         headers = [
             'Data Type',
             'Channel',
@@ -69,10 +69,13 @@ def analyze_filter_data(h, f_h):
     """
     filter_fit = ROOT.TF1('filter_fit', 'gaus', f_h.GetMean() - 2*f_h.GetStdDev(), f_h.GetMean() + 2*f_h.GetStdDev())
     f_h.Fit(filter_fit, 'SRQ0')
+    # The mean of the filtered charges should be approximately zero, independent of any baseline, but still good to initialize it like this.
     offset = filter_fit.GetParameter(1)
+    # The filtered charges should in principle model integrating over pure noise, so the std.'s should be similar.
     noise_spread = filter_fit.GetParameter(2)
-    
-    win = max(0.3, 20*noise_spread)
+    # The noise spread is usually very small compared to the width of the zero peak, so 
+    # scaling it up by 15 is enough capture enough of the zero peak.
+    win = max(0.3, 15*noise_spread)
     raw_fit = ROOT.TF1('raw_fit', 'gaus', offset - win, offset + win)
     raw_fit.SetParameter(1, offset)
     for _ in range(3):
@@ -99,9 +102,6 @@ def peaks(h, width=4, height=0.05):
     ind = np.argsort(x_pos)
     x_pos = x_pos[ind]
     return (x_pos, highest_peak)
-    # print(f'All peaks: {x_pos}')
-    # x_pos = remove_bad_peaks(h, x_pos, 0.5)
-    # print(f'Good peaks: {x_pos}')
 
 def get_bin_num(h, val):
     """
@@ -131,7 +131,7 @@ class poisson_model:
 
 def fac(x):
     """
-    factorial
+    Returns x!. We use the gamma function here instead since it works even for non-integer values and is generally faster than calling math.factorial(x).
     """
     return np.math.gamma(x+1)
 
@@ -205,15 +205,11 @@ if __name__ == '__main__':
     parser.add_argument('filenames',nargs='+',help='input filenames (ROOT format)')
     parser.add_argument('--sodium', default=False, action='store_true', help='flag to indicate data is from a sodium source')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
-    parser.add_argument('--BV', type=int,default=42, help='Bias Voltage input')
-    #parser.add_argument('--peakper', type=double, default=0, help='Direct change of maximum percentage change from maximum peak')
-    parser.add_argument('--ObjKeep', type=int,default=2,  help='Number of objects to fit')
-    # parser.add_argument('--SPE_FLL', default=-0.1, type=float, help='Left limit on the spe fit')
-    # parser.add_argument('--SPE_FLR', default=-0.1, type=float, help='Right limit on the spe fit')
-    parser.add_argument('--NA_GF', default=50, type=float, help='Right limit on the spe fit')
+    parser.add_argument('--bias', type=float,default=42, help='Bias Voltage input')
     parser.add_argument('--chi2', default=False, action='store_true', help='Save the ndof and chi2 value of the fit to csv')
-    parser.add_argument('--root_func', default=False, action='store_true')
+    parser.add_argument('--root_func', default=False, action='store_true', help='Use the custom root function (poisson model) to preform the fit. Otherwise, use the custom python function (Vinogradov model).')
     parser.add_argument("--print_pdfs", default=None, type=str, help="Folder to save pdfs in")
+    parser.add_argument("-o", "--output", default='temp_data.csv', type=str, help="File to write charge data to")
 
     args = parser.parse_args()
     
@@ -224,34 +220,21 @@ if __name__ == '__main__':
     canvas = []
     canvas_count = 1
     if os.path.exists('temp_data.csv'):
+        print("Warning: removing temp_data.csv")
         os.remove('temp_data.csv')
-
+    
     for filename in args.filenames:
         f = ROOT.TFile(filename,"UPDATE")
-        keycount=0
         
         # raw is unfiltered
         raw_histograms = {}
         filtered_histograms = {}
+        key_titles = []
         for key in f.GetListOfKeys():
-            #print("***KEYPRINT")
-            #print(key)
-            #print(key.GetTitle())
-            if (keycount>0):
-                if(key.GetTitle()==keyold.GetTitle()):
-                   # print("EQUAL")
-                    continue
-            keycount+=1
-            keyold=key
-            #if keycount>2:
-            #    break
-
-            #if keycount>args.ObjKeep:# Only gets channel 1
-            #    break
-                # Argument to delete all previous fits. Not working, related to TF1 class?
-                # Each time the code executes 2 new keys are created in the file.
-                #h.Reset("ICESM")
-
+            if key.GetTitle() in key_titles:
+                continue
+            key_titles.append(key.GetTitle())
+            
             h = key.ReadObj()
 
             if h.ClassName() != 'TH1F' and h.ClassName() != 'TH1D':
@@ -259,39 +242,41 @@ if __name__ == '__main__':
 
             if h.GetName().startswith('f_'):
                 filtered_histograms[h.GetName()] = h
-                keycount -= 1
             else:
-                raw_histograms[h.GetName()] = (h, keycount)
+                raw_histograms[h.GetName()] = h
         
-        for histogram in raw_histograms:
-            h = raw_histograms[histogram][0]
-            keycount = raw_histograms[histogram][1]
-            
-
+        for h in raw_histograms.values():
             print(h.GetName())
             if args.sodium:
                 # Peak searching using the TSpectrum class. See ROOT
                 # documentation for details.
                 # https://root.cern.ch/root/htmldoc/guides/spectrum/Spectrum.html#processing-and-visualization-functions
 
-                # *** depending on the overvoltage the peak dimension with respect to the noise makes changes needed on the second value. A more efficient way would be to create a bisection and stop it when it detects only the 2 biggest peaks.
-                #The number of found peaks and their positions are written into the members fNpeaks and fPositionX
-                #Search 	( 	const TH1 *  	hin,
-	        #Double_t  	sigma = 2,
-		#Option_t *  	option = "",
-		#Double_t  	threshold = 0.05 #Peaks with  amplitude < th*Amax are discarded. If too small -> detects peaks after the 511 peak. The code right now detects the last peak (that doesn't have a huge width) as the 511 peak. Other option is to iterate through the y positions and keep always the latest peak with an increase over the previous ones? first derivative with respect to max/min closest to zero 	
+                # *** depending on the overvoltage the peak dimension with
+                # respect to the noise makes changes needed on the second
+                # value. A more efficient way would be to create a bisection
+                # and stop it when it detects only the 2 biggest peaks.
+                # The number of found peaks and their positions are written into
+                # the members fNpeaks and fPositionX 
+                # Search(const TH1 * hin, Double_t sigma = 2, Option_t * option = "", Double_t threshold = 0.05)
+                # Peaks with amplitude < th*Amax are discarded. If too small ->
+                # detects peaks after the 511 peak. The code right now detects
+                # the last peak (that doesn't have a huge width) as the 511
+                # peak. Other option is to iterate through the y positions and
+                # keep always the latest peak with an increase over the
+                # previous ones? first derivative with respect to max/min
+                # closest to zero 	
+                
                 h.GetListOfFunctions().Clear()
                 spec = ROOT.TSpectrum()
-                if(args.BV==42):
+                if args.BV == 42:
                     n_pks = spec.Search(h, 1, "", 0.01)
-                    #n_pks = spec.Search(h, 1, "", 0.999)
-                elif(args.BV>42):
+                elif args.BV > 42:
                     n_pks = spec.Search(h, 1, "", 0.005)
                 else:
-                    # print("Wrong BV<42")
-                    sys.exit("Wrong BV<42")
-
-
+                    print("Don't know how to fit 511 peak for bias voltages less than 42 volts! Quitting...",file=sys.stderr)
+                    sys.exit(1)
+                
                 x_pos = spec.GetPositionX()
                 y_pos = spec.GetPositionY()
 
@@ -304,8 +289,6 @@ if __name__ == '__main__':
                 y_pos = y_pos[ind]
                                       
                 n = len(x_pos)
-                
-                # peak = x_pos[-1]
                
                 f1 = None
                 win = 0.3 * h.GetStdDev()
@@ -329,29 +312,22 @@ if __name__ == '__main__':
 
                 #*** Store values in txt/csv file
                 print("511 peak = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
-                save_as_csv('sodium', f1.GetParameter(1), f1.GetParError(1), h.GetName())
+                save_as_csv('sodium', f1.GetParameter(1), f1.GetParError(1), h.GetName(), args.output)
 
                 h.Write()
+                if args.plot or args.print_pdfs:
+                    canvas.append(ROOT.TCanvas("c%i" % canvas_count))
+                    canvas_count += 1
+                    h.Draw()
+                    canvas[-1].Update()
                 if args.print_pdfs:
                     print("*** Print PDF 1:")
-                    canvas.append(ROOT.TCanvas("c%i" % canvas_count))
-                    canvas_count += 1
-                    h.Draw()
-                    canvas[-1].Update()
                     root, ext = os.path.splitext(filename)
-                    canvas[-1].Print(os.path.join(args.print_pdfs, f"{root}_Key_{keycount}.pdf"))
-                elif args.plot:
-                    canvas.append(ROOT.TCanvas("c%i" % canvas_count))
-                    canvas_count += 1
-                    h.Draw()
-                    canvas[-1].Update()
+                    canvas[-1].Print(os.path.join(args.print_pdfs, f"{root}_{h.GetName()}.pdf"))
             else:
                 print("Single P.h.e:")
-                string = "[0]*(" + "+".join(["TMath::Poisson(%i,[2])*TMath::Gaus(x-[1],[3]*%i,TMath::Sqrt([4]^2+[5]^2*%i))" % (i,i,i) for i in range(0,n)]) + ")"
+                string = "[0]*(" + "+".join(["TMath::Poisson(%i,[2])*TMath::Gaus(x-[1],[3]*%i,TMath::Sqrt([4]^2+[5]^2*%i))" % (i,i,i) for i in range(0,num_peaks)]) + ")"
 
-                #string = "+".join(["gaus(%i)" % i for i in range(0,n*3,3)])
-
-                # print("Using the following fit string: '%s'" % string)
                 # *** we could set a threshold/break to find when the Y axis /charge goes above a certain values from the smallest X to set the first value (-0.4 as of the time of this comment)
                 if args.root_func: 
                     f1 = ROOT.TF1("f1", string, h.GetMean() - 2 * h.GetStdDev(), h.GetMean() + 4 * h.GetStdDev())
@@ -376,13 +352,13 @@ if __name__ == '__main__':
                 num_zero = h.Integral(0, get_bin_num(h, zero_peak_end))
                 prob_zero = num_zero / h.GetEntries()
                 l = -np.log(prob_zero)
-                num_peaks = max(20, min(2, sp.stats.poisson.ppf(0.95, l)))
+                num_peaks = max(20, min(2, poisson.ppf(0.95, l)))
                 
                 # SPE Charge estimated using the method from this forum:
                 # https://math.stackexchange.com/questions/3689141/calculating-the-mean-and-standard-deviation-of-a-gaussian-mixture-model-of-two-c
                 SPE_charge = h.GetMean()
-                SPE_charge -= offset * sum([vinogradov(i, l, f1.GetParameter(6)) for i in range(n)])
-                SPE_charge /= sum([vinogradov(i, l, f1.GetParameter(6)) * i for i in range(n)])
+                SPE_charge -= offset * sum([vinogradov(i, l, f1.GetParameter(6)) for i in range(num_peaks)])
+                SPE_charge /= sum([vinogradov(i, l, f1.GetParameter(6)) * i for i in range(num_peaks)])
                 SPE_charge = min(4, SPE_charge)
                 SPE_charge = max(zero_peak_end - offset, SPE_charge)
 
@@ -402,34 +378,6 @@ if __name__ == '__main__':
                 f1.FixParameter(4, raw_spread)
                 
                 f1.FixParameter(5, D_SPE_CHARGE_SPREAD)
-                
-                # The following indented block is code older than June 2022
-                    # if len(x_pos) >= 1:
-                    #     if len(x_pos) == 1:
-                    #         f1.FixParameter(1, float(x_pos))  
-                    #         f1.SetRange(f1.GetParameter(1) - h.GetStdDev() * 0.5, f1.GetXmax()) 
-                    #     else:
-                    #         f1.FixParameter(1, float(x_pos[0]))  
-                    #         f1.SetRange(f1.GetParameter(1) - h.GetStdDev() * 0.5, float(x_pos[-1]) + h.GetStdDev() * 0.5) 
-                    # if len(x_pos) > 1:
-                    #     found_SPE_peak = True
-                    #     f1.FixParameter(3, float(x_pos[1]) - f1.GetParameter(1))
-                    # if not found_SPE_peak:
-                    #     f1.SetParameter(3,0.8)                
-                    #     f1.SetParLimits(3,0.1,5.)
-                    # if len(x_pos) == 0:
-                    #     f1.SetParameter(1, -0.08)
-                    #     f1.SetParLimits(1,-1,1)
-
-                    #for j, i in enumerate(range(0,n*3,3)):
-                    #    print(i)
-                    #    f1.SetParameter(i,y_pos[j])
-                    #    f1.SetParameter(i+1,x_pos[j])
-                    #    f1.FixParameter(i+1,x_pos[j])
-                    #    f1.SetParameter(i+2,0.02)
-                    #    f1.FixParameter(i+2,0.02)
-
-                    #r = h.Fit(f1, 'ILMSRN+')
                 
                 for i in range(6):
                     print(f'[{i}]: {f1.GetParameter(i)}')
@@ -453,21 +401,6 @@ if __name__ == '__main__':
                 if not r.IsValid():
                     print("Fit error!")
                 
-                # Older than June 2022
-                    #*** Store parameter p3 in csv/txt + print in screen only that one to avoid errors 
-                    
-                    #for j, i in enumerate(range(0,n*3,3)):
-                    #    print(i)
-                    #    f1.ReleaseParameter(i)
-                    #    f1.ReleaseParameter(i+1)
-                    #    f1.ReleaseParameter(i+2)
-
-                    #r = h.Fit(f1, 'ILMSR+')
-                    
-                    #print("peak 1 = %.4f +/- %.4f" % (f1.GetParameter(1), f1.GetParError(1)))
-                    #if n > 1:
-                    #    print("peak 2 = %.4f +/- %.4f" % (f1.GetParameter(4), f1.GetParError(4)))
-                
                 if args.chi2:
                     with open('chi2_fit_data.csv', 'a') as csv_file:
                         headers = [
@@ -490,26 +423,22 @@ if __name__ == '__main__':
                         print(f1.GetProb())
                         print(f1.GetChisquare())
                 
-                save_as_csv('SPE', f1.GetParameter(3), f1.GetParError(3), h.GetName())
+                save_as_csv('SPE', f1.GetParameter(3), f1.GetParError(3), h.GetName(), args.output)
 
                 h.SetAxisRange(-4, 6, "X")
                 h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
                 h.Write()
                 filtered_histograms[f'f_{h.GetName()}'].Write()
 
-                if args.plot:
+                if args.plot or args.print_pdfs:
                     canvas.append(ROOT.TCanvas("c%i" % canvas_count))
                     canvas_count += 1
                     h.Draw()
                     canvas[-1].Update()
                 if args.print_pdfs:
-                    print("***Print to PDF 2:")
-                    canvas.append(ROOT.TCanvas("c%i" % canvas_count))
-                    canvas_count += 1
-                    h.Draw()
-                    canvas[-1].Update()
+                    print("*** Print PDF 1:")
                     root, ext = os.path.splitext(filename)
-                    canvas[-1].Print(os.path.join(args.print_pdfs, f"{root}_Key_{keycount}.pdf"))
+                    canvas[-1].Print(os.path.join(args.print_pdfs, f"{root}_{h.GetName()}.pdf"))
         if args.plot:
             input()
         f.Close()

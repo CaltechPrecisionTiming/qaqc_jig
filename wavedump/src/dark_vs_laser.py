@@ -1,7 +1,7 @@
 """
 Compares SPE charge measurements taken with the laser to those taken with dark counts with different integration times.
 Note: to select which series of data to view, the file must be modified manually.
-When writing to the data file (via `save_spe_data.py`), make sure to include keywords in the 'Extra' column so that you can filter out the trials you want to compare.
+When writing to the data file (via `save_charge_data.py`), make sure to include keywords in the 'Extra' column so that you can filter out the trials you want to compare.
 
 Author: Kai Svenson
 Date: Aug. 4, 2022
@@ -10,6 +10,7 @@ Date: Aug. 4, 2022
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 from argparse import ArgumentParser
  
 parser = ArgumentParser()
@@ -74,5 +75,5 @@ try:
         plt.show()
 except FileNotFoundError:
     print(f"Couldn't open file {args.data_file}")
-    exit(1)
+    sys.exit(1)
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Creates charge histograms from hdf5 files made from `wavedump` or `acquire-waveforms`.
+Creates charge histograms from hdf5 files made from `wavedump` or
+`acquire-waveforms`.
 """
 
 from __future__ import print_function, division
@@ -16,8 +17,8 @@ def iqr(x):
 
 def get_threshold_crossing(x, data, threshold=0.4, rising=True):
     """
-    Returns the times at which the waveforms in `x` cross `threshold*100`% of their minimum
-    value.
+    Returns the times at which the waveforms in `x` cross `threshold*100`% of
+    their minimum value.
     """
     data = np.asarray(data)
     argmin = np.argmin(data,axis=-1)

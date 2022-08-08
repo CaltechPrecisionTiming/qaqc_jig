@@ -1625,7 +1625,7 @@ WaveDumpConfig_t set_default_settings(char *trig_type) {
 
     /* Enable all channels. */
     WDcfg.EnableMask = 0xFF;
-
+    
     /* Set to trigger on negative pulses. */
     for (i = 0; i < MAX_SET; i++)
 	WDcfg.PulsePolarity[i] = CAEN_DGTZ_PulsePolarityNegative;

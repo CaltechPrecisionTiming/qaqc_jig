@@ -14,7 +14,7 @@ import sys
 from argparse import ArgumentParser
  
 parser = ArgumentParser()
-parser.add_argument('-d', '--data_file', default='Fit_Data.csv', help='csv file to read SPE data from')
+parser.add_argument('-d', '--data-file', default='Fit_Data.csv', help='csv file to read SPE data from')
 args = parser.parse_args()
 
 try:

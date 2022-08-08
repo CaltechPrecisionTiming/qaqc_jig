@@ -215,8 +215,8 @@ if __name__ == '__main__':
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
     parser.add_argument('--bias', type=float,default=42, help='Bias Voltage input')
     parser.add_argument('--chi2', default=False, action='store_true', help='Save the ndof and chi2 value of the fit to csv')
-    parser.add_argument('--root_func', default=False, action='store_true', help='Use the custom root function (poisson model) to preform the fit. Otherwise, use the custom python function (Vinogradov model).')
-    parser.add_argument("--print_pdfs", default=None, type=str, help="Folder to save pdfs in")
+    parser.add_argument('--root-func', default=False, action='store_true', help='Use the custom root function (poisson model) to preform the fit. Otherwise, use the custom python function (Vinogradov model).')
+    parser.add_argument("--print-pdfs", default=None, type=str, help="Folder to save pdfs in")
     parser.add_argument("-o", "--output", default=None, type=str, help="File to write charge data to")
 
     args = parser.parse_args()

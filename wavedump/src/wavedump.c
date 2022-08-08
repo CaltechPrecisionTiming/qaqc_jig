@@ -1595,7 +1595,7 @@ void print_help()
     exit(1);
 }
 
-WaveDumpConfig_t set_default_settings() {
+WaveDumpConfig_t set_default_settings(char *trig_type) {
     int i, j;
     WaveDumpConfig_t WDcfg;
 
@@ -1628,6 +1628,11 @@ WaveDumpConfig_t set_default_settings() {
     /* Set to trigger on negative pulses. */
     for (i = 0; i < MAX_SET; i++)
 	WDcfg.PulsePolarity[i] = CAEN_DGTZ_PulsePolarityNegative;
+    
+    if (strcmp(trig_type, "self") !=0 && strcmp(trig_type, "external") != 0 && strcmp(trig_type, "software") != 0) {
+        printf("Unrecognized trigger type. Defaulting to software triggers");
+        trig_type = "software";
+    }
     
     /* Set the DC offset of the channels. 
      * WDcfg.DCoffset[i] sets a common offset to group `i`.
@@ -1729,7 +1734,7 @@ int main(int argc, char *argv[])
     CAEN_DGTZ_ErrorCode ret = CAEN_DGTZ_Success;
     int handle = -1;
     ERROR_CODES ErrCode = ERR_NONE;
-    int i, j, ch;
+    int i, ch;
     uint32_t AllocatedSize, BufferSize, NumEvents;
     char *buffer = NULL;
     char *EventPtr = NULL;
@@ -1743,10 +1748,7 @@ int main(int argc, char *argv[])
     double voltage = -1;
     int barcode = 0;
     uint32_t data;
-    bool self = false;
-    bool external = false;
-    bool software = false;
-
+    char *trig_type = NULL;
     CAEN_DGTZ_X742_EVENT_t *Event742 = NULL;
 
     FILE *f_ini;
@@ -1764,14 +1766,7 @@ int main(int argc, char *argv[])
         } else if (!strcmp(argv[i],"--help")) {
             print_help();
         } else if (!strcmp(argv[i],"--trigger")) {
-            char *trig = argv[++i];
-            if (strcmp(trig, "self") == 0) {
-                self = true;
-            } else if (strcmp(trig, "external") == 0) {
-                external = true;
-            } else {
-                software = true;
-            }
+            trig_type = argv[++i];            
         } else if (!strcmp(argv[i],"-b") || !strcmp(argv[i],"--barcode")) {
             barcode = atoi(argv[++i]);
         } else if (!strcmp(argv[i],"-v") || !strcmp(argv[i],"--voltage")) {
@@ -1780,8 +1775,6 @@ int main(int argc, char *argv[])
             config_filename = argv[i];
         }
     }
-
-    software = !(self || external);
 
     if (!output_filename || barcode == 0 || voltage < 0)
         print_help();
@@ -1793,10 +1786,9 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, sigint_handler);
     
-    /* TODO: make methods that set all these settings.
-     * Make separate methods for the settings needed for
+    /* TODO: Make separate methods for the settings needed for
      * 511 and SPE. */
-    WDcfg = set_default_settings();
+    WDcfg = set_default_settings(trig_type);
     
     WDcfg.voltage = voltage;
     WDcfg.barcode = barcode;
@@ -2123,7 +2115,7 @@ int main(int argc, char *argv[])
     // }
     
     /* Set the channels to trigger on themselves */
-    if (self) {
+    if (strcmp(trig_type, "self") == 0) {
         /* Page 45 of file:///home/cptlab/Downloads/UM4270_DT5742_UserManual_rev10.pdf gives
          * the instructions of how to set up self-trigger. */
         for (i = 0; i < 2; i++) {
@@ -2167,7 +2159,7 @@ int main(int argc, char *argv[])
     }
 
     /* Deactivating ability to self trigger */
-    if (external || software) {
+    if (strcmp(trig_type, "external") == 0 || strcmp(trig_type, "software") == 0) {
         ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8, 0x00);
         if(ret) printf("failed to deactivate triggers!\n");
         ret = CAEN_DGTZ_WriteRegister(handle, 0x11A8, 0x00);
@@ -2175,7 +2167,7 @@ int main(int argc, char *argv[])
     }
 
     /* Enabling external trigger for laser */
-    if (external) {
+    if (strcmp(trig_type, "external") == 0) {
         ret = CAEN_DGTZ_ReadRegister(handle, 0x810C, &data);
         if (ret) {
             fprintf(stderr, "failed to read register 0x810C!\n");
@@ -2224,9 +2216,8 @@ int main(int argc, char *argv[])
     /* Now, we go into the main loop where we get events. */
 
     int nread = 0;
-    int nzero = 0;
     while (!stop && total_events < nevents) {
-        if (software) {
+        if (strcmp(trig_type, "software") == 0) {
             /* Sending software triggers for SPE analysis without laser */
             printf("sending sw trigger\n");
             for (i = 0; i < 100; i++) {

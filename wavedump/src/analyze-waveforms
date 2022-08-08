@@ -16,7 +16,7 @@ def iqr(x):
 
 def get_threshold_crossing(x, data, threshold=0.4, rising=True):
     """
-    Returns the times at which the waveforms in `x` cross 40% of their minimum
+    Returns the times at which the waveforms in `x` cross `threshold*100`% of their minimum
     value.
     """
     data = np.asarray(data)
@@ -45,6 +45,8 @@ def get_fall_time(x, data):
     t90 = get_threshold_crossing(x, data, 0.9, rising=False)
     return t10 - t90
 
+
+# FIXME: `get_times` is unused.
 def get_times(x, data, baseline=10):
     """
     Returns the times at which the waveforms in `x` cross 40% of their minimum
@@ -62,6 +64,18 @@ def get_times(x, data, baseline=10):
     argmin = np.argmin(data,axis=-1)
     threshold = 0.4*data[np.arange(data.shape[0]),argmin]
     return x[data.shape[1]-np.argmax(((np.arange(data.shape[1]) < argmin[:,np.newaxis]) & (data > threshold[:,np.newaxis]))[:,::-1],axis=-1)-1]
+
+def get_window(x, data):
+    """
+    Returns the indices over which you should integrate the waveforms in `x`.
+    This is the interval during which the signal is less than 10% of its
+    minimum.
+    """
+    left_time = np.mean(get_threshold_crossing(x, data, threshold=0.1, rising=True))
+    right_time = np.mean(get_threshold_crossing(x, data, threshold=0.1, rising=False))
+    a = np.argmin(np.abs(x-left_time))
+    b = np.argmin(np.abs(x-right_time))
+    return a, b
 
 def get_spe_window(x, start, integration_time):
     """
@@ -81,25 +95,6 @@ def get_spe_window(x, start, integration_time):
         print('SPE integration time is too long! Quitting...', file=sys.stderr)
         sys.exit(1)
     return (a,b)
-
-def get_window(x, data, left=1, right=10):
-    """
-    Returns the indices start and stop over which you should integrate the
-    waveforms in `x`. The window is found by calculating the median hit time
-    for all pulses in `x` and then going back 10 ns and forward 125 ns for
-    sodium and 10 ns otherwise.
-    """
-    # FIXME
-    # This method should incorportate get_threshold_crossing
-    data = np.asarray(data)
-    t = (x,data)
-    mean_hit_time = np.median(t)
-    a, b = np.searchsorted(x,[mean_hit_time-left,mean_hit_time+right])
-    if a < 0:
-        a = 0
-    if b > len(x) - 1:
-        b = len(x) - 1
-    return a, b
 
 def integrate(x, data, a, b):
     """

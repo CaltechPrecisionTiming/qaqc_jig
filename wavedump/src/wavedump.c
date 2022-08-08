@@ -1629,11 +1629,6 @@ WaveDumpConfig_t set_default_settings(char *trig_type) {
     for (i = 0; i < MAX_SET; i++)
 	WDcfg.PulsePolarity[i] = CAEN_DGTZ_PulsePolarityNegative;
     
-    if (strcmp(trig_type, "self") !=0 && strcmp(trig_type, "external") != 0 && strcmp(trig_type, "software") != 0) {
-        printf("Unrecognized trigger type. Defaulting to software triggers");
-        trig_type = "software";
-    }
-    
     /* Set the DC offset of the channels. 
      * WDcfg.DCoffset[i] sets a common offset to group `i`.
      * WDcfg.DCoffsetGrpCh[i][j] sets the offset of group `i`, channel `j`
@@ -1724,10 +1719,10 @@ int main(int argc, char *argv[])
     struct statvfs st;
     statvfs("/home", &st);
     double free_space = ((double)st.f_bfree * st.f_frsize) / pow(2, 30);
-    printf("Free Space remaining in /home: %f", free_space);
+    printf("Free Space remaining in /home: %fGB\n", free_space);
     if (free_space < 10) {
-	printf("Too little space available! Try deleting some hdf5 files. Quitting...");
-	return 0;
+	printf("Too little space available (< 10 GB)! Try deleting some hdf5 files. Quitting...");
+	exit(1);
     }
     WaveDumpConfig_t WDcfg;
     WaveDumpRun_t WDrun;
@@ -1776,6 +1771,11 @@ int main(int argc, char *argv[])
         }
     }
 
+    if (strcmp(trig_type, "self") !=0 && strcmp(trig_type, "external") != 0 && strcmp(trig_type, "software") != 0) {
+        printf("Unrecognized trigger type! Quitting...");
+        exit(1);
+    }
+    
     if (!output_filename || barcode == 0 || voltage < 0)
         print_help();
 

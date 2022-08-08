@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from scipy import signal
 import os
+import sys
 
 def iqr(x):
     return np.percentile(x,75) - np.percentile(x,25)
@@ -196,6 +197,9 @@ if __name__ == '__main__':
     from argparse import ArgumentParser
     import ROOT
     import matplotlib.pyplot as plt
+    # FIXME: these modules are not installed
+    # import psycopg2
+    # import psycopg2.extensions
 
     parser = ArgumentParser(description='Analyze SPE and 511 charges')
     parser.add_argument('filenames',nargs='+',help='input filenames (hdf5 format)')
@@ -208,15 +212,28 @@ if __name__ == '__main__':
     parser.add_argument('--active', default=None, help='Only take data from a single channel. If not specified, all channels are analyzed.')
     parser.add_argument('--integration-method', type=int, default=1, help='Select a method of integration. Methods described in __main__')
     parser.add_argument("--print-pdfs", default=None, type=str, help="Folder to save pdfs in.")
-
+    parser.add_argument('-u','--upload', default=False, action='store_true', help='upload results to the database')
     args = parser.parse_args()
 
-    charge = {}
-    f_charge = {}
-    # Only active channel is analyzed, unless it's the empty string, in which case all channels are analyzed.
+    # Only active channel is analyzed, unless it's the empty string, in which
+    # case all channels are analyzed.
     active_ch = args.active
+    file_count = 0
     for filename in args.filenames:
+        charge = {}
+        f_charge = {}
+        data = {}
+        if args.sodium:
+            data['ch_511'] = []
+            data['ch_511_rise_time'] = []
+            data['ch_511_fall_time'] = []
         with h5py.File(filename) as f:
+            if 'data_source' in list(f.attrs):
+                if f.attrs['data_source'] == b'CAEN':
+                    data['barcode'] = int(f.attrs['barcode'])
+                    data['voltage'] = int(f.attrs['voltage'])
+                    data['git_sha1'] = f.attrs['git_sha1'].decode("UTF-8")
+                    data['git_dirty'] = f.attrs['git_dirty'].decode("UTF-8")
             for channel in f:
                 # All relevant channels, from scope and digitizer, should be in this format: 'ch<channel number>'.
                 if channel == 'settings':
@@ -238,6 +255,8 @@ if __name__ == '__main__':
                             charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
                         else:
                             charge[channel] = integrate(x,y, a, b)
+                        data['ch_511_rise_time'].append(np.median(get_rise_time(x, y)))
+                        data['ch_511_fall_time'].append(np.median(get_fall_time(x, y)))
                     else:
                         a, b = get_spe_window(x, args.start_time, args.integration_time)
                         
@@ -254,10 +273,10 @@ if __name__ == '__main__':
                         #    between `ma` and `mb` of events that don't have an SPE in this range.
                         ################################
                         
-                        # Integration Method 0:
-                        y -= np.median(y, axis=-1)[:, np.newaxis]  # per event median subtraction
+                        # Integration Method 0, per event median subtraction:
+                        y -= np.median(y, axis=-1)[:, np.newaxis]
                         
-                        if args.integration_method == 1:
+                        if args.integration_method == 1: # default method
                             cutoff = -2*iqr(high_filter_y.flatten())
                             no_SPE_mask = y > cutoff 
                             y -= np.array([np.median(y[i, no_SPE_mask[i]]) for i in range(len(y))])[:, np.newaxis]
@@ -296,7 +315,7 @@ if __name__ == '__main__':
                         else:
                             charge[channel] = integrate(x,y, a, b)
                             f_charge[channel] = integrate(x, high_filter_y, a, b)
-                    
+                        
                 if args.plot or args.print_pdfs:
                     plt.figure()
                     plt.subplot(2,1,1)
@@ -332,33 +351,66 @@ if __name__ == '__main__':
                     plt.axvline(x[a])
                     plt.axvline(x[b])
                     plt.suptitle(channel)
-                
-    f = ROOT.TFile(args.output,"recreate")
-    for channel in charge:
-        bins = get_bins(charge[channel])
-        h = ROOT.TH1D(channel,"Charge Integral for %s" % channel,len(bins),bins[0],bins[-1])
-        for x in charge[channel]:
-            h.Fill(x)
-        h.GetXaxis().SetTitle("Charge (pC)")
-        
-        if args.plot or args.print_pdfs:
-            plt.figure()
-            plt.hist(charge[channel],bins=bins,histtype='step',label=channel)
-            plt.xlabel("Charge (pC)")
-            plt.legend()
-        if args.print_pdfs:
-            root, ext = os.path.splitext(filename)
-            plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_{args.start_time}_{args.integration_time}.pdf"))
-        h.Write()
+        if len(args.filenames) == 1:        
+            f = ROOT.TFile(args.output,"recreate")
+        else:
+            f = ROOT.TFile(f'file{file_count}_{args.output}',"recreate")
 
-    # The prefix `f_` will be used to denote objects that correspond to filtered data.
-        f_bins = get_bins(f_charge[channel])
-        f_h = ROOT.TH1D(f'f_{channel}', "Filtered Charge Integral for %s" % channel, len(f_bins), f_bins[0], f_bins[-1])
-        for x in f_charge[channel]:
-            f_h.Fill(x)
-        f_h.GetXaxis().SetTitle('Charge (pC)')
-        f_h.Write()
-    f.Close()
+        for channel in charge:
+            bins = get_bins(charge[channel])
+            h = ROOT.TH1D(channel,"Charge Integral for %s" % channel,len(bins),bins[0],bins[-1])
+            for x in charge[channel]:
+                h.Fill(x)
+            h.GetXaxis().SetTitle("Charge (pC)")
+            if args.sodium:            
+                bincenters = (bins[1:] + bins[:-1])/2
+                hist, bins = np.histogram(charge[channel],bins=bins)
+                data['ch_511'].append(bincenters[np.argmax(hist)])
+            
+            if args.plot or args.print_pdfs:
+                plt.figure()
+                plt.hist(charge[channel],bins=bins,histtype='step',label=channel)
+                plt.xlabel("Charge (pC)")
+                plt.legend()
+            if args.print_pdfs:
+                root, ext = os.path.splitext(filename)
+                plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_{args.start_time}_{args.integration_time}.pdf"))
+            h.Write()
+
+        # The prefix `f_` will be used to denote objects that correspond to filtered data.
+            f_bins = get_bins(f_charge[channel])
+            f_h = ROOT.TH1D(f'f_{channel}', "Filtered Charge Integral for %s" % channel, len(f_bins), f_bins[0], f_bins[-1])
+            for x in f_charge[channel]:
+                f_h.Fill(x)
+            f_h.GetXaxis().SetTitle('Charge (pC)')
+            f_h.Write()
+        f.Close()
+        
+        if args.upload:
+            if 'BTL_DB_HOST' not in os.environ:
+                print("need to set BTL_DB_HOST environment variable!",file=sys.stderr)
+                sys.exit(1)
+
+            if 'BTL_DB_PASS' not in os.environ:
+                print("need to set BTL_DB_PASS environment variable!",file=sys.stderr)
+                sys.exit(1)
+
+            print("Uploading results to the database...")
+            conn = psycopg2.connect(dbname='btl_qa',
+                                    user='btl',
+                                    host=os.environ['BTL_DB_HOST'],
+                                    password=os.environ['BTL_DB_PASS'])
+            conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+
+            cursor = conn.cursor()
+            if args.sodium:
+                cursor.execute("INSERT INTO btl_qa (barcode, voltage, ch_511, ch_511_rise_time, ch_511_fall_time, git_sha1, git_dirty, institution) VALUES (%(barcode)s, %(voltage)s, %(ch_511)s, %(ch_511_rise_time)s, %(ch_511_fall_time)s, %(git_sha1)s, %(git_dirty)s, 'Caltech'::inst)", data)
+            else:
+                cursor.execute("INSERT INTO btl_qa (barcode, voltage, git_sha1, git_dirty, institution) VALUES (%(barcode)s, %(voltage)s, %(git_sha1)s, %(git_dirty)s, 'Caltech'::inst)", data)
+
+            print("Done")
+    
+    file_count += 1 
 
     if args.plot:
         plt.show()

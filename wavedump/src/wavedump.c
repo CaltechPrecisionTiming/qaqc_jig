@@ -1601,6 +1601,7 @@ WaveDumpConfig_t set_default_settings(char *trig_type) {
 
     memset(&WDcfg, 0, sizeof(WDcfg));
     
+    /* See `WDconfig.c` to view CAEN's default settings */
     SetDefaultConfiguration(&WDcfg);
 
     WDcfg.LinkType = 0;
@@ -2104,9 +2105,9 @@ int main(int argc, char *argv[])
     }
 
     /* This is how the CAEN API says to set self-triggers, but we found that it
- * didn't work, so we wrote directly to the registers instead. Maybe it has to
- * do with the order in which we're programming the digitizer. These methods
- * are usually called in `Program_Digitizer`. */
+     * didn't work, so we wrote directly to the registers instead. Maybe it has to
+     * do with the order in which we're programming the digitizer. These types of
+     * functions are usually called in `Program_Digitizer`. */
     // ret = CAEN_DGTZ_SetChannelSelfTrigger(handle, CAEN_DGTZ_TRGMODE_ACQ_ONLY, 0xffff);
     // 
     // if (ret) {
@@ -2295,6 +2296,7 @@ int main(int argc, char *argv[])
         }
 
         total_events += nread;
+        nread = 0;
 	
         usleep(1000);
     }
@@ -2302,9 +2304,9 @@ int main(int argc, char *argv[])
     if (stop)
         fprintf(stderr, "ctrl-c caught. writing out %i events\n", nread);
 
-    // if (nread > 0 && add_to_output_file(output_filename, wfdata, nread, chmask, nsamples, &WDcfg)) {
-    //     fprintf(stderr, "failed to write events to file!\n");
-    // }
+    if (nread > 0 && add_to_output_file(output_filename, wfdata, nread, chmask, nsamples, &WDcfg)) {
+        fprintf(stderr, "failed to write events to file!\n");
+    }
 
     CAEN_DGTZ_SWStopAcquisition(handle);
 

@@ -61,7 +61,7 @@ if [ "$src" = true ] ; then
 	# * Integration Duration
 	IT="100"
 	spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_LASER_${EXTRA}.root"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -it $IT --active $active
+	./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -t $IT --active $active
 	./fit-histograms -o temp_data.csv $spe_root --print_pdfs FiguresFit 
 	python3 save_spe_data.py --bias $BV --n $ne --date $date --time $Time --source "CAEN" --extra "LASER_$EXTRA"
 	
@@ -70,7 +70,7 @@ if [ "$src" = true ] ; then
 	for IT in 100 200 300
 	do
 		spe_root="CAEN_${active}_${date}_${Time}_${BV}v_IT${IT}_DARK_${EXTRA}.root"
-		./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -it $IT --active $active
+		./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -t $IT --active $active
 		./fit-histograms -o temp_data.csv $spe_root --print_pdfs FiguresFit 
 		python3 save_spe_data.py --bias $BV --n $ne --date $date --time $Time --source "CAEN" --extra "DARK_${IT}_${EXTRA}"
 	done
@@ -84,7 +84,7 @@ else
 	s="40"
 	# * Integration Duration
 	IT="100"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -it $IT --active $active
+	./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -t $IT --active $active
 	./fit-histograms -o temp_data.csv $spe_root --print_pdfs FiguresFit 
 	python3 save_spe_data.py --bias $BV --n $ne --date $date --time $Time --source "SCOPE" --extra "LASER_$EXTRA"
 	
@@ -93,7 +93,7 @@ else
 	s="200"
 	# * Integration Duration
 	IT="200"
-	./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -it $IT --active $active
+	./analyze-waveforms $spe_hdf5 -o $spe_root --print_pdfs FiguresAnalysis -s $s -t $IT --active $active
 	./fit-histograms -o temp_data.csv $spe_root --print_pdfs FiguresFit 
 	python3 save_spe_data.py --bias $BV --n $ne --date $date --time $Time --source "SCOPE" --extra "DARK_${IT}_${EXTRA}" 
 fi

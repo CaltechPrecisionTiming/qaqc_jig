@@ -47,8 +47,6 @@ def get_fall_time(x, data):
     t90 = get_threshold_crossing(x, data, 0.9, rising=False)
     return t10 - t90
 
-
-# FIXME: `get_times` is unused.
 def get_times(x, data, baseline=10):
     """
     Returns the times at which the waveforms in `x` cross 40% of their minimum

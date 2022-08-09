@@ -1591,6 +1591,7 @@ void print_help()
     "  -b, --barcode <barcode>    Barcode of the module being tested\n"
     "  -v, --voltage <voltage>    Voltage (V)"
     "  --help                     Output this help and exit.\n"
+    "  -t, --trigger <trigger>    Type of trigger: \"software\", \"external\", or \"self\".\n"
     "\n");
     exit(1);
 }
@@ -1761,20 +1762,20 @@ int main(int argc, char *argv[])
             output_filename = argv[++i];
         } else if (!strcmp(argv[i],"--help")) {
             print_help();
-        } else if (!strcmp(argv[i],"--trigger")) {
+        } else if ((!strcmp(argv[i],"-t") || !strcmp(argv[i],"--trigger")) && i < argc - 1) {
             trig_type = argv[++i];            
-        } else if (!strcmp(argv[i],"-b") || !strcmp(argv[i],"--barcode")) {
+        } else if ((!strcmp(argv[i],"-b") || !strcmp(argv[i],"--barcode")) && i < argc - 1) {
             barcode = atoi(argv[++i]);
-        } else if (!strcmp(argv[i],"-v") || !strcmp(argv[i],"--voltage")) {
+        } else if ((!strcmp(argv[i],"-v") || !strcmp(argv[i],"--voltage")) && i < argc - 1) {
             voltage = atof(argv[++i]);
         } else {
             config_filename = argv[i];
         }
     }
 
-    if (strcmp(trig_type, "self") !=0 && strcmp(trig_type, "external") != 0 && strcmp(trig_type, "software") != 0) {
-        printf("Unrecognized trigger type! Quitting...");
-        exit(1);
+    if ((trig_type == NULL) || (strcmp(trig_type, "self") !=0 && strcmp(trig_type, "external") != 0 && strcmp(trig_type, "software") != 0)) {
+        printf("Unrecognized or no trigger type!\n");
+        print_help();
     }
     
     if (!output_filename || barcode == 0 || voltage < 0)
@@ -2304,7 +2305,7 @@ int main(int argc, char *argv[])
     if (stop)
         fprintf(stderr, "ctrl-c caught. writing out %i events\n", nread);
 
-    if (nread > 0 && add_to_output_file(output_filename, wfdata, nread, chmask, nsamples, &WDcfg)) {
+    if (nread > 0 && add_to_output_file(output_filename, wfdata, bdata, nread, chmask, nsamples, &WDcfg)) {
         fprintf(stderr, "failed to write events to file!\n");
     }
 

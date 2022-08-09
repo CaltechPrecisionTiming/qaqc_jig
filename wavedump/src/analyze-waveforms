@@ -28,13 +28,15 @@ def get_threshold_crossing(x, data, threshold=0.4, rising=True):
         ir = il + 1
         ir[ir >= data.shape[1]] = data.shape[1]-1
         i = np.arange(data.shape[0])
-        return x[il] + (thresholds-data[i,il])*(x[ir]-x[il])/(data[i,ir]-data[i,il])
+        print(f'il: {data[0, il[0]]}')
+        print(f'ir: {data[0, ir[0]]}')
+        return x[il] + (np.abs(thresholds-data[i,il]))*(x[ir]-x[il])/(data[i,ir]-data[i,il])
     else:
         il = data.shape[1]-np.argmax(((np.arange(data.shape[1]) > argmin[:,np.newaxis]) & (data < thresholds[:,np.newaxis]))[:,::-1],axis=-1)-1
         ir = il + 1
         ir[ir >= data.shape[1]] = data.shape[1]-1
         i = np.arange(data.shape[0])
-        return x[il] + (thresholds-data[i,il])*(x[ir]-x[il])/(data[i,ir]-data[i,il])
+        return x[il] + (np.abs(thresholds-data[i,il]))*(x[ir]-x[il])/(data[i,ir]-data[i,il])
 
 def get_rise_time(x, data):
     t10 = get_threshold_crossing(x, data, 0.1)
@@ -66,16 +68,20 @@ def get_times(x, data, baseline=10):
     threshold = 0.4*data[np.arange(data.shape[0]),argmin]
     return x[data.shape[1]-np.argmax(((np.arange(data.shape[1]) < argmin[:,np.newaxis]) & (data > threshold[:,np.newaxis]))[:,::-1],axis=-1)-1]
 
-def get_window(x, data):
+def get_window(x, data, left=1, right=10):
     """
-    Returns the indices over which you should integrate the waveforms in `x`.
-    This is the interval during which the signal is less than 10% of its
-    minimum.
+    Returns the indices start and stop over which you should integrate the
+    waveforms in `x`. The window is found by calculating the median hit time
+    for all pulses in `x` and then going back `left` ns and forward `right` ns.
     """
-    left_time = np.mean(get_threshold_crossing(x, data, threshold=0.1, rising=True))
-    right_time = np.mean(get_threshold_crossing(x, data, threshold=0.1, rising=False))
-    a = np.argmin(np.abs(x-left_time))
-    b = np.argmin(np.abs(x-right_time))
+    data = np.asarray(data)
+    t = get_times(x,data)
+    mean_hit_time = np.median(t)
+    a, b = np.searchsorted(x,[mean_hit_time-left,mean_hit_time+right])
+    if a < 0:
+        a = 0
+    if b > len(x) - 1:
+        b = len(x) - 1
     return a, b
 
 def get_spe_window(x, start, integration_time):
@@ -119,7 +125,7 @@ def get_bins(x):
     
     bin_width = 0.5*iqr(x)/(len(x)**(1/3.0))
     if bin_width == 0:
-        print('Zero bin width! Quitting...', file=stderr)
+        print('Zero bin width! Quitting...', file=sys.stderr)
         sys.exit(1)
     return np.arange(np.min(x),np.max(x),bin_width)
 
@@ -219,11 +225,11 @@ if __name__ == '__main__':
         charge = {}
         f_charge = {}
         data = {}
-        if args.sodium:
-            data['ch_511'] = []
-            data['ch_511_rise_time'] = []
-            data['ch_511_fall_time'] = []
         with h5py.File(filename) as f:
+            if args.sodium:
+                data['ch_511'] = []
+                data['ch_511_rise_time'] = []
+                data['ch_511_fall_time'] = []
             if 'data_source' in list(f.attrs):
                 if f.attrs['data_source'] == b'CAEN':
                     data['barcode'] = int(f.attrs['barcode'])
@@ -245,7 +251,7 @@ if __name__ == '__main__':
                 for i in range(0, N, args.chunks):
                     x, y = convert_data(f,channel,i,i+args.chunks)
                     if args.sodium:
-                        a, b = get_window(x,y,left=50,right=300)
+                        a, b = get_window(x,y, left=10, right=125)
                         y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
                         if channel in charge:
                             charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
@@ -312,6 +318,15 @@ if __name__ == '__main__':
                             charge[channel] = integrate(x,y, a, b)
                             f_charge[channel] = integrate(x, high_filter_y, a, b)
                         
+                    if 'avg_pulse_y' in data:
+                        data['avg_pulse_y'] += (data['avg_pulse_count']*data['avg_pulse_y'] + len(y)*np.mean(y, axis=0))/(data['avg_pulse_count'] + len(y))
+                        data['avg_pulse_count'] += len(y)
+                    else:
+                        data['avg_pulse_y'] = np.mean(y, axis=0)
+                        data['avg_pulse_count'] = len(y)
+                        data['avg_pulse_x'] = x
+                            
+                        
                 if args.plot or args.print_pdfs:
                     plt.figure()
                     plt.subplot(2,1,1)
@@ -321,7 +336,7 @@ if __name__ == '__main__':
                     plt.axvline(x[a])
                     plt.axvline(x[b])
                     plt.subplot(2,1,2)
-                    plt.plot(x,np.median(y,axis=0))
+                    plt.plot(x,data['avg_pulse_y'])
                     plt.xlabel("Time (ns)")
                     plt.ylabel("Voltage (V)")
                     plt.axvline(x[a])
@@ -332,7 +347,7 @@ if __name__ == '__main__':
                     plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_TimeVolt_{args.start_time}_{args.integration_time}.pdf"))
                 
                 # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
-                if (active_ch == channel) and (args.plot or args.print_pdfs):
+                if (active_ch == channel) and (args.plot or args.print_pdfs) and not args.sodium:
                     plt.figure()
                     plt.subplot(2,1,1)
                     plt.plot(x,high_filter_y[:100].T)
@@ -372,16 +387,17 @@ if __name__ == '__main__':
                 root, ext = os.path.splitext(filename)
                 plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_{args.start_time}_{args.integration_time}.pdf"))
             h.Write()
-
-        # The prefix `f_` will be used to denote objects that correspond to filtered data.
-            f_bins = get_bins(f_charge[channel])
-            f_h = ROOT.TH1D(f'f_{channel}', "Filtered Charge Integral for %s" % channel, len(f_bins), f_bins[0], f_bins[-1])
-            for x in f_charge[channel]:
-                f_h.Fill(x)
-            f_h.GetXaxis().SetTitle('Charge (pC)')
-            f_h.Write()
+            if not args.sodium:
+                # The prefix `f_` will be used to denote objects that correspond to filtered data.
+                f_bins = get_bins(f_charge[channel])
+                f_h = ROOT.TH1D(f'f_{channel}', "Filtered Charge Integral for %s" % channel, len(f_bins), f_bins[0], f_bins[-1])
+                for x in f_charge[channel]:
+                    f_h.Fill(x)
+                f_h.GetXaxis().SetTitle('Charge (pC)')
+                f_h.Write()
         f.Close()
         
+        # Upload code, hasn't been tested    
         if args.upload:
             if 'BTL_DB_HOST' not in os.environ:
                 print("need to set BTL_DB_HOST environment variable!",file=sys.stderr)
@@ -400,9 +416,9 @@ if __name__ == '__main__':
 
             cursor = conn.cursor()
             if args.sodium:
-                cursor.execute("INSERT INTO btl_qa (barcode, voltage, ch_511, ch_511_rise_time, ch_511_fall_time, git_sha1, git_dirty, institution) VALUES (%(barcode)s, %(voltage)s, %(ch_511)s, %(ch_511_rise_time)s, %(ch_511_fall_time)s, %(git_sha1)s, %(git_dirty)s, 'Caltech'::inst)", data)
+                cursor.execute("INSERT INTO btl_qa (barcode, voltage, ch_511, ch_511_rise_time, ch_511_fall_time, avg_pulse_x, avg_pulse_y, git_sha1, git_dirty, institution) VALUES (%(barcode)s, %(voltage)s, %(ch_511)s, %(ch_511_rise_time)s, %(ch_511_fall_time)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(git_sha1)s, %(git_dirty)s, 'Caltech'::inst)", data)
             else:
-                cursor.execute("INSERT INTO btl_qa (barcode, voltage, git_sha1, git_dirty, institution) VALUES (%(barcode)s, %(voltage)s, %(git_sha1)s, %(git_dirty)s, 'Caltech'::inst)", data)
+                cursor.execute("INSERT INTO btl_qa (barcode, voltage, avg_pulse_x, avg_pulse_y, git_sha1, git_dirty, institution) VALUES (%(barcode)s, %(voltage)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(git_sha1)s, %(git_dirty)s, 'Caltech'::inst)", data)
 
             print("Done")
     

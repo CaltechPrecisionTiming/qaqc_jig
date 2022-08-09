@@ -28,11 +28,9 @@ def get_threshold_crossing(x, data, threshold=0.4, rising=True):
         ir = il + 1
         ir[ir >= data.shape[1]] = data.shape[1]-1
         i = np.arange(data.shape[0])
-        print(f'il: {data[0, il[0]]}')
-        print(f'ir: {data[0, ir[0]]}')
         return x[il] + (np.abs(thresholds-data[i,il]))*(x[ir]-x[il])/(data[i,ir]-data[i,il])
     else:
-        il = data.shape[1]-np.argmax(((np.arange(data.shape[1]) > argmin[:,np.newaxis]) & (data < thresholds[:,np.newaxis]))[:,::-1],axis=-1)-1
+        il = np.argmax(((np.arange(data.shape[1]) > argmin[:,np.newaxis]) & (data > thresholds[:,np.newaxis])),axis=-1)-1
         ir = il + 1
         ir[ir >= data.shape[1]] = data.shape[1]-1
         i = np.arange(data.shape[0])

@@ -61,15 +61,7 @@ def fit_511(h, bias):
          previous ones? first derivative with respect to max/min
          closest to zero       
     """
-    h.GetListOfFunctions().Clear()
-    spec = ROOT.TSpectrum()
-    if bias == 42:
-        x_pos = peaks(h, width=2, height=0.1, options="nobackground")[0]
-    elif bias > 42:
-        x_pos = peaks(h, width=2, hight=0.05, options="nobackground")[0]
-    else:
-        print("Don't know how to fit 511 peak for bias voltages less than 42 volts! Quitting...",file=sys.stderr)
-        sys.exit(1)
+    x_pos = peaks(h, width=2, height=0.05, options="nobackground")[0]
     
     print("Peak charge full list:")
     print(x_pos)
@@ -85,10 +77,16 @@ def fit_511(h, bias):
         f1 = ROOT.TF1("f1","gaus", peak-win, peak+win)
         r = h.Fit(f1, 'ILMSR+')
         r = r.Get()
-        if not r.IsValid():
+        if f1.GetParameter(1) < x_pos[0]:
+            # Impossible that this is the 511 peak 
+            f1 = None
             continue
-        if f1.GetParameter(0) > h.GetEntries() / 150:
-            # Found the 511 peak
+        if not r.IsValid() or f1.GetParameter(2) > 100:
+            # Not impossible that this is the 511 peak, but there might be a
+            # better peak later in the loop
+            continue
+        else:
+            # Found the 511 peak!
             break
     h.Write()
     if f1 == None:

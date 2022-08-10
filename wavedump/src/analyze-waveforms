@@ -20,7 +20,7 @@ def get_threshold_crossing(x, data, threshold=0.4, rising=True):
     Returns the times at which the waveforms in `x` cross `threshold*100`% of
     their minimum value.
     
-    WARNING: In cases where a pulse is cut off at the start/end of an event, this function errors.
+    WARNING: In cases where a pulse is cut off at the start/end of an event, this function produces a runtime warning.
     """
     data = np.asarray(data)
     argmin = np.argmin(data,axis=-1)

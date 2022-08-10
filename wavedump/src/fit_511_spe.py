@@ -103,7 +103,8 @@ if __name__ == '__main__':
         h.GetListOfFunctions().Clear()
         fit_output = fit_511(h, args.bias)
         if not fit_output:
-            # FIXME Handle this case better
+            # FIXME Handle this case better; we should make `fit_511` reliable
+            # enough to not return null
             print('511 fit unsuccessful!')
         else:
             charge_511[h.GetName()] = fit_output
@@ -137,13 +138,13 @@ if __name__ == '__main__':
     # FIXME: Upload this information to the website
     print('Light output:')
     for ch in charge_511:
-        if not ch in charge_spe:
+        if ch in charge_spe:
             print(f'{ch} does not have any SPE data!')
         else:
             print(f'{ch}: {charge_511[ch][0]/charge_spe[ch][0]/0.511}')
     for ch in charge_spe:
         if not ch in charge_511:
-            print('f{ch} does not have any 511 data!')
+            print(f'{ch} does not have any 511 data!')
 
     if args.plot:
         plot_pdfs_all(plots, pdfs=args.print_pdfs)

@@ -19,6 +19,8 @@ D_ZERO_PEAK_SPREAD = 0.4
 # Number of peaks we use for SPE fitting
 num_peaks = 20
 
+ROOT_FUNC = "[0]*(" + "+".join(["TMath::Poisson(%i,[2])*TMath::Gaus(x-[1],[3]*%i,TMath::Sqrt([4]^2+[5]^2*%i))" % (i,i,i) for i in range(0,num_peaks)]) + ")"
+
 def iqr(h):
     probSum = np.array([0.25, 0.75], dtype=np.double)
     q = np.zeros(2, dtype=np.double)
@@ -175,7 +177,7 @@ def plot_dists():
     input()
     exit()
 
-def fit_spe(h, filtered_histograms, root_func=False):
+def fit_spe(h, filtered_histograms, model, root_func=False):
     """ 
     SPE Fitting Strategy
     
@@ -242,11 +244,9 @@ def fit_spe(h, filtered_histograms, root_func=False):
     SPE_charge = max(zero_peak_end - offset, SPE_charge)
 
     if root_func:
-        string = "[0]*(" + "+".join(["TMath::Poisson(%i,[2])*TMath::Gaus(x-[1],[3]*%i,TMath::Sqrt([4]^2+[5]^2*%i))" % (i,i,i) for i in range(0,num_peaks)]) + ")"
-        f1 = ROOT.TF1("f1", string, offset - 1.5*raw_spread, offset + 5*h.SetStdDev())
+        f1 = ROOT.TF1("f1", string, offset - 1.5*raw_spread, offset + 5*h.GetStdDev())
     else:
-        # declaring `model` here is necessary - passing `vinogradov_mode()` as an argument directly won't work.
-        model = vinogradov_model()
+        # Number of parameters must be specified when using a python function
         f1 = ROOT.TF1("f1", model, offset - 1.5*raw_spread, offset + 5*h.GetStdDev(), 7)
 
     f1.FixParameter(0, scale)

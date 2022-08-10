@@ -7,7 +7,6 @@ from ROOT import TMath
 import matplotlib.pyplot as plt
 
 canvas = []
-canvas_count = 1
 
 def save_as_csv(data_type, value, value_err, channel, output):
     """
@@ -56,19 +55,20 @@ def read_hists(f, spe=False):
     else:
         return raw_histograms.values()
 
-def plot(h):
+def plot_pdfs_all(h_lst, pdfs=False):
     global canvas
-    global canvas_count
-    canvas.append(ROOT.TCanvas("c%i" % canvas_count))
-    canvas_count += 1
-    h.Draw()
-    canvas[-1].Update()
-
-def print_pdfs(h):
-    global canvas
-    global canvas_count
-    root, ext = os.path.splitext(filename)
-    canvas[-1].Print(os.path.join(args.print_pdfs, f"{root}_{h.GetName()}.pdf"))
+    for h in h_lst:
+        # Naming canvases this way will produce a runtime warning because ROOT
+        # will always make a default canvas with name `c1` the first time you
+        # fit a histogram. The only way I know how to get rid of it is to
+        # overwrite it like this.
+        c = ROOT.TCanvas(f'c{len(canvas)+1}')
+        canvas.append(c)
+        h.Draw()
+        c.Update()
+        if pdfs:
+            root, ext = os.path.splitext(filename)
+            c.Print(os.path.join(args.print_pdfs, f"{root}_{h.GetName()}.pdf"))
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -91,23 +91,25 @@ if __name__ == '__main__':
         # Disables the canvas from ever popping up
         gROOT.SetBatch()
     
+    plots = []
+
     ################
     # 511 FITTING
     ################
     charge_511 = {}
     f_511 = ROOT.TFile(args.file_511, "UPDATE")
     for h in read_hists(f_511, spe=False):
+        print(h.GetName())
+        h.GetListOfFunctions().Clear()
         fit_output = fit_511(h, args.bias)
         if not fit_output:
-            # What should we do if the fit is unsuccessful?
+            # FIXME Handle this case better
             print('511 fit unsuccessful!')
         else:
             charge_511[h.GetName()] = fit_output
-
+        
         if args.plot or args.print_pdfs:
-            plot(h)
-        if args.print_pdfs:
-            print_pdfs(h)
+            plots.append(h)
     ################
     # SPE FITTING
     ################
@@ -115,25 +117,36 @@ if __name__ == '__main__':
     f_spe = ROOT.TFile(args.file_spe, "UPDATE")
     raw_histograms, filtered_histograms = read_hists(f_spe, spe=True)
     for h in raw_histograms.values():
-        charge_spe[h.GetName()] = fit_spe(h, filtered_histograms, root_func=args.root_func)            
+        print(h.GetName())
+        h.GetListOfFunctions().Clear()
+        if args.root_func:
+            model = ROOT_FUNC
+        else:
+            # When using a python function, the model can't be deleted if we
+            # want to plot this histogram later, which is why it must be
+            # created here.
+            model = vinogradov_model()
+        charge_spe[h.GetName()] = fit_spe(h, filtered_histograms, model, root_func=args.root_func)            
 
         if args.plot or args.print_pdfs:
-            plot(h)
-        if args.print_pdfs:
-            print_pdfs(h) 
-    
+            plots.append(h)
+     
+    ################
+    # LIGHT OUTPUT CALCULATION
+    ################
     # FIXME: Upload this information to the website
     print('Light output:')
     for ch in charge_511:
         if not ch in charge_spe:
             print(f'{ch} does not have any SPE data!')
         else:
-            print(f'{ch}: {charge_511[ch]/charge_spe[ch]/0.511}')
+            print(f'{ch}: {charge_511[ch][0]/charge_spe[ch][0]/0.511}')
     for ch in charge_spe:
         if not ch in charge_511:
             print('f{ch} does not have any 511 data!')
 
     if args.plot:
+        plot_pdfs_all(plots, pdfs=args.print_pdfs)
         input()
     f_511.Close()
     f_spe.Close()

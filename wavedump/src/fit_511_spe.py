@@ -1,6 +1,7 @@
 from __future__ import print_function, division
 import csv
 import os
+import sys
 import ROOT
 from ROOT import gROOT
 from ROOT import TMath
@@ -79,75 +80,92 @@ if __name__ == '__main__':
     parser.add_argument('--file-511', required=True, help='511 charge histogram filename (ROOT format)')
     parser.add_argument('--file-spe', required=True, help='spe charge histogram filename (ROOT format)')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
-    parser.add_argument('--bias', type=float,default=42, help='Bias Voltage input')
     parser.add_argument('--root-func', default=False, action='store_true', help='Use the custom root function (poisson model) to preform the fit. Otherwise, use the custom python function (Vinogradov model).')
     parser.add_argument('--chi2', default=False, action='store_true', help='Save the ndof and chi2 value of the SPE fit to csv')
     parser.add_argument("--print-pdfs", default=None, type=str, help="Folder to save pdfs in")
+    parser.add_argument("--test-511", default=False, action='store_true', help="Only perform the 511 fitting (only for testing purposes)")
+    parser.add_argument("--test-spe", default=False, action='store_true', help="Only perform the SPE fitting (only for testing purposes)")
     # parser.add_argument("-o", "--output", default=None, type=str, help="File to write charge data to")
-
+    
     args = parser.parse_args()
+    
+    if args.test_511 and args.test_spe:
+        print('test-511 and test-spe are incompatible arguments! Quitting...', file=sys.stderr)
+        sys.exit(1)
     
     if not args.plot:
         # Disables the canvas from ever popping up
         gROOT.SetBatch()
     
     plots = []
+    opened = []
 
     ################
     # 511 FITTING
     ################
-    charge_511 = {}
-    f_511 = ROOT.TFile(args.file_511, "UPDATE")
-    for h in read_hists(f_511, spe=False):
-        print(h.GetName())
-        h.GetListOfFunctions().Clear()
-        fit_output = fit_511(h, args.bias)
-        if not fit_output:
-            # FIXME Handle this case better; we should make `fit_511` reliable
-            # enough to not return null
-            print('511 fit unsuccessful!')
-        else:
-            charge_511[h.GetName()] = fit_output
-        
-        if args.plot or args.print_pdfs:
-            plots.append(h)
+    if not args.test_spe:
+        charge_511 = {}
+        f_511 = ROOT.TFile(args.file_511, "UPDATE")
+        opened.append(f_511)
+        for h in read_hists(f_511, spe=False):
+            print(h.GetName())
+            h.GetListOfFunctions().Clear()
+            fit_output = fit_511(h)
+            if not fit_output:
+                # FIXME Handle this case better; we should make `fit_511` reliable
+                # enough to not return null
+                print('511 fit unsuccessful!')
+            else:
+                charge_511[h.GetName()] = fit_output
+            
+            if args.plot or args.print_pdfs:
+                plots.append(h)
     ################
     # SPE FITTING
     ################
-    charge_spe = {}
-    f_spe = ROOT.TFile(args.file_spe, "UPDATE")
-    raw_histograms, filtered_histograms = read_hists(f_spe, spe=True)
-    for h in raw_histograms.values():
-        print(h.GetName())
-        h.GetListOfFunctions().Clear()
-        if args.root_func:
-            model = ROOT_FUNC
-        else:
-            # When using a python function, the model can't be deleted if we
-            # want to plot this histogram later, which is why it must be
-            # created here.
-            model = vinogradov_model()
-        charge_spe[h.GetName()] = fit_spe(h, filtered_histograms, model, root_func=args.root_func)            
+    if not args.test_511:
+        charge_spe = {}
+        f_spe = ROOT.TFile(args.file_spe, "UPDATE")
+        opened.append(f_spe)
+        raw_histograms, filtered_histograms = read_hists(f_spe, spe=True)
+        for h in raw_histograms.values():
+            print(h.GetName())
+            h.GetListOfFunctions().Clear()
+            if args.root_func:
+                model = ROOT_FUNC
+            else:
+                # When using a python function, the model can't be deleted if we
+                # want to plot this histogram later, which is why it must be
+                # created here.
+                model = vinogradov_model()
+            charge_spe[h.GetName()] = fit_spe(h, filtered_histograms, model, root_func=args.root_func)            
 
-        if args.plot or args.print_pdfs:
-            plots.append(h)
+            if args.plot or args.print_pdfs:
+                plots.append(h)
      
     ################
     # LIGHT OUTPUT CALCULATION
     ################
     # FIXME: Upload this information to the website
-    print('Light output:')
-    for ch in charge_511:
-        if ch in charge_spe:
-            print(f'{ch} does not have any SPE data!')
-        else:
-            print(f'{ch}: {charge_511[ch][0]/charge_spe[ch][0]/0.511}')
-    for ch in charge_spe:
-        if not ch in charge_511:
-            print(f'{ch} does not have any 511 data!')
+    if not (args.test_511 or args.test_spe):
+        print('Light output:')
+        for ch in charge_511:
+            if ch in charge_spe:
+                print(f'{ch}: {charge_511[ch][0]/charge_spe[ch][0]/0.511}')
+            else:
+                print(f'{ch} does not have any SPE data!')
+        for ch in charge_spe:
+            if not ch in charge_511:
+                print(f'{ch} does not have any 511 data!')
+    elif args.test_511:
+        for ch in charge_511:
+            print(f'{ch} 511 charge: {charge_511[ch][0]}')
+    elif args.test_spe:
+        for ch in charge_spe:
+            print(f'{ch} spe charge: {charge_spe[ch][0]}')
 
     if args.plot:
         plot_pdfs_all(plots, pdfs=args.print_pdfs)
         input()
-    f_511.Close()
-    f_spe.Close()
+    for f in opened:
+        f.Close()

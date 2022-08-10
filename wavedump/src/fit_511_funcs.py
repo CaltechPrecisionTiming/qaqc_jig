@@ -1,9 +1,10 @@
 from __future__ import print_function, division
 import numpy as np
+# from scipy.signal import find_peaks
 import sys
 import ROOT
 
-def peaks(h, width=4, height=0.05, options=""):
+def ROOT_peaks(h, width=4, height=0.05, options=""):
     """
     Finds peaks in hisogram `h`. `height` is measured as a fraction of the
     highest peak.  Peaks lower than `<highest peak>*height` will not be
@@ -24,7 +25,18 @@ def peaks(h, width=4, height=0.05, options=""):
     x_pos = x_pos[ind]
     return (x_pos, highest_peak)
 
-def fit_511(h, bias):
+# def peaks(h, height=None, threshold=None, distance=None, prominence=None, width=None, wlen=None, rel_height=None, plateau_size=None):
+#     hist = []
+#     for i in range(0, h.GetNbinsX()+2):
+#         hist.append(h.GetBinContent(i))
+#     hist = np.array(hist)
+#     # https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.find_peaks.html#scipy.signal.find_peaks
+#     extrema = find_peaks(hist, height=height, threshold=threshold, distance=distance, prominence=prominence, width=width, wlen=wlen, rel_height=rel_height, plateau_size=plateau_size)
+#     ind = np.argsort(extrema)
+#     extrema = extrema[ind]
+#     return extrema
+
+def fit_511(h):
     """
     511 Peak Finding Strategy
     
@@ -61,7 +73,7 @@ def fit_511(h, bias):
          previous ones? first derivative with respect to max/min
          closest to zero       
     """
-    x_pos = peaks(h, width=2, height=0.05, options="nobackground")[0]
+    x_pos = ROOT_peaks(h, width=2, height=0.05, options="nobackground")[0]
     
     print("Peak charge full list:")
     print(x_pos)
@@ -81,7 +93,7 @@ def fit_511(h, bias):
             # Impossible that this is the 511 peak 
             f1 = None
             continue
-        if not r.IsValid() or f1.GetParameter(2) > 100:
+        if not r.IsValid() or f1.GetParameter(2) > 150 or np.abs(x_pos[i] - f1.GetParameter(1)) > 50:
             # Not impossible that this is the 511 peak, but there might be a
             # better peak later in the loop
             continue

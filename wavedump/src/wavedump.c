@@ -13,7 +13,7 @@
 #define WF_SIZE 10000
 #define BS_SIZE 10
 #define RECORD_LENGTH 1024
-#define POST_TRIGGER 60
+#define POST_TRIGGER 30
 
 char *GitSHA1(void);
 char *GitDirty(void);
@@ -2120,15 +2120,18 @@ int main(int argc, char *argv[])
     if (strcmp(trig_type, "self") == 0) {
         /* Page 45 of file:///home/cptlab/Downloads/UM4270_DT5742_UserManual_rev10.pdf gives
          * the instructions of how to set up self-trigger. */
+        int units_per_volt = (int)pow(2, (double)BoardInfo.ADC_NBits);
+        float voltage_threshold = -0.15;
+        printf("threshold: %.3f\n", voltage_threshold * units_per_volt);
         for (i = 0; i < 2; i++) {
-            /* Subtract 150 from the minimum baseline to get the threshold. FIXME: this number is completely made up. */
-            thresholds[i] -= 150;
+            thresholds[i] += voltage_threshold * units_per_volt;
 
             if (thresholds[i] < 1e99) {
                 
                 /* This sets the trigger level */
                 printf("setting trigger threshold for group %i to %i\n", i, (int) thresholds[i]);
-                // ret = CAEN_DGTZ_WriteRegister(handle, 0x1080 + 256*i, (int) thresholds[i]);
+                ret = CAEN_DGTZ_WriteRegister(handle, 0x1080 + 256*i, (int) thresholds[i]);
+                // ret = CAEN_DGTZ_WriteRegister(handle, 0x1080 + 256*i, 0x500);
 
                 if (ret) {
                     fprintf(stderr, "failed to write register 0x%04x!\n", 0x1080 + 256*i);

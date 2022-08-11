@@ -248,7 +248,7 @@ if __name__ == '__main__':
                 for i in range(0, N, args.chunks):
                     x, y = convert_data(f,channel,i,i+args.chunks)
                     if args.sodium:
-                        a, b = get_window(x,y, left=10, right=125)
+                        a, b = get_window(x,y, left=35, right=125)
                         y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
                         if channel in charge:
                             charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
@@ -341,7 +341,10 @@ if __name__ == '__main__':
                     plt.suptitle(channel)
                 if args.print_pdfs:
                     root, ext = os.path.splitext(filename)
-                    plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_TimeVolt_{args.start_time}_{args.integration_time}.pdf"))
+                    if args.sodium:
+                        plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_TimeVolt_sodium.pdf"))
+                    else:
+                        plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_TimeVolt_{args.start_time}_{args.integration_time}.pdf"))
                 
                 # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
                 if (active_ch == channel) and (args.plot or args.print_pdfs) and not args.sodium:
@@ -366,14 +369,16 @@ if __name__ == '__main__':
 
         for channel in charge:
             bins = get_bins(charge[channel])
-            h = ROOT.TH1D(channel,f'{args.integration_time}ns Charge Integral for {channel}',len(bins),bins[0],bins[-1])
-            for x in charge[channel]:
-                h.Fill(x)
-            h.GetXaxis().SetTitle("Charge (pC)")
-            if args.sodium:            
+            if args.sodium:
+                h = ROOT.TH1D(channel,f'0.511MeV Charge Integral for {channel}',len(bins),bins[0],bins[-1])
                 bincenters = (bins[1:] + bins[:-1])/2
                 hist, bins = np.histogram(charge[channel],bins=bins)
                 data['ch_511'].append(bincenters[np.argmax(hist)])
+            else: 
+                h = ROOT.TH1D(channel,f'{args.integration_time}ns Charge Integral for {channel}',len(bins),bins[0],bins[-1])
+            for x in charge[channel]:
+                h.Fill(x)
+            h.GetXaxis().SetTitle("Charge (pC)")
             
             if args.plot or args.print_pdfs:
                 plt.figure()
@@ -382,7 +387,10 @@ if __name__ == '__main__':
                 plt.legend()
             if args.print_pdfs:
                 root, ext = os.path.splitext(filename)
-                plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_{args.start_time}_{args.integration_time}.pdf"))
+                if args.sodium:
+                    plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_sodium.pdf"))
+                else:
+                    plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_{args.start_time}_{args.integration_time}.pdf"))
             h.Write()
             if not args.sodium:
                 # The prefix `f_` will be used to denote objects that correspond to filtered data.

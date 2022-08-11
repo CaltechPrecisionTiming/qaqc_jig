@@ -56,18 +56,20 @@ def read_hists(f, spe=False):
     else:
         return raw_histograms.values()
 
-def plot_pdfs_all(h_lst, pdfs=False):
+def make_plots_pdfs(h, pdfs=False, filename=None):
     global canvas
-    for h in h_lst:
-        # Naming canvases this way will produce a runtime warning because ROOT
-        # will always make a default canvas with name `c1` the first time you
-        # fit a histogram. The only way I know how to get rid of it is to
-        # overwrite it like this.
-        c = ROOT.TCanvas(f'c{len(canvas)+1}')
-        canvas.append(c)
-        h.Draw()
-        c.Update()
-        if pdfs:
+    # Naming canvases this way will produce a runtime warning because ROOT
+    # will always make a default canvas with name `c1` the first time you
+    # fit a histogram. The only way I know how to get rid of it is to
+    # overwrite it like this.
+    c = ROOT.TCanvas(f'c{len(canvas)+1}')
+    canvas.append(c)
+    h.Draw()
+    c.Update()
+    if pdfs:
+        if not filename:
+            print('No filename specified; can not print pdf!')
+        else:
             root, ext = os.path.splitext(filename)
             c.Print(os.path.join(args.print_pdfs, f"{root}_{h.GetName()}.pdf"))
 
@@ -97,7 +99,6 @@ if __name__ == '__main__':
         # Disables the canvas from ever popping up
         gROOT.SetBatch()
     
-    plots = []
     opened = []
 
     ################
@@ -119,7 +120,7 @@ if __name__ == '__main__':
                 charge_511[h.GetName()] = fit_output
             
             if args.plot or args.print_pdfs:
-                plots.append(h)
+                make_plots_pdfs(h, pdfs=args.print_pdfs, filename=args.file_511)
     ################
     # SPE FITTING
     ################
@@ -141,8 +142,7 @@ if __name__ == '__main__':
             charge_spe[h.GetName()] = fit_spe(h, filtered_histograms, model, root_func=args.root_func)            
 
             if args.plot or args.print_pdfs:
-                plots.append(h)
-     
+                make_plots_pdfs(h, pdfs=args.print_pdfs, filename=args.file_spe)
     ################
     # LIGHT OUTPUT CALCULATION
     ################
@@ -165,7 +165,6 @@ if __name__ == '__main__':
             print(f'{ch} spe charge: {charge_spe[ch][0]}')
 
     if args.plot:
-        plot_pdfs_all(plots, pdfs=args.print_pdfs)
         input()
     for f in opened:
         f.Close()

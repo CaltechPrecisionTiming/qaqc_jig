@@ -2121,8 +2121,8 @@ int main(int argc, char *argv[])
         /* Page 45 of file:///home/cptlab/Downloads/UM4270_DT5742_UserManual_rev10.pdf gives
          * the instructions of how to set up self-trigger. */
         for (i = 0; i < 2; i++) {
-            /* Subtract 50 from the minimum baseline to get the threshold. */
-            thresholds[i] -= 5;
+            /* Subtract 150 from the minimum baseline to get the threshold. FIXME: this number is completely made up. */
+            thresholds[i] -= 150;
 
             if (thresholds[i] < 1e99) {
                 

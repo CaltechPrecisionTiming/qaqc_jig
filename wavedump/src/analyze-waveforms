@@ -366,7 +366,7 @@ if __name__ == '__main__':
 
         for channel in charge:
             bins = get_bins(charge[channel])
-            h = ROOT.TH1D(channel,"Charge Integral for %s" % channel,len(bins),bins[0],bins[-1])
+            h = ROOT.TH1D(channel,f'{args.integration_time}ns Charge Integral for {channel}',len(bins),bins[0],bins[-1])
             for x in charge[channel]:
                 h.Fill(x)
             h.GetXaxis().SetTitle("Charge (pC)")

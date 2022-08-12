@@ -1596,7 +1596,7 @@ void print_help()
     exit(1);
 }
 
-WaveDumpConfig_t set_default_settings(char *trig_type) {
+WaveDumpConfig_t set_default_settings() {
     int i, j;
     WaveDumpConfig_t WDcfg;
 
@@ -1631,16 +1631,23 @@ WaveDumpConfig_t set_default_settings(char *trig_type) {
     for (i = 0; i < MAX_SET; i++)
 	WDcfg.PulsePolarity[i] = CAEN_DGTZ_PulsePolarityNegative;
     
-    /* Set the DC offset of the channels. 
-     * WDcfg.DCoffset[i] sets a common offset to group `i`.
-     * WDcfg.DCoffsetGrpCh[i][j] sets the offset of group `i`, channel `j`
-     * If WDcfg.DCoffsetGrpCh[i][j] is set, then that value will be used.
-     * Otherwise, WDcfg.DCoffset[i] is used. */
+    /* Set the DC offset of the channels.  WDcfg.DCoffset[i] sets a common
+     * offset to group `i`.  WDcfg.DCoffsetGrpCh[i][j] sets the offset of group
+     * `i`, channel `j` WDcfg.DCoffsetGrpCh[i][j] takes priority. */
     for (i = 0; i < MAX_SET; i++) {
         for (j = 0; j < MAX_SET; j++) {
-            /* In theory, our signal is mostly negative, so an offset near
-             * 0x0000 should work. However, we don't see SPEs until setting the offset to
-             * about at least 0x6000 */
+            /* NOTICE: Though the DC offset is set with 16 bits, NOT EVERY
+             * value will put the signal in a useable range.
+             *
+             *********************************************************** 
+             * ONLY set the DC offset between 22000 (0x55F0) and 48000 *
+             * (0xBB80).                                               *
+             ***********************************************************
+             * 
+             * At 22000, the useable range is -Vpp to 0, and at 48000, it's 0
+             * to Vpp. The range shifts lineraly by setting the DC offset
+             * between 22000 and 48000. For example, at 35000, the range is
+             * -Vpp/2 to +Vpp/2.*/
             WDcfg.DCoffsetGrpCh[i][j] = 0x7FFF;
         }
     }

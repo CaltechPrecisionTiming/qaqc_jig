@@ -10,19 +10,30 @@ CREATE TYPE sipm_type AS ENUM (
 );
 
 -- Table to keep track of the light yield of the BTL modules.
-CREATE TABLE btl_qa (
-    key                 bigserial PRIMARY KEY,
+CREATE TABLE runs (
+    run                 bigserial PRIMARY KEY,
     timestamp           timestamp with time zone default now(),
-    barcode             bigint NOT NULL,
     voltage             real NOT NULL,
-    ch_511              real[],
-    ch_511_rise_time    real[],
-    ch_511_fall_time    real[],
-    avg_pulse_x         real[],
-    avg_pulse_y         real[],
     institution         inst DEFAULT 'Caltech'::inst NOT NULL,
     git_sha1            text,
-    git_dirty           text
+    git_dirty           text,
+    filename            text
+);
+
+-- Table to keep track of the light yield of the BTL modules.
+CREATE TABLE data (
+    key                 bigserial PRIMARY KEY,
+    channel             smallint,
+    timestamp           timestamp with time zone default now(),
+    barcode             bigint NOT NULL,
+    sodium_peak         real NOT NULL,
+    spe                 real NOT NULL,
+    sodium_fall_time    real,
+    sodium_rise_time    real,
+    avg_pulse_x         real[],
+    avg_pulse_y         real[],
+    run                 bigint NOT NULL references runs(run),
+    UNIQUE (channel,run)
 );
 
 -- Table to keep track of the light yield of the BTL modules.
@@ -38,25 +49,30 @@ CREATE TABLE modules (
 CREATE ROLE btl_admin WITH LOGIN;
 
 -- btl admin user has all rights to everything in the database
-GRANT ALL ON btl_qa TO btl_admin;
+GRANT ALL ON data TO btl_admin;
+GRANT ALL ON runs TO btl_admin;
 GRANT ALL ON modules TO btl_admin;
-GRANT ALL ON SEQUENCE btl_qa_key_seq TO btl_admin;
+GRANT ALL ON SEQUENCE data_key_seq TO btl_admin;
 
 -- create btl read user
 CREATE ROLE btl_read;
 
 -- btl read user has select rights on everything in the btl schema
-GRANT SELECT ON btl_qa TO btl_read;
+GRANT SELECT ON data TO btl_read;
+GRANT SELECT ON runs TO btl_read;
 GRANT SELECT ON modules TO btl_read;
-GRANT SELECT ON SEQUENCE btl_qa_key_seq TO btl_read;
+GRANT SELECT ON SEQUENCE data_key_seq TO btl_read;
+GRANT SELECT ON SEQUENCE runs_run_seq TO btl_read;
 
 -- create btl write user
 CREATE ROLE btl_write;
 
 -- btl write user has select rights on everything in the btl schema
-GRANT SELECT, INSERT ON btl_qa TO btl_write;
+GRANT SELECT, INSERT ON data TO btl_write;
+GRANT SELECT, INSERT ON runs TO btl_write;
 GRANT SELECT, INSERT ON modules TO btl_write;
-GRANT SELECT, USAGE ON SEQUENCE btl_qa_key_seq TO btl_write;
+GRANT SELECT, USAGE ON SEQUENCE data_key_seq TO btl_write;
+GRANT SELECT, USAGE ON SEQUENCE runs_run_seq TO btl_write;
 
 -- create btl user
 CREATE ROLE btl WITH LOGIN;
@@ -75,4 +91,4 @@ GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO cms;
 -- Set up ownership of tables
 -----------------------------
 
-ALTER TABLE btl_qa OWNER TO btl_admin;
+ALTER TABLE data OWNER TO btl_admin;

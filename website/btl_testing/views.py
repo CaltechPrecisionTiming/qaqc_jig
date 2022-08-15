@@ -10,7 +10,7 @@ from math import isnan
 import os
 import sys
 import random
-from .moduledb import get_modules, get_module_info, ModuleUploadForm, upload_new_module
+from .moduledb import get_channels, get_channel_info, ModuleUploadForm, upload_new_module
 from datetime import datetime
 import pytz
 
@@ -22,12 +22,12 @@ def timefmt(timestamp):
 def internal_error(exception):
     return render_template('500.html'), 500
 
-@app.route('/module-database')
-def module_database():
+@app.route('/channel-database')
+def channel_database():
     limit = request.args.get("limit", 100, type=int)
     sort_by = request.args.get("sort-by", "timestamp")
-    results = get_modules(request.args, limit, sort_by)
-    return render_template('module_database.html', results=results, limit=limit, sort_by=sort_by)
+    results = get_channels(request.args, limit, sort_by)
+    return render_template('channel_database.html', results=results, limit=limit, sort_by=sort_by)
 
 @app.template_filter('time_from_now')
 def time_from_now(dt):
@@ -37,8 +37,6 @@ def time_from_now(dt):
 
     See https://momentjs.com/docs/#/displaying/fromnow/
     """
-    print(datetime.now())
-    print(dt)
     delta = total_seconds(datetime.now(pytz.timezone('US/Pacific')) - dt)
 
     if delta < 45:
@@ -82,15 +80,15 @@ def upload_new_module_view():
 
     return render_template("upload_new_module.html", form=form)
 
-@app.route('/module-status')
-def module_status():
+@app.route('/channel-status')
+def channel_status():
     key = request.args.get("key", 0, type=int)
-    info = get_module_info(key=key)
+    info = get_channel_info(key=key)
     if info is None:
-        flash('No module found in database with that barcode. Did you forget to upload it?','danger')
-        return redirect(url_for('module_database'))
-    return render_template('module_status.html', info=info)
+        flash('No channel found in database with that barcode. Did you forget to upload it?','danger')
+        return redirect(url_for('channel_database'))
+    return render_template('channel_status.html', info=info)
 
 @app.route('/')
 def index():
-    return redirect(url_for('module_database'))
+    return redirect(url_for('channel_database'))

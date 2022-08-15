@@ -22,13 +22,13 @@
                 <table class="table table-bordered">
                     <tr>
                         <th>Date</th>
-                        <td>{{ info['btl_qa_timestamp'].strftime("%Y-%m-%d %H:%M:%S") }}</td>
+                        <td>{{ info['timestamp'].strftime("%Y-%m-%d %H:%M:%S") }}</td>
                     </tr>
                     <tr>
                         <th>Barcode</th>
                         <td>{{ info['barcode'] }}</td>
                     </tr>
-                    <tr>
+                    <!--<tr>
                         <th>Voltage</th>
                         <td>{{ info['voltage'] }}</td>
                     </tr>
@@ -43,7 +43,7 @@
                     <tr>
                         <th>Institution</th>
                         <td>{{ info['btl_qa_institution'] }}</td>
-                    </tr>
+                    </tr>-->
                 </table>
 	    </div>
 	    <div class="col-md-2">
@@ -95,29 +95,8 @@
     <script src="{{ url_for('static', filename='js/mg_line_brushing.js') }}"></script>
 
     <script>
-        var ch_511 = {{ info['ch_511'] | tojson }};
-        var ch_511_rise_time = {{ info['ch_511_rise_time'] | tojson }};
-        var ch_511_fall_time = {{ info['ch_511_fall_time'] | tojson }};
         var avg_pulse_x = {{ info['avg_pulse_x'] | tojson }};
         var avg_pulse_y = {{ info['avg_pulse_y'] | tojson }};
-
-        var ch_511_data = new Array();
-        for (var i=0; i < ch_511.length; i++) {
-            if (ch_511[i] !== null)
-                ch_511_data.push({'x': i, 'y': ch_511[i]});
-        }
-
-        var ch_511_rise_time_data = new Array();
-        for (var i=0; i < ch_511_rise_time.length; i++) {
-            if (ch_511_rise_time[i] !== null)
-                ch_511_rise_time_data.push({'x': i, 'y': ch_511_rise_time[i]});
-        }
-
-        var ch_511_fall_time_data = new Array();
-        for (var i=0; i < ch_511_fall_time.length; i++) {
-            if (ch_511_fall_time[i] !== null)
-                ch_511_fall_time_data.push({'x': i, 'y': ch_511_fall_time[i]});
-        }
 
         var avg_pulse_data = new Array();
         for (var i=0; i < avg_pulse_x.length; i++) {
@@ -125,50 +104,50 @@
                 avg_pulse_data.push({'x': avg_pulse_x[i], 'y': avg_pulse_y[i]});
         }
 
-        MG.data_graphic({
-            title: "Sodium-22 511 Peak",
-            description: "Charge of 511 Peak",
-            data: ch_511_data,
-            chart_type: 'point',
-            width: $('#ch-511').width(),
-            height: 250,
-            left: 100,
-            target: '#ch-511',
-            x_accessor: 'x',
-            y_accessor: 'y',
-            x_label: 'Channel',
-            y_label: 'Charge (pC)'
-        });
+        //MG.data_graphic({
+        //    title: "Sodium-22 511 Peak",
+        //    description: "Charge of 511 Peak",
+        //    data: sodium_data,
+        //    chart_type: 'point',
+        //    width: $('#ch-511').width(),
+        //    height: 250,
+        //    left: 100,
+        //    target: '#ch-511',
+        //    x_accessor: 'x',
+        //    y_accessor: 'y',
+        //    x_label: 'Channel',
+        //    y_label: 'Charge (pC)'
+        //});
 
-        MG.data_graphic({
-            title: "Sodium-22 511 Rise Time",
-            description: "Rise Time of 511 Pulses",
-            data: ch_511_rise_time_data,
-            chart_type: 'point',
-            width: $('#ch-511-rise-time').width(),
-            height: 250,
-            left: 100,
-            target: '#ch-511-rise-time',
-            x_accessor: 'x',
-            y_accessor: 'y',
-            x_label: 'Channel',
-            y_label: 'Time (ns)'
-        });
+        //MG.data_graphic({
+        //    title: "Sodium-22 511 Rise Time",
+        //    description: "Rise Time of 511 Pulses",
+        //    data: sodium_rise_time_data,
+        //    chart_type: 'point',
+        //    width: $('#ch-511-rise-time').width(),
+        //    height: 250,
+        //    left: 100,
+        //    target: '#ch-511-rise-time',
+        //    x_accessor: 'x',
+        //    y_accessor: 'y',
+        //    x_label: 'Channel',
+        //    y_label: 'Time (ns)'
+        //});
 
-        MG.data_graphic({
-            title: "Sodium-22 511 Fall Time",
-            description: "Fall Time of 511 Pulses",
-            data: ch_511_fall_time_data,
-            chart_type: 'point',
-            width: $('#ch-511-fall-time').width(),
-            height: 250,
-            left: 100,
-            target: '#ch-511-fall-time',
-            x_accessor: 'x',
-            y_accessor: 'y',
-            x_label: 'Channel',
-            y_label: 'Time (ns)'
-        });
+        //MG.data_graphic({
+        //    title: "Sodium-22 511 Fall Time",
+        //    description: "Fall Time of 511 Pulses",
+        //    data: sodium_fall_time_data,
+        //    chart_type: 'point',
+        //    width: $('#ch-511-fall-time').width(),
+        //    height: 250,
+        //    left: 100,
+        //    target: '#ch-511-fall-time',
+        //    x_accessor: 'x',
+        //    y_accessor: 'y',
+        //    x_label: 'Channel',
+        //    y_label: 'Time (ns)'
+        //});
 
         MG.data_graphic({
             title: "Average Pulse Shape",

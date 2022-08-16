@@ -31,7 +31,7 @@ def upload_new_module(form):
 def get_module_info(barcode, run=None):
     conn = engine.connect()
 
-    query = "SELECT min(barcode) as barcode, git_sha1, git_dirty, voltage, institution, min(runs.timestamp) as timestamp, array_agg(data.channel) as channels, array_agg(data.light_output) as light_outputs FROM data, runs WHERE data.run = runs.run "
+    query = "SELECT min(barcode) as barcode, git_sha1, git_dirty, voltage, institution, min(runs.timestamp) as timestamp, array_agg(data.channel) as channels, array_agg(data.sodium_peak) as sodium_peak, array_agg(spe) as spe FROM data, runs WHERE data.run = runs.run "
 
     if run is not None:
         vars = (barcode, run)

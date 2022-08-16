@@ -87,12 +87,13 @@
 
     <script>
         var x = {{ info['channels'] | tojson }};
-        var y = {{ info['light_outputs'] | tojson }};
+        var sodium_peak = {{ info['sodium_peak'] | tojson }};
+        var spe = {{ info['spe'] | tojson }};
 
         var light_output = new Array();
         for (var i=0; i < x.length; i++) {
-            if (y[i] !== null)
-                light_output.push({'x': x[i], 'y': y[i]});
+            if (sodium_peak[i] !== null)
+                light_output.push({'x': x[i], 'y': sodium_peak[i]/(0.511*spe[i])});
         }
 
         MG.data_graphic({

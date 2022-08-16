@@ -28,6 +28,7 @@ CREATE TABLE data (
     barcode             bigint NOT NULL,
     sodium_peak         real NOT NULL,
     spe                 real NOT NULL,
+    light_output        real GENERATED ALWAYS AS (sodium_peak/(spe*0.511)) STORED,
     sodium_fall_time    real,
     sodium_rise_time    real,
     avg_pulse_x         real[],

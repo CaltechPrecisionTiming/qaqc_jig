@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% block title %}Channel Status{% endblock %}
+{% block title %}Module Status{% endblock %}
 {% block head %}
     {{ super() }}
 {% endblock %}
@@ -12,14 +12,14 @@
 			<tr>
                             <th>Last Updated</th>
 			    <th>Barcode</th>
-			    <th>Channel</th>
+			    <th>Run</th>
 			</tr>
 		    </thead>
 		    {% for row in results %}
-		    <tr onclick="window.document.location = '{{ "channel-status?key=%i" % row['key'] }}';">
+		    <tr onclick="window.document.location = '{{ "module-status?barcode=%i&run=%i" % (row['barcode'],row['run']) }}';">
                         <td>{{ row['timestamp'] | time_from_now }}</td>
 			<td>{{ row['barcode'] }}</td>
-			<td>{{ row['channel'] }}</td>
+			<td>{{ row['run'] }}</td>
 		    </tr>
 		    {% endfor %}
 		</table>

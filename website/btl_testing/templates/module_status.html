@@ -1,0 +1,113 @@
+{% extends "layout.html" %}
+{% block title %}Module Status{% endblock %}
+{% block head %}
+    <!-- metrics-graphics stylesheet goes above super() because we want bootstrap's style
+    (which is linked in super()) to override it. -->
+    <link rel="stylesheet" type="text/css"  href="{{ url_for('static',filename='css/metricsgraphics.css') }}">
+    <link rel="stylesheet" type="text/css"  href="{{ url_for('static',filename='css/mg_line_brushing.css') }}">
+    {{ super() }}
+{% endblock %}
+{% block body %}
+    {{ super() }}
+    <div class="container">
+	{% if error %}
+	<div class="alert alert-danger" role="alert">
+	<span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+	Error: {{ error }}
+	</div>
+	{% else %}
+	<div class="row">
+	    <div class="col-md-2">
+                <h3>Test Info</h3>
+                <table class="table table-bordered">
+                    <tr>
+                        <th>Date</th>
+                        <td>{{ info['timestamp'].strftime("%Y-%m-%d %H:%M:%S") }}</td>
+                    </tr>
+                    <tr>
+                        <th>Barcode</th>
+                        <td>{{ info['barcode'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Voltage</th>
+                        <td>{{ info['voltage'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Git SHA1</th>
+                        <td>{{ info['git_sha1'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Git Dirty</th>
+                        <td>{{ info['git_dirty'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Institution</th>
+                        <td>{{ info['institution'] }}</td>
+                    </tr>
+                </table>
+	    </div>
+	    <div class="col-md-2">
+                <h3>Module Info</h3>
+                {% if 'modules_timestamp' in info %}
+                <table class="table table-bordered">
+                    <tr>
+                        <th>Date Added to Database</th>
+                        <td>{{ info['modules_timestamp'].strftime("%Y-%m-%d %H:%M:%S") }}</td>
+                    </tr>
+                    <tr>
+                        <th>Barcode</th>
+                        <td>{{ info['barcode'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>SiPM Type</th>
+                        <td>{{ info['sipm'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Assembly Institution</th>
+                        <td>{{ info['btl_qa_institution'] }}</td>
+                    </tr>
+                </table>
+                {% else %}
+                <div class="alert alert-danger">
+                No module found with barcode {{ info['barcode'] }} in database. Did you forget to upload it <a href="{{ url_for('upload_new_module_view')}}">here</a>?
+                </div>
+                {% endif %}
+	    </div>
+        </div>
+	<div class="row">
+	    <div class="col-md-12" id='ch-light-output'></div>
+        </div>
+	{% endif %}
+    </div>
+{% endblock %}
+{% block script %}
+    <script src="{{ url_for('static', filename='js/d3.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/metricsgraphics.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/mg_line_brushing.js') }}"></script>
+
+    <script>
+        var x = {{ info['channels'] | tojson }};
+        var y = {{ info['light_outputs'] | tojson }};
+
+        var light_output = new Array();
+        for (var i=0; i < x.length; i++) {
+            if (y[i] !== null)
+                light_output.push({'x': x[i], 'y': y[i]});
+        }
+
+        MG.data_graphic({
+            title: "Light Output",
+            description: "Light Output",
+            data: light_output,
+            chart_type: 'point',
+            width: $('#ch-light-output').width(),
+            height: 250,
+            left: 100,
+            target: '#ch-light-output',
+            x_accessor: 'x',
+            y_accessor: 'y',
+            x_label: 'Channel',
+            y_label: 'Light Output (PE/MeV)'
+        });
+    </script>
+{% endblock %}

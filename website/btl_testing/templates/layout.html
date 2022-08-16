@@ -28,7 +28,8 @@
             <div class="container">
                 <div class="navbar-collapse collapse">
                     <ul class="nav navbar-nav">
-                        {{ nav_link('channel_database', 'BTL Test Database') }}
+                        {{ nav_link('module_database', 'BTL Module Database') }}
+                        {{ nav_link('channel_database', 'BTL Channel Database') }}
                         {{ nav_link('upload_new_module_view', 'Upload New Module') }}
                     </ul>
                 </div><!--/.navbar-collapse -->
@@ -48,7 +49,6 @@
         {% endwith %}
         {% endblock %}
         <script src="{{ url_for('static', filename='js/jquery.min.js') }}"></script>
-        <script src="{{ url_for('static', filename='js/toastr.min.js') }}"></script>
         <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
 
         <!-- $SCRIPT_ROOT for app location -->
@@ -57,7 +57,6 @@
         </script>
 
         <script src="{{ url_for('static', filename='js/minard.js') }}"></script>
-        <script src="{{ url_for('static', filename='js/toastr-alarms.js') }}"></script>
 
         {% block script %}{% endblock %}
     </body>

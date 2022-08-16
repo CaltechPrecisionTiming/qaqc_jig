@@ -10,7 +10,7 @@ from math import isnan
 import os
 import sys
 import random
-from .moduledb import get_channels, get_channel_info, ModuleUploadForm, upload_new_module
+from .moduledb import get_channels, get_channel_info, ModuleUploadForm, upload_new_module, get_modules, get_module_info
 from datetime import datetime
 import pytz
 
@@ -21,6 +21,13 @@ def timefmt(timestamp):
 @app.errorhandler(500)
 def internal_error(exception):
     return render_template('500.html'), 500
+
+@app.route('/module-database')
+def module_database():
+    limit = request.args.get("limit", 100, type=int)
+    sort_by = request.args.get("sort-by", "timestamp")
+    results = get_modules(request.args, limit, sort_by)
+    return render_template('module_database.html', results=results, limit=limit, sort_by=sort_by)
 
 @app.route('/channel-database')
 def channel_database():
@@ -79,6 +86,16 @@ def upload_new_module_view():
         return redirect(url_for("upload_new_module_view"))
 
     return render_template("upload_new_module.html", form=form)
+
+@app.route('/module-status')
+def module_status():
+    barcode = request.args.get("barcode", 0, type=int)
+    run = request.args.get("run", None, type=int)
+    info = get_module_info(barcode=barcode,run=run)
+    if info is None:
+        flash('No module found in database with that barcode. Did you forget to upload it?','danger')
+        return redirect(url_for('module_database'))
+    return render_template('module_status.html', info=info)
 
 @app.route('/channel-status')
 def channel_status():

@@ -25,16 +25,18 @@ def internal_error(exception):
 @app.route('/module-database')
 def module_database():
     limit = request.args.get("limit", 100, type=int)
+    offset = request.args.get("offset", 0, type=int)
     sort_by = request.args.get("sort-by", "timestamp")
-    results = get_modules(request.args, limit, sort_by)
-    return render_template('module_database.html', results=results, limit=limit, sort_by=sort_by)
+    results = get_modules(request.args, limit, offset, sort_by)
+    return render_template('module_database.html', results=results, limit=limit, offset=offset, sort_by=sort_by)
 
 @app.route('/channel-database')
 def channel_database():
     limit = request.args.get("limit", 100, type=int)
+    offset = request.args.get("offset", 0, type=int)
     sort_by = request.args.get("sort-by", "timestamp")
-    results = get_channels(request.args, limit, sort_by)
-    return render_template('channel_database.html', results=results, limit=limit, sort_by=sort_by)
+    results = get_channels(request.args, limit, offset, sort_by)
+    return render_template('channel_database.html', results=results, limit=limit, offset=offset, sort_by=sort_by)
 
 @app.template_filter('time_from_now')
 def time_from_now(dt):

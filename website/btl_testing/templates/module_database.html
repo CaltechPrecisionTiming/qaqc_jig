@@ -6,6 +6,16 @@
 {% block body %}
     {{ super() }}
     <div class="container">
+            <div class="col-md-10">
+            </div>
+            <div class="col-md-2 text-right">
+                Results
+                <select id="limit">
+                    {% for i in [10,100,200,500,1000] %}
+                        <option {% if limit == i %}selected="selected" {% endif %}value="{{ i }}">{{ i }}</option>
+                    {% endfor %}
+                </select>
+            </div>
 	    <div class="col-md-12">
 		<table class="table table-hover table-condensed">
 		    <thead>
@@ -27,7 +37,33 @@
 		    </tr>
 		    {% endfor %}
 		</table>
+                {% if offset != 0 %}
+                <p class="text-left"><a href="{{ url_for('module_database',limit=limit,offset=offset-limit) }}">Prev</a>
+                {% endif %}
+                <p class="text-right"><a href="{{ url_for('module_database',limit=limit,offset=offset+limit) }}">Next</a>
 	    </div>
 	</div>
     </div>
+{% endblock %}
+{% block script %}
+    <script>
+        var setting = 0;
+        for (var key in url_params) {
+            if (url_params.hasOwnProperty(key)) {
+                if (key == 'limit') {
+                    document.getElementById("limit").value = url_params.limit;
+                }
+            }
+        }
+        $("#limit").on("change", function() {
+            var params = {};
+            params["limit"] = document.getElementById("limit").value;
+
+            if (Object.keys(params).length > 0) {
+                window.location.replace($SCRIPT_ROOT + "/module-database?" + $.param(params));
+            } else {
+                window.location.replace($SCRIPT_ROOT + "/module-database");
+            }
+        });
+    </script>
 {% endblock %}

@@ -91,7 +91,7 @@ def get_channel_info(key):
 
     return dict(zip(keys,row))
 
-def get_modules(kwargs, limit=100, sort_by=None):
+def get_modules(kwargs, limit=100, offset=0, sort_by=None):
     """
     Returns a list of the latest data for individual channels. `kwargs` should
     be a dictionary containing fields and their associated values to select on.
@@ -106,9 +106,9 @@ def get_modules(kwargs, limit=100, sort_by=None):
     query = "SELECT * FROM (SELECT min(timestamp) as timestamp, run, barcode FROM data GROUP BY (run, barcode)) as channel, runs WHERE channel.run = runs.run"
 
     if sort_by == 'timestamp':
-        query += " ORDER BY runs.timestamp DESC LIMIT %i" % limit
+        query += " ORDER BY runs.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)
     else:
-        query += " ORDER BY runs.timestamp DESC LIMIT %i" % limit
+        query += " ORDER BY runs.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)
 
     result = conn.execute(query, kwargs)
 
@@ -120,7 +120,7 @@ def get_modules(kwargs, limit=100, sort_by=None):
 
     return [dict(zip(keys,row)) for row in rows]
 
-def get_channels(kwargs, limit=100, sort_by=None):
+def get_channels(kwargs, limit=100, offset=0, sort_by=None):
     """
     Returns a list of the latest data for individual channels. `kwargs` should
     be a dictionary containing fields and their associated values to select on.
@@ -134,16 +134,17 @@ def get_channels(kwargs, limit=100, sort_by=None):
 
     conditions = []
     for key in kwargs:
-        conditions.append("%s = %%(%s)s" % (key, key))
+        if key == 'barcode':
+            conditions.append("%s = %%(%s)s" % (key, key))
 
     query = "SELECT * FROM data"
     if len(conditions):
         query += " WHERE %s " % (" AND ".join(conditions))
 
     if sort_by == 'timestamp':
-        query += " ORDER BY data.timestamp DESC LIMIT %i" % limit
+        query += " ORDER BY data.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)
     else:
-        query += " ORDER BY data.timestamp DESC LIMIT %i" % limit
+        query += " ORDER BY data.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)
 
     result = conn.execute(query, kwargs)
 

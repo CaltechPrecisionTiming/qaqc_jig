@@ -144,7 +144,13 @@ def convert_data(f, channel, start, stop):
             xinc = 1/(f.attrs['drs4_frequency'] * 10**6)
             points = f.attrs['record_length']
             x = np.linspace(0, xinc * points, int(points)) - xinc * points * (1 - f.attrs['post_trigger']/100)
-
+            
+            # While `y` is measured in volts, it's only relatively. We could
+            # use the DC offset to determine the absolute voltage, but the DC
+            # offset isn't well defined. Setting it to about 22000 (DAC units)
+            # means approximately no offset is added, but not exactly.
+            # Nevertheless, this shouldn't matter much because we use a
+            # baseline subtraction method anyways.
             y = f[channel][start:stop] * (1/2**12)
 
     elif 'yinc' in dict(f[channel].attrs):

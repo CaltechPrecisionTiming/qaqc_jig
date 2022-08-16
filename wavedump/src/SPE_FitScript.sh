@@ -34,9 +34,9 @@ BV="45"
 # * number of events
 ne=10000
 # * Active channel - if left as empty string, all channels are analyzed.
-active="ch15"
+active="ch0"
 # * Extra
-EXTRA="vino_cutoff"
+EXTRA="vino_cutoff2"
 
 echo "---CHECKLIST---"
 if [ "$src" = true ] ; then

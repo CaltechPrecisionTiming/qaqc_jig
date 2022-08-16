@@ -87,7 +87,7 @@ if __name__ == '__main__':
     parser.add_argument("--print-pdfs", default=None, type=str, help="Folder to save pdfs in")
     parser.add_argument("--test-511", default=False, action='store_true', help="Only perform the 511 fitting (only for testing purposes)")
     parser.add_argument("--test-spe", default=False, action='store_true', help="Only perform the SPE fitting (only for testing purposes)")
-    # parser.add_argument("-o", "--output", default=None, type=str, help="File to write charge data to")
+    parser.add_argument("-o", "--output", default=None, type=str, help="File to write charge data to")
     
     args = parser.parse_args()
     
@@ -163,7 +163,9 @@ if __name__ == '__main__':
     elif args.test_spe:
         for ch in charge_spe:
             print(f'{ch} spe charge: {charge_spe[ch][0]}')
-
+            if args.output:
+                save_as_csv('SPE', charge_spe[ch][0], charge_spe[ch][1], ch, args.output)
+    
     if args.plot:
         input()
     for f in opened:

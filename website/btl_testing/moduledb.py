@@ -31,36 +31,63 @@ def upload_new_module(form):
 def get_module_info(barcode, run=None):
     conn = engine.connect()
 
-    query = "SELECT min(barcode) as barcode, git_sha1, git_dirty, voltage, institution, min(runs.timestamp) as timestamp, array_agg(data.channel) as channels, array_agg(data.sodium_peak) as sodium_peak, array_agg(spe) as spe FROM data, runs WHERE data.run = runs.run "
+    query = "SELECT *, runs.institution as runs_institution, modules.timestamp as modules_timestamp, modules.institution as modules_institution, runs.timestamp as timestamp FROM (SELECT run, barcode, array_agg(key ORDER BY channel) as keys, array_agg(data.channel ORDER BY channel) as channels, array_agg(data.sodium_peak ORDER BY channel) as sodium_peak, array_agg(spe ORDER BY channel) as spe FROM data GROUP BY (run,barcode)) as channel, runs, modules WHERE channel.run = runs.run AND channel.barcode = modules.barcode"
 
     if run is not None:
         vars = (barcode, run)
-        query += " AND barcode = %s AND runs.run = %s"
+        query += " AND channel.barcode = %s AND runs.run = %s"
     else:
         vars = (barcode,)
-        query += " AND barcode = %s"
+        query += " AND channel.barcode = %s"
 
-    query += " GROUP BY (runs.run, barcode) ORDER BY timestamp DESC"
+    query += " ORDER BY runs.timestamp DESC"
 
     result = conn.execute(query,vars)
 
-    if result is None:
-        return None
-
     keys = result.keys()
     row = result.fetchone()
+
+    if row is None:
+        # No module info?
+        query = "SELECT *, runs.institution as runs_institution, runs.timestamp as timestamp FROM (SELECT run, barcode, array_agg(key ORDER BY channel) as keys, array_agg(data.channel ORDER BY channel) as channels, array_agg(data.sodium_peak ORDER BY channel) as sodium_peak, array_agg(spe ORDER BY channel) as spe FROM data GROUP BY (run,barcode)) as channel, runs WHERE channel.run = runs.run"
+
+        if run is not None:
+            vars = (barcode, run)
+            query += " AND channel.barcode = %s AND runs.run = %s"
+        else:
+            vars = (barcode,)
+            query += " AND channel.barcode = %s"
+
+        query += " ORDER BY runs.timestamp DESC"
+
+        result = conn.execute(query,vars)
+
+        keys = result.keys()
+        row = result.fetchone()
+
+        if row is None:
+            return None
 
     return dict(zip(keys,row))
 
 def get_channel_info(key):
     conn = engine.connect()
 
-    query = "SELECT * FROM data WHERE key = %s"
+    query = "SELECT *, runs.institution as runs_institution, modules.timestamp as modules_timestamp, modules.institution as modules_institution, data.timestamp as timestamp FROM data, modules, runs WHERE data.barcode = modules.barcode AND data.run = runs.run AND key = %s"
 
     result = conn.execute(query, (key,))
 
     keys = result.keys()
     row = result.fetchone()
+
+    if row is None:
+        # Maybe no module uploaded?
+        query = "SELECT *, runs.institution as runs_institution, data.timestamp as timestamp FROM data, runs WHERE data.run = runs.run AND key = %s"
+
+        result = conn.execute(query, (key,))
+
+        keys = result.keys()
+        row = result.fetchone()
 
     return dict(zip(keys,row))
 
@@ -76,12 +103,12 @@ def get_modules(kwargs, limit=100, sort_by=None):
     """
     conn = engine.connect()
 
-    query = "SELECT min(timestamp) as timestamp, run, barcode FROM data GROUP BY (run, barcode)"
+    query = "SELECT * FROM (SELECT min(timestamp) as timestamp, run, barcode FROM data GROUP BY (run, barcode)) as channel, runs WHERE channel.run = runs.run"
 
     if sort_by == 'timestamp':
-        query += " ORDER BY timestamp DESC LIMIT %i" % limit
+        query += " ORDER BY runs.timestamp DESC LIMIT %i" % limit
     else:
-        query += " ORDER BY timestamp DESC LIMIT %i" % limit
+        query += " ORDER BY runs.timestamp DESC LIMIT %i" % limit
 
     result = conn.execute(query, kwargs)
 

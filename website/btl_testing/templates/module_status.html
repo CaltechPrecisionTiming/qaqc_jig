@@ -42,7 +42,7 @@
                     </tr>
                     <tr>
                         <th>Institution</th>
-                        <td>{{ info['institution'] }}</td>
+                        <td>{{ info['runs_institution'] }}</td>
                     </tr>
                 </table>
 	    </div>
@@ -64,7 +64,7 @@
                     </tr>
                     <tr>
                         <th>Assembly Institution</th>
-                        <td>{{ info['btl_qa_institution'] }}</td>
+                        <td>{{ info['modules_institution'] }}</td>
                     </tr>
                 </table>
                 {% else %}
@@ -73,6 +73,23 @@
                 </div>
                 {% endif %}
 	    </div>
+	    <div class="col-md-8">
+                <h3>Individual Channel Results</h3>
+                <table class="table table-hover table-condensed">
+		    <thead>
+                        <tr>
+                            <th class="text-center">Channel</th>
+                            <th class="text-center">Light Output (PE/MeV)</th>
+                        </tr>
+                    </thead>
+                    {% for i in range(info['channels']|length) %}
+		        <tr onclick="window.document.location = '{{ url_for('channel_status',key=info['keys'][i]) }}';">
+                            <td class="text-center">{{ info['channels'][i] }}</td>
+                            <td class="text-center">{{ "%.0f" % (info['sodium_peak'][i]/(0.511*info['spe'][i])) }}</td>
+                        </tr>
+                    {% endfor %}
+                </table>
+            </div>
         </div>
 	<div class="row">
 	    <div class="col-md-12" id='ch-light-output'></div>

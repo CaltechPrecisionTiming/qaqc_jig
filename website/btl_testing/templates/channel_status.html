@@ -28,7 +28,7 @@
                         <th>Barcode</th>
                         <td>{{ info['barcode'] }}</td>
                     </tr>
-                    <!--<tr>
+                    <tr>
                         <th>Voltage</th>
                         <td>{{ info['voltage'] }}</td>
                     </tr>
@@ -42,8 +42,8 @@
                     </tr>
                     <tr>
                         <th>Institution</th>
-                        <td>{{ info['btl_qa_institution'] }}</td>
-                    </tr>-->
+                        <td>{{ info['runs_institution'] }}</td>
+                    </tr>
                 </table>
 	    </div>
 	    <div class="col-md-2">
@@ -64,7 +64,7 @@
                     </tr>
                     <tr>
                         <th>Assembly Institution</th>
-                        <td>{{ info['btl_qa_institution'] }}</td>
+                        <td>{{ info['modules_institution'] }}</td>
                     </tr>
                 </table>
                 {% else %}
@@ -75,16 +75,13 @@
 	    </div>
         </div>
 	<div class="row">
-	    <div class="col-md-12" id='ch-511'></div>
-        </div>
-	<div class="row">
 	    <div class="col-md-12" id='avg-pulse'></div>
         </div>
 	<div class="row">
-	    <div class="col-md-12" id='ch-511-rise-time'></div>
+	    <div class="col-md-12" id='sodium_charge-histogram'></div>
         </div>
 	<div class="row">
-	    <div class="col-md-12" id='ch-511-fall-time'></div>
+	    <div class="col-md-12" id='spe_charge-histogram'></div>
         </div>
 	{% endif %}
     </div>
@@ -101,53 +98,56 @@
         var avg_pulse_data = new Array();
         for (var i=0; i < avg_pulse_x.length; i++) {
             if (avg_pulse_y[i] !== null)
-                avg_pulse_data.push({'x': avg_pulse_x[i], 'y': avg_pulse_y[i]});
+                avg_pulse_data.push({'x': avg_pulse_x[i], 'y': avg_pulse_y[i]*1000});
         }
 
-        //MG.data_graphic({
-        //    title: "Sodium-22 511 Peak",
-        //    description: "Charge of 511 Peak",
-        //    data: sodium_data,
-        //    chart_type: 'point',
-        //    width: $('#ch-511').width(),
-        //    height: 250,
-        //    left: 100,
-        //    target: '#ch-511',
-        //    x_accessor: 'x',
-        //    y_accessor: 'y',
-        //    x_label: 'Channel',
-        //    y_label: 'Charge (pC)'
-        //});
+        var sodium_charge_histogram_x = {{ info['sodium_charge_histogram_x'] | tojson }};
+        var sodium_charge_histogram_y = {{ info['sodium_charge_histogram_y'] | tojson }};
 
-        //MG.data_graphic({
-        //    title: "Sodium-22 511 Rise Time",
-        //    description: "Rise Time of 511 Pulses",
-        //    data: sodium_rise_time_data,
-        //    chart_type: 'point',
-        //    width: $('#ch-511-rise-time').width(),
-        //    height: 250,
-        //    left: 100,
-        //    target: '#ch-511-rise-time',
-        //    x_accessor: 'x',
-        //    y_accessor: 'y',
-        //    x_label: 'Channel',
-        //    y_label: 'Time (ns)'
-        //});
+        var sodium_charge_histogram_data = new Array();
+        for (var i=0; i < sodium_charge_histogram_x.length; i++) {
+            if (sodium_charge_histogram_y[i] !== null)
+                sodium_charge_histogram_data.push({'x': sodium_charge_histogram_x[i], 'y': sodium_charge_histogram_y[i]});
+        }
 
-        //MG.data_graphic({
-        //    title: "Sodium-22 511 Fall Time",
-        //    description: "Fall Time of 511 Pulses",
-        //    data: sodium_fall_time_data,
-        //    chart_type: 'point',
-        //    width: $('#ch-511-fall-time').width(),
-        //    height: 250,
-        //    left: 100,
-        //    target: '#ch-511-fall-time',
-        //    x_accessor: 'x',
-        //    y_accessor: 'y',
-        //    x_label: 'Channel',
-        //    y_label: 'Time (ns)'
-        //});
+        var spe_charge_histogram_x = {{ info['spe_charge_histogram_x'] | tojson }};
+        var spe_charge_histogram_y = {{ info['spe_charge_histogram_y'] | tojson }};
+
+        var spe_charge_histogram_data = new Array();
+        for (var i=0; i < spe_charge_histogram_x.length; i++) {
+            if (spe_charge_histogram_y[i] !== null)
+                spe_charge_histogram_data.push({'x': spe_charge_histogram_x[i], 'y': spe_charge_histogram_y[i]});
+        }
+
+        MG.data_graphic({
+            title: "SPE Charge Histogram",
+            description: "SPE Charge Histogram",
+            data: spe_charge_histogram_data,
+            chart_type: 'line',
+            width: $('#spe_charge-histogram').width(),
+            height: 250,
+            left: 100,
+            target: '#spe_charge-histogram',
+            x_accessor: 'x',
+            y_accessor: 'y',
+            x_label: 'Charge (pC)',
+            y_label: 'Entries'
+        });
+
+        MG.data_graphic({
+            title: "Sodium Charge Histogram",
+            description: "Sodium Charge Histogram",
+            data: sodium_charge_histogram_data,
+            chart_type: 'line',
+            width: $('#sodium_charge-histogram').width(),
+            height: 250,
+            left: 100,
+            target: '#sodium_charge-histogram',
+            x_accessor: 'x',
+            y_accessor: 'y',
+            x_label: 'Charge (pC)',
+            y_label: 'Entries'
+        });
 
         MG.data_graphic({
             title: "Average Pulse Shape",
@@ -161,7 +161,7 @@
             x_accessor: 'x',
             y_accessor: 'y',
             x_label: 'Time (ns)',
-            y_label: 'Voltage (V)'
+            y_label: 'Voltage (millivolts)'
         });
     </script>
 {% endblock %}

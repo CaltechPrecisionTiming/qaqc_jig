@@ -413,7 +413,18 @@ if __name__ == '__main__':
                 channel_data['sodium_peak'] = 100
                 channel_data['spe'] = 100
 
-                result = cursor.execute("INSERT INTO data (channel, barcode, sodium_peak, spe, sodium_rise_time, sodium_fall_time, avg_pulse_x, avg_pulse_y, run) VALUES (%(channel)s, %(barcode)s, %(sodium_peak)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s)", channel_data)
+                bins = get_bins(charge[channel])
+                channel_data['sodium_charge_histogram_y'] = list(map(float,np.histogram(charge[channel],bins=bins)[0]))
+                bincenters = (bins[:1] + bins[:-1])/2
+                channel_data['sodium_charge_histogram_x'] = list(map(float,bincenters))
+
+                bins = get_bins(charge[channel])
+                channel_data['spe_charge_histogram_y'] = list(map(float,np.histogram(charge[channel],bins=bins)[0]))
+                bincenters = (bins[:1] + bins[:-1])/2
+                channel_data['spe_charge_histogram_x'] = list(map(float,bincenters))
+
+                result = cursor.execute("INSERT INTO data (channel, barcode, sodium_peak, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run) VALUES (%(channel)s, %(barcode)s, %(sodium_peak)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s)", channel_data)
+
 
     if args.output:
         f = ROOT.TFile(args.output,"recreate")

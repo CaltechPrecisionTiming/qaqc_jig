@@ -108,4 +108,4 @@ def channel_status():
 
 @app.route('/')
 def index():
-    return redirect(url_for('channel_database'))
+    return redirect(url_for('module_database'))

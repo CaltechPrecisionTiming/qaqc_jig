@@ -11,15 +11,19 @@
 		    <thead>
 			<tr>
                             <th>Last Updated</th>
-			    <th>Barcode</th>
 			    <th>Run</th>
+			    <th>Barcode</th>
+			    <th>Voltage</th>
+			    <th>Institution</th>
 			</tr>
 		    </thead>
 		    {% for row in results %}
 		    <tr onclick="window.document.location = '{{ "module-status?barcode=%i&run=%i" % (row['barcode'],row['run']) }}';">
                         <td>{{ row['timestamp'] | time_from_now }}</td>
-			<td>{{ row['barcode'] }}</td>
 			<td>{{ row['run'] }}</td>
+			<td>{{ row['barcode'] }}</td>
+			<td>{{ row['voltage'] }}</td>
+			<td>{{ row['institution'] }}</td>
 		    </tr>
 		    {% endfor %}
 		</table>

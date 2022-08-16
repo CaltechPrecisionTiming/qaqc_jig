@@ -20,53 +20,53 @@ args = parser.parse_args()
 try:
     with open(args.data_file, 'r') as file:
         reader = csv.DictReader(file)
-        dark_100 = [[] for _ in range(16)]
-        dark_200 = [[] for _ in range(16)]
-        dark_300 = [[] for _ in range(16)]
-        laser = [[] for _ in range(16)]
+        data = [[[] for _ in range(16)] for _ in range(4)]
+        data_err = [[[] for _ in range(16)] for _ in range(4)]
         for row in reader:
             if not 'vino_cutoff' in row['Extra']:
                 continue
-            
             if float(row['Bias']) != 45:
                 continue
-            
-            val = float(row['SPE Charge'])
             if row['Source'] == 'SCOPE':
                 continue
-                if row['Extra'].startswith('LASER'):
-                    SCOPE_laser.append(val) 
-                elif row['Extra'].startswith('DARK_195'):
-                    SCOPE_dark_195.append(val)
-                elif row['Extra'].startswith('DARK'):
-                    SCOPE_dark.append(val)
-            else:
-                idx = int(row['Channel'][2:])
-                if row['Extra'].startswith('LASER'):
-                    laser[idx].append(val) 
-                elif row['Extra'].startswith('DARK_100'):
-                    dark_100[idx].append(val)
-                elif row['Extra'].startswith('DARK_200'):
-                    dark_200[idx].append(val)
-                elif row['Extra'].startswith('DARK_300'):
-                    dark_300[idx].append(val)
-        dark_100 = np.mean(dark_100, axis=-1)
-        dark_200 = np.mean(dark_200, axis=-1)
-        dark_300 = np.mean(dark_300, axis=-1)
-        laser = np.mean(laser, axis=-1)
+            val = float(row['SPE Charge'])
+            val_err = float(row['SPE Charge Err Abs'])            
+            idx = int(row['Channel'][2:])
+            if row['Extra'].startswith('LASER'):
+                data[0][idx].append(val) 
+                data_err[0][idx].append(val_err) 
+            elif row['Extra'].startswith('DARK_100'):
+                data[1][idx].append(val) 
+                data_err[1][idx].append(val_err) 
+            elif row['Extra'].startswith('DARK_200'):
+                data[2][idx].append(val) 
+                data_err[2][idx].append(val_err) 
+            elif row['Extra'].startswith('DARK_300'):
+                data[3][idx].append(val) 
+                data_err[3][idx].append(val_err) 
 
-        la = np.mean(laser)
-        d200a = np.mean(dark_200)
+        # dark_100_val = np.mean(dark_100_val, axis=-1)
+        # dark_200_val = np.mean(dark_200_val, axis=-1)
+        # dark_300_val = np.mean(dark_300_val, axis=-1)
+        # laser_val = np.mean(laser_val, axis=-1)
+        # dark_100_val = np.mean(dark_100_val, axis=-1)
+        # dark_200_val = np.mean(dark_200_val, axis=-1)
+        # dark_300_val = np.mean(dark_300_val, axis=-1)
+        # laser_val = np.mean(laser_val, axis=-1)
+        data = np.mean(data, axis=-1)
+        data_err = np.mean(data_err, axis=-1)
+        la = np.mean(data[0])
+        d200a = np.mean(data[2])
         
         print(f'Laser average: {la}')
         print(f'Dark 200 average: {d200a}')
         print(f'Dark 200 is {((d200a - la)/la) * 100}% off from laser')
 
         plt.figure()
-        plt.plot(np.arange(16), laser, label='Laser 100ns')
-        plt.plot(np.arange(16), dark_100, label='Dark 100ns')
-        plt.plot(np.arange(16), dark_200, label='Dark 200ns')
-        plt.plot(np.arange(16), dark_300, label='Dark 300ns')
+        plt.errorbar(np.arange(16), data[0], yerr=data_err[0], capsize=2, label='Laser 100ns')
+        plt.errorbar(np.arange(16), data[1], yerr=data_err[1], capsize=2, label='Dark 100ns')
+        plt.errorbar(np.arange(16), data[2], yerr=data_err[2], capsize=2, label='Dark 200ns')
+        plt.errorbar(np.arange(16), data[3], yerr=data_err[3], capsize=2, label='Dark 300ns')
         plt.suptitle('SPE Charge Data over each CAEN Channel with 45V SiPM Bias')
         plt.xlabel("Channel")
         plt.ylabel("Charge (pC)")

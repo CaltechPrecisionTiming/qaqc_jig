@@ -1235,9 +1235,9 @@ void get_baselines(float data[WF_SIZE][32][1024], float *baselines, int n, int c
  * off. The reason is that with the full compression (gzip level 9), it was too
  * slow and so the data taking time was dominated by the compression. There is
  * probably some way to speed this up, and if so, it can be re-enabled. */
-int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, int chmask, int nsamples, WaveDumpConfig_t *WDcfg)
+int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, int chmask, int nsamples, WaveDumpConfig_t *WDcfg)
 {
-    hid_t file, space, dset, dcpl, mem_space, file_space;
+    hid_t file, space, dset, dcpl, mem_space, file_space, group_id, baseline_group_id;
     herr_t status;
     htri_t avail;
     int ndims;
@@ -1247,10 +1247,10 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
     int i, j, k;
     unsigned int filter_info;
     hid_t aid, atype, attr;
+    char baseline_group_name[256];
 
     chunk[0] = 1024;
     chunk[1] = 1024;
-
     /* Check if file exists. */
     if (access(filename, F_OK) != 0) {
         /* File doesn't exist. Create it. */
@@ -1275,9 +1275,16 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
 
         /* Create a new file using the default properties. */
         file = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    } else {
+        file = H5Fopen(filename, H5F_ACC_RDWR, H5P_DEFAULT);
+    }
 
+    /* If group not in file, create the group. Else, extend the dataset in the group. */
+    if (H5Lexists(file, group_name, H5P_DEFAULT) <= 0) { 
+        group_id = H5Gcreate (file, group_name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        
         aid = H5Screate(H5S_SCALAR);
-        attr = H5Acreate2(file, "record_length", H5T_NATIVE_INT, aid, H5P_DEFAULT, H5P_DEFAULT);
+        attr = H5Acreate2(group_id, "record_length", H5T_NATIVE_INT, aid, H5P_DEFAULT, H5P_DEFAULT);
         int record_length = WDcfg->RecordLength;
         int ret = H5Awrite(attr, H5T_NATIVE_INT, &record_length);
 
@@ -1296,7 +1303,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
         atype = H5Tcopy(H5T_C_S1);
         H5Tset_size(atype, 100);
         H5Tset_strpad(atype, H5T_STR_NULLTERM);
-        attr = H5Acreate2(file, "data_source", atype, aid, H5P_DEFAULT, H5P_DEFAULT);
+        attr = H5Acreate2(group_id, "data_source", atype, aid, H5P_DEFAULT, H5P_DEFAULT);
         ret = H5Awrite(attr, atype, "CAEN");
 
         if (ret) {
@@ -1309,7 +1316,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
         H5Tclose(atype);
 
         aid = H5Screate(H5S_SCALAR);
-        attr = H5Acreate2(file, "post_trigger", H5T_NATIVE_INT, aid, H5P_DEFAULT, H5P_DEFAULT);
+        attr = H5Acreate2(group_id, "post_trigger", H5T_NATIVE_INT, aid, H5P_DEFAULT, H5P_DEFAULT);
         int post_trigger = WDcfg->PostTrigger;
         ret = H5Awrite(attr, H5T_NATIVE_INT, &post_trigger);
 
@@ -1322,7 +1329,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
         H5Aclose(attr);
 
         aid = H5Screate(H5S_SCALAR);
-        attr = H5Acreate2(file, "drs4_frequency", H5T_NATIVE_INT, aid, H5P_DEFAULT, H5P_DEFAULT);
+        attr = H5Acreate2(group_id, "drs4_frequency", H5T_NATIVE_INT, aid, H5P_DEFAULT, H5P_DEFAULT);
         int drs4_frequency = 0;
         switch (WDcfg->DRS4Frequency) {
         case 0:
@@ -1352,7 +1359,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
         H5Aclose(attr);
 
         aid = H5Screate(H5S_SCALAR);
-        attr = H5Acreate2(file, "barcode", H5T_NATIVE_INT, aid, H5P_DEFAULT, H5P_DEFAULT);
+        attr = H5Acreate2(group_id, "barcode", H5T_NATIVE_INT, aid, H5P_DEFAULT, H5P_DEFAULT);
         ret = H5Awrite(attr, H5T_NATIVE_INT, &WDcfg->barcode);
 
         if (ret) {
@@ -1364,7 +1371,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
         H5Aclose(attr);
 
         aid = H5Screate(H5S_SCALAR);
-        attr = H5Acreate2(file, "voltage", H5T_NATIVE_FLOAT, aid, H5P_DEFAULT, H5P_DEFAULT);
+        attr = H5Acreate2(group_id, "voltage", H5T_NATIVE_FLOAT, aid, H5P_DEFAULT, H5P_DEFAULT);
         ret = H5Awrite(attr, H5T_NATIVE_FLOAT, &WDcfg->voltage);
 
         if (ret) {
@@ -1379,7 +1386,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
         atype = H5Tcopy(H5T_C_S1);
         H5Tset_size(atype, 100);
         H5Tset_strpad(atype, H5T_STR_NULLTERM);
-        attr = H5Acreate2(file, "git_sha1", atype, aid, H5P_DEFAULT, H5P_DEFAULT);
+        attr = H5Acreate2(group_id, "git_sha1", atype, aid, H5P_DEFAULT, H5P_DEFAULT);
         ret = H5Awrite(attr, atype, GitSHA1());
 
         if (ret) {
@@ -1397,7 +1404,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
         atype = H5Tcopy(H5T_C_S1);
         H5Tset_size(atype, 100);
         H5Tset_strpad(atype, H5T_STR_NULLTERM);
-        attr = H5Acreate2(file, "git_dirty", atype, aid, H5P_DEFAULT, H5P_DEFAULT);
+        attr = H5Acreate2(group_id, "git_dirty", atype, aid, H5P_DEFAULT, H5P_DEFAULT);
         ret = H5Awrite(attr, atype, GitDirty());
 
         if (ret) {
@@ -1411,6 +1418,8 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
         
         /* Writing the baseline data to the file
          * in separate datasets */
+        sprintf(baseline_group_name, "baseline_%s", group_name);
+        baseline_group_id = H5Gcreate(group_id, baseline_group_name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
         for (i = 0; i < 32; i++) {
             if (!(chmask & (1 << i))) continue;
             maxdims[0] = BS_SIZE;
@@ -1427,7 +1436,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
 
             sprintf(dset_name, "base_ch%i", i);
             
-            dset = H5Dcreate(file, dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            dset = H5Dcreate(baseline_group_id, dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
             /* Write the data to the dataset. */
             status = H5Dwrite(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, wdata);
@@ -1441,6 +1450,12 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
                 return 1;
             }
         }
+        status = H5Gclose(baseline_group_id);
+        if (status) {
+            fprintf(stderr, "error closing hdf5 resources.\n");
+            return 1;
+        }
+
         /* Writing the actual data to the file */
         for (i = 0; i < 32; i++) {
             if (!(chmask & (1 << i))) continue;
@@ -1470,7 +1485,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
                     wdata[j*nsamples + k] = data[j][i][k];
 
             /* Create the compressed unlimited dataset. */
-            dset = H5Dcreate(file, dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, dcpl, H5P_DEFAULT);
+            dset = H5Dcreate(group_id, dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, dcpl, H5P_DEFAULT);
 
             /* Write the data to the dataset. */
             status = H5Dwrite(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, wdata);
@@ -1487,6 +1502,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
                 return 1;
             }
         }
+        status = H5Gclose(group_id);
         status = H5Fclose(file);
 
         if (status) {
@@ -1502,12 +1518,12 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
      * Note: This is really confusing. I couldn't have done this without the
      * stack overflow answer here:
      * https://stackoverflow.com/questions/15379399/writing-appending-arrays-of-float-to-the-only-dataset-in-hdf5-file-in-c. */
-    file = H5Fopen(filename, H5F_ACC_RDWR, H5P_DEFAULT);
+    group_id = H5Gopen(file, group_name, H5P_DEFAULT);
     for (i = 0; i < 32; i++) {
         if (!(chmask & (1 << i))) continue;
 
         sprintf(dset_name, "ch%i", i);
-        if ((dset = H5Dopen(file, dset_name, H5P_DEFAULT)) < 0) {
+        if ((dset = H5Dopen(group_id, dset_name, H5P_DEFAULT)) < 0) {
             fprintf(stderr, "couldn't find dataset for %s. skipping...\n", dset_name);
         }
 
@@ -1575,7 +1591,7 @@ int add_to_output_file(char *filename, float data[WF_SIZE][32][1024], float base
             return 1;
         }
     }
-    
+    status = H5Gclose(group_id);
     status = H5Fclose(file);
     if (status) {
         fprintf(stderr, "error closing hdf5 file.\n");
@@ -1592,6 +1608,7 @@ void print_help()
     "  -v, --voltage <voltage>    Voltage (V)"
     "  --help                     Output this help and exit.\n"
     "  -t, --trigger <trigger>    Type of trigger: \"software\", \"external\", or \"self\".\n"
+    "  -l, --label <label>        Name of hdf5 group to write data to.\n"
     "\n");
     exit(1);
 }
@@ -1753,6 +1770,7 @@ int main(int argc, char *argv[])
     int barcode = 0;
     uint32_t data;
     char *trig_type = NULL;
+    char *label = NULL;
     CAEN_DGTZ_X742_EVENT_t *Event742 = NULL;
 
     FILE *f_ini;
@@ -1771,6 +1789,8 @@ int main(int argc, char *argv[])
             print_help();
         } else if ((!strcmp(argv[i],"-t") || !strcmp(argv[i],"--trigger")) && i < argc - 1) {
             trig_type = argv[++i];            
+        } else if ((!strcmp(argv[i],"-l") || !strcmp(argv[i],"--label")) && i < argc - 1) {
+            label = argv[++i];            
         } else if ((!strcmp(argv[i],"-b") || !strcmp(argv[i],"--barcode")) && i < argc - 1) {
             barcode = atoi(argv[++i]);
         } else if ((!strcmp(argv[i],"-v") || !strcmp(argv[i],"--voltage")) && i < argc - 1) {
@@ -1780,6 +1800,11 @@ int main(int argc, char *argv[])
         }
     }
 
+    if (label == NULL) {
+        printf("\"--label\" is a required argument!\n");
+        print_help();
+    }
+
     if ((trig_type == NULL) || (strcmp(trig_type, "self") !=0 && strcmp(trig_type, "external") != 0 && strcmp(trig_type, "software") != 0)) {
         printf("Unrecognized or no trigger type!\n");
         print_help();
@@ -1787,11 +1812,6 @@ int main(int argc, char *argv[])
     
     if (!output_filename || barcode == 0 || voltage < 0)
         print_help();
-
-    if (access(output_filename, F_OK) == 0) {
-        fprintf(stderr, "removing existing file '%s'\n", output_filename);
-        remove(output_filename);
-    }
 
     signal(SIGINT, sigint_handler);
     
@@ -2128,8 +2148,7 @@ int main(int argc, char *argv[])
         /* Page 45 of file:///home/cptlab/Downloads/UM4270_DT5742_UserManual_rev10.pdf gives
          * the instructions of how to set up self-trigger. */
         int units_per_volt = (int)pow(2, (double)BoardInfo.ADC_NBits);
-        float voltage_threshold = -0.15;
-        printf("threshold: %.3f\n", voltage_threshold * units_per_volt);
+        float voltage_threshold = -0.10;
         for (i = 0; i < 2; i++) {
             thresholds[i] += voltage_threshold * units_per_volt;
 
@@ -2300,7 +2319,7 @@ int main(int argc, char *argv[])
 	
         if (nread > 0) {
             printf("writing %i events to file\n", nread);
-            if (add_to_output_file(output_filename, wfdata, bdata, nread, chmask, nsamples, &WDcfg)) {
+            if (add_to_output_file(output_filename, label, wfdata, bdata, nread, chmask, nsamples, &WDcfg)) {
                 fprintf(stderr, "failed to write events to file! quitting...\n");
                 exit(1);
             }
@@ -2315,7 +2334,7 @@ int main(int argc, char *argv[])
     if (stop)
         fprintf(stderr, "ctrl-c caught. writing out %i events\n", nread);
 
-    if (nread > 0 && add_to_output_file(output_filename, wfdata, bdata, nread, chmask, nsamples, &WDcfg)) {
+    if (nread > 0 && add_to_output_file(output_filename, label, wfdata, bdata, nread, chmask, nsamples, &WDcfg)) {
         fprintf(stderr, "failed to write events to file!\n");
     }
 

@@ -11,7 +11,7 @@ from ROOT import TMath
 
 # DEFAULT VALUES FOR SPE FIT:
 D_OFFSET = 0
-D_LAMBDA = 1
+D_LAMBDA = 0.5
 D_SPE_CHARGE = 0.8
 D_NOISE_SPREAD = 0.01
 D_SPE_CHARGE_SPREAD = 0
@@ -52,17 +52,17 @@ def analyze_filter_data(h, f_h):
     # The noise spread is usually very small compared to the width of the zero
     # peak, so scaling it up by 15 is enough capture enough of the zero peak.
     win = max(0.3, 15*noise_spread)
+    means = []
     raw_fit = ROOT.TF1('raw_fit', 'gaus', offset - win, offset + win)
     raw_fit.SetParameter(1, offset)
     raw_fit.SetParameter(2, noise_spread)
-    means = []
-    h.Fit(raw_fit, 'SRQ')
-    offset = raw_fit.GetParameter(1)
-    means.append(offset)
 
-    diff = np.abs(offset - filter_fit.GetParameter(1))
+    diff = 1
     count = 0
     while diff > 0.001 and count < 5:
+        if offset-win < h.GetMinimum() or offset+win > h.GetMaximum():
+            print('Filtered data could not find first peak!')
+            return None
         raw_fit.SetRange(offset-win, offset+win)
         h.Fit(raw_fit, 'SRQ')
         diff = np.abs(raw_fit.GetParameter(1) - offset)
@@ -71,6 +71,9 @@ def analyze_filter_data(h, f_h):
         count += 1
     if diff > 0.001:
         offset = np.mean(means)
+        if offset-win < h.GetMinimum() or offset+win > h.GetMaximum():
+            print('Filtered data could not find first peak!')
+            return None
         raw_fit.SetRange(offset-win, offset+win)
         h.Fit(raw_fit, 'SRQ')
         offset = raw_fit.GetParameter(1)
@@ -177,7 +180,7 @@ def plot_dists():
     input()
     exit()
 
-def fit_spe(h, filtered_histograms, model, root_func=False):
+def fit_spe(h, model, f_h=None, root_func=False):
     """ 
     SPE Fitting Strategy
     
@@ -214,16 +217,18 @@ def fit_spe(h, filtered_histograms, model, root_func=False):
     Older than June 2022:
         *** we could set a threshold/break to find when the Y axis /charge goes above a certain values from the smallest X to set the first value (-0.4 as of the time of this comment)
     """
-
-    if f'f_{h.GetName()}' in filtered_histograms:
+    filter_output = None
+    if f_h:
         print('Using filtered data!')
-        offset, noise_spread, raw_spread, scale = analyze_filter_data(h, filtered_histograms[f'f_{h.GetName()}'])
-    else:
+        filter_output = analyze_filter_data(h, f_h)
+    if filter_output == None:
         offset = D_OFFSET
         noise_spread = D_NOISE_SPREAD
         raw_spread = D_ZERO_PEAK_SPREAD
         scale = h.GetEntries()*0.075
-
+    else:
+        offset, noise_spread, raw_spread, scale = filter_output
+    
     # Probability that an SPE trigger a secondary SPE
     ps = 0
 
@@ -232,7 +237,10 @@ def fit_spe(h, filtered_histograms, model, root_func=False):
     print(f'zero_peak_end: {zero_peak_end}')
     num_zero = h.Integral(0, get_bin_num(h, zero_peak_end))
     prob_zero = num_zero / h.GetEntries()
-    l = -np.log(prob_zero)
+    if prob_zero == 0:
+        l = D_LAMBDA
+    else:
+        l = -np.log(prob_zero)
     num_peaks = min(20, max(4, poisson.ppf(0.95, l)))
 
     # SPE Charge estimated using the method from this forum:

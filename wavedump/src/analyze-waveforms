@@ -166,7 +166,10 @@ def convert_data(f, group, channel, start, stop):
             # shouldn't matter much because we use a baseline subtraction
             # method anyways.
             y = f[group][channel][start:stop] * (1/2**12)
-
+    
+    # FIXME: All of the code below assumes that the datasets are in no group.
+    # `acquire-waveforms` should be updated first if we want to be able to use
+    # this function for oscilloscope data. 
     elif 'yinc' in dict(f[channel].attrs):
         x = f[channel].attrs['xorg'] + np.linspace(0,f[channel].attrs['xinc']*f[channel].attrs['points'],int(f[channel].attrs['points']))
         # FIXME

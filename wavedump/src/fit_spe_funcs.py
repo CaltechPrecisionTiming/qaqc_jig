@@ -237,7 +237,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
     print(f'zero_peak_end: {zero_peak_end}')
     num_zero = h.Integral(0, get_bin_num(h, zero_peak_end))
     prob_zero = num_zero / h.GetEntries()
-    if prob_zero == 0:
+    if prob_zero <= 0 or prob_zero >= 1:
         l = D_LAMBDA
     else:
         l = -np.log(prob_zero)
@@ -264,6 +264,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
     f1.FixParameter(1, offset)
 
     f1.SetParameter(2, l)
+    f1.SetParLimits(2, 0, num_peaks+5)
 
     f1.SetParameter(3, SPE_charge)
     f1.SetParLimits(3, zero_peak_end - offset, SPE_charge + 1)
@@ -282,11 +283,9 @@ def fit_spe(h, model, f_h=None, root_func=False):
         f1.ReleaseParameter(i)
 
     f1.FixParameter(1, f1.GetParameter(1)) 
-    # f1.SetParLimits(1, f1.GetParameter(1) - 0.1, f1.GetParameter(1) + 0.1) 
     f1.SetParLimits(2, max(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1)
     f1.SetParLimits(3, max(zero_peak_end-offset, f1.GetParameter(3) - 1), f1.GetParameter(3) + 1)
     f1.SetParLimits(4, 0, f1.GetParameter(4) + 0.1) 
-    # f1.FixParameter(4, f1.GetParameter(4)) 
     f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.1) 
     f1.SetParLimits(6, 0, 0.25)
     

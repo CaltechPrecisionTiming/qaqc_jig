@@ -13,6 +13,8 @@ import os
 import sys
 from enum import Enum
 
+canvas = []
+
 class Institution(Enum):
     """
     Note: This must be kept in sync with the values in btl_qa.sql.
@@ -260,7 +262,7 @@ def spe_baseline_subtraction(x, y, method=1):
         print('Not a valid integration method. Defaulting to integration method 0')
     return (y, high_filter_y)
 
-def plot_time_volt(x, y, channel, data_type, a, b, avg_y=None, pdf=False):
+def plot_time_volt(x, y, channel, data_type, a, b, avg_y=None, pdf=False, filename=None):
     plt.figure()
     plt.subplot(2,1,1)
     plt.plot(x,y[:100].T)
@@ -279,12 +281,33 @@ def plot_time_volt(x, y, channel, data_type, a, b, avg_y=None, pdf=False):
     plt.axvline(x[b])
     plt.suptitle(f"{data_type} {channel}")
     if args.print_pdfs:
-        root, ext = os.path.splitext(filename)
-        plt.savefig(os.path.join(args.print_pdfs, f"{root}_{data_type}_{channel}_TimeVolt.pdf"))
+        if not filename:
+            print('No filename specified; can not print pdf!')
+        else:
+            root, ext = os.path.splitext(filename)
+            plt.savefig(os.path.join(args.print_pdfs, f"{root}_{data_type}_{channel}_TimeVolt.pdf"))
+
+def plot_hist(h, pdf=False, filename=None):
+    global canvas
+    # Naming canvases this way will produce a runtime warning because ROOT
+    # will always make a default canvas with name `c1` the first time you
+    # fit a histogram. The only way I know how to get rid of it is to
+    # overwrite it like this.
+    c = ROOT.TCanvas(f'c{len(canvas)+1}')
+    canvas.append(c)
+    h.Draw()
+    c.Update()
+    if pdf:
+        if not filename:
+            print('No filename specified; can not print pdf!')
+        else:
+            root, ext = os.path.splitext(filename)
+            c.Print(os.path.join(args.print_pdfs, f"{root}_{h.GetName()}.pdf"))
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
     import ROOT
+    from ROOT import gROOT
     import matplotlib.pyplot as plt
     import psycopg2
     import psycopg2.extensions
@@ -293,7 +316,7 @@ if __name__ == '__main__':
 
     parser = ArgumentParser(description='Analyze SPE and 511 charges')
     parser.add_argument('filename',help='input filename (hdf5 format)')
-    parser.add_argument('-o','--output', default=None, help='output file name')
+    parser.add_argument('-o','--output', default='delete_me.root', help='output file name')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
     parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
     parser.add_argument('-t', '--integration-time', default=300, type=float, help='SPE integration length in nanoseconds.')
@@ -304,6 +327,10 @@ if __name__ == '__main__':
     parser.add_argument('-u','--upload', default=False, action='store_true', help='upload results to the database')
     parser.add_argument('-i','--institution', default=None, type=Institution, choices=list(Institution), help='name of institution')
     args = parser.parse_args()
+
+    if not args.plot:
+        # Disables the canvas from ever popping up
+        gROOT.SetBatch()
 
     if args.upload:
         if 'BTL_DB_HOST' not in os.environ:
@@ -325,6 +352,8 @@ if __name__ == '__main__':
 
     data = {}
     with h5py.File(args.filename) as f:
+        root_f = ROOT.TFile(args.output, "recreate")
+                
         if args.upload:
             if 'sodium' not in dict(f):
                 print("Missing sodium data!", file=sys.stderr)
@@ -393,9 +422,9 @@ if __name__ == '__main__':
                     elif group == 'spe':
                         a, b = get_spe_window(x, args.start_time, args.integration_time)
                         y, high_filter_y = spe_baseline_subtraction(x, y, method=args.integration_method)                        
-                        f_charge.append(integrate(x, high_filter_y, a, b))
+                        f_charge.extend(integrate(x, high_filter_y, a, b))
 
-                    charge.append(integrate(x,y, a, b))
+                    charge.extend(integrate(x,y, a, b))
                         
                     if 'avg_pulse_y' in data:
                         channel_data['avg_pulse_y'] += (data['avg_pulse_count']*data['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (data['avg_pulse_count'] + len(y))
@@ -404,49 +433,41 @@ if __name__ == '__main__':
                         channel_data['avg_pulse_y'] = np.mean(y, axis=0)
                         channel_data['avg_pulse_count'] = len(y)
                         channel_data['avg_pulse_x'] = x
-                            
                 if args.plot or args.print_pdfs:
                     plot_time_volt(x, y, channel, group, a, b, avg_y=channel_data['avg_pulse_y'], pdf=args.print_pdfs)
                     # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
                     if group == 'spe':
                         plot_time_volt(x, high_filter_y, channel, f"high filter {group}", a, b, pdf=args.print_pdfs)
                 
-                if args.output:
-                    root_f = ROOT.TFile(args.output, "recreate")
+                ##################
+                # Creating Histogram
+                ##################
+                bins = get_bins(charge)
+                h = ROOT.TH1D(f"{group}_{channel}", f"{group} Charge Integral for {channel}", len(bins), bins[0], bins[-1])
+                for x in charge:
+                    h.Fill(x)
+                h.GetXaxis().SetTitle("Charge (pC)")
+                h.Write()
+                if group == 'spe':
+                    f_bins = get_bins(f_charge)
+                    f_h = ROOT.TH1D(f'f_{channel}', f"Filtered Charge {group} Integral for {channel}", len(f_bins), f_bins[0], f_bins[-1])
+                    for x in f_charge:
+                        f_h.Fill(x)
+                    f_h.GetXaxis().SetTitle('Charge (pC)')
+                    f_h.Write()
                 
-                # FIXME: testing
-                sodium_charge[channel] = (511, 1)
-                spe_charge[channel] = (1, 1)
-                # ##################
-                # # Creating Histogram
-                # ##################
-                # bins = get_bins(charge)
-                # h = ROOT.TH1D(f"{group}_channel", "temp", len(bins), bins[0], bins[-1])
-                # for x in charge:
-                #     h.Fill(X)
-                # h.GetXaxis().SetTitle("Charge (pC)")
-                # 
-                # ##################
-                # # Fitting Histogram
-                # ##################
-                # if group == 'sodium':
-                #     h.SetTitle(f"Charge Integral for {channel}")
-                #     sodium_charge[channel] = fit_511_funcs.fit_511(h)
-                # else:
-                #     h.SetTitle(f"Charge Integral for {channel}")
-                #     f_bins = get_bins(f_charge)
-                #     f_h = ROOT.TH1D(f'f_{channel}', "Filtered Charge Integral for %s" % channel, len(f_bins), f_bins[0], f_bins[-1])
-                #     for x in f_charge[channel]:
-                #         f_h.Fill(x)
-                #     f_h.GetXaxis().SetTitle('Charge (pC)')
-                #     model = fit_spe_funcs.vinogradov_model()
-                #     spe_charge[channel] = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
-                #     if args.output:
-                #         f_h.Write()
-                # if args.output:
-                #     h.Write()
-                #     root_f.Close()
-
+                ##################
+                # Fitting Histogram
+                ##################
+                print(f'Fitting {group} {channel}!')
+                if group == 'sodium':
+                    sodium_charge[channel] = fit_511_funcs.fit_511(h)
+                else:
+                    model = fit_spe_funcs.vinogradov_model()
+                    spe_charge[channel] = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
+                
+                plot_hist(h, pdf=args.print_pdfs, filename=args.filename)
+                
                 ##################
                 # Uploading Data per Channel
                 ##################
@@ -476,6 +497,12 @@ if __name__ == '__main__':
                 print(f'{ch} FAILED')
             else:
                 print(f'{ch}: {sodium_charge[ch][0] / spe_charge[ch][0] / 0.511}')
+    
+    root_f.Close()
+
+    if args.output == 'delete_me.root':
+        os.remove('delete_me.root')
+
     if args.plot:
         plt.show()
 

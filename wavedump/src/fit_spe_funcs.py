@@ -293,6 +293,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
     r = h.Fit(f1, 'SR+')
     r = r.Get()
     if not r.IsValid():
+        # Maybe we want to return `None` here?
         print("Fit error!")
     
     h.SetAxisRange(-4, 6, "X")

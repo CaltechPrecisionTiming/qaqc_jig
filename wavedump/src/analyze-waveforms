@@ -491,11 +491,28 @@ if __name__ == '__main__':
                     channel_data['spe_charge_histogram_x'] = list(map(float,bincenters))
 
                     result = cursor.execute("INSERT INTO data (channel, barcode, sodium_peak, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run) VALUES (%(channel)s, %(barcode)s, %(sodium_peak)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s)", channel_data)
+        
         # FIXME: Upload this information to the database
-        for ch in sodium_charge:
-            if (not sodium_charge[ch]) or (not spe_charge[ch]):
-                print(f'{ch} FAILED')
+        # If the data is being uploaded, there should have already been a check
+        # that all channels have all the needed light output data.
+        #
+        # If the data is not being uploaded, then we have to preform the checks
+        # below. This is to enable testing on just some channels, just using
+        # sodium data, etc...
+        for i in range(16):
+            ch = f'ch{i}'
+            if ch not in sodium_charge:
+                print(f'Mising sodium data for {ch}!')
+            elif ch not in spe_charge:
+                print(f'Missing SPE data for {ch}!')
+            elif sodium_charge[ch] is None:
+                print(f'Failed to fit {ch} sodium histogram!')
+            elif spe_charge[ch] is None:
+                print(f'Failed to fit {ch} spe histogram!')
             else:
+                # sodium_charge[ch][0] is the charge value.
+                # sodium_charge[ch][1] is the charge error.
+                # Same for spe_charge.
                 print(f'{ch}: {sodium_charge[ch][0] / spe_charge[ch][0] / 0.511}')
     
     root_f.Close()

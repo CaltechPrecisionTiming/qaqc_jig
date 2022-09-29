@@ -39,7 +39,13 @@ def ROOT_peaks(h, width=4, height=0.05, options=""):
 def fit_511(h):
     """
     511 Peak Finding Strategy
-    
+        
+    We fit the highest peak with a gaussian, taking the mean of that gaussian
+    as the 511 charge.
+
+    Old Strategy: (Code commented out below. This was used when we were setting
+    the trigger level too low)
+
     1. We use ROOT's histogram peak finding algorithm to search
        for peaks in the 511 histogram (see the method `peaks` in this
        module).
@@ -73,33 +79,38 @@ def fit_511(h):
          previous ones? first derivative with respect to max/min
          closest to zero       
     """
-    x_pos = ROOT_peaks(h, width=2, height=0.05, options="nobackground")[0]
-    
-    print("Peak charge full list:")
-    print(x_pos)
-    
-    f1 = None
     win = 0.2 * h.GetStdDev()
-    for i in range(len(x_pos)-1, -1, -1):
-        peak = x_pos[i]
-        if peak < x_pos[0] + 0.01*h.GetStdDev():
-            # All the remaining peaks will be closer to `x_pos[0]`.
-            break
-        print(f'Fitting this peak! {peak}')
-        f1 = ROOT.TF1("f1","gaus", peak-win, peak+win)
-        r = h.Fit(f1, 'ILMSR+')
-        r = r.Get()
-        if f1.GetParameter(1) < x_pos[0]:
-            # Impossible that this is the 511 peak 
-            f1 = None
-            continue
-        if not r.IsValid() or f1.GetParameter(2) > 150 or np.abs(x_pos[i] - f1.GetParameter(1)) > 50:
-            # Not impossible that this is the 511 peak, but there might be a
-            # better peak later in the loop
-            continue
-        else:
-            # Found the 511 peak!
-            break
+    # The highest peak
+    peak = ROOT_peaks(h, width=2, height=0.05, options="nobackground")[1] 
+    f1 = ROOT.TF1("f1","gaus", peak-win, peak+win)
+    r = h.Fit(f1, 'ILMSR+')
+    r = r.Get()
+    
+    # x_pos = ROOT_peaks(h, width=2, height=0.05, options="nobackground")[0] 
+    # print("Peak charge full list:")
+    # print(x_pos)
+    # f1 = None
+    # for i in range(len(x_pos)-1, -1, -1):
+    #     peak = x_pos[i]
+    #     if peak < x_pos[0] + 0.01*h.GetStdDev():
+    #         # All the remaining peaks will be closer to `x_pos[0]`.
+    #         break
+    #     print(f'Fitting this peak! {peak}')
+    #     f1 = ROOT.TF1("f1","gaus", peak-win, peak+win)
+    #     r = h.Fit(f1, 'ILMSR+')
+    #     r = r.Get()
+    #     if f1.GetParameter(1) < x_pos[0]:
+    #         # Impossible that this is the 511 peak 
+    #         f1 = None
+    #         continue
+    #     if not r.IsValid() or f1.GetParameter(2) > 150 or np.abs(x_pos[i] - f1.GetParameter(1)) > 50:
+    #         # Not impossible that this is the 511 peak, but there might be a
+    #         # better peak later in the loop
+    #         continue
+    #     else:
+    #         # Found the 511 peak!
+    #         break
+    
     h.Write()
     if f1 == None:
         return None

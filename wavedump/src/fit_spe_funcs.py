@@ -60,7 +60,7 @@ def analyze_filter_data(h, f_h):
     diff = 1
     count = 0
     while diff > 0.001 and count < 5:
-        if offset-win < h.GetMinimum() or offset+win > h.GetMaximum():
+        if offset-win < h.GetXaxis().GetXmin() or offset+win > h.GetXaxis().GetXmax():
             print('Filtered data could not find first peak!')
             return None
         raw_fit.SetRange(offset-win, offset+win)
@@ -69,6 +69,7 @@ def analyze_filter_data(h, f_h):
         offset = raw_fit.GetParameter(1)
         means.append(offset)
         count += 1
+    
     if diff > 0.001:
         offset = np.mean(means)
         if offset-win < h.GetMinimum() or offset+win > h.GetMaximum():

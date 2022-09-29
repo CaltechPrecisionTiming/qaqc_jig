@@ -394,8 +394,8 @@ if __name__ == '__main__':
                 print(f"Unknown group name: \"{group}\". Skipping...")
                 continue
             for channel in f[group]:
-                # All relevant channels, from the scope and digitizer, should be in
-                # this format: 'ch<channel number>'.
+                # All relevant channels from the scope and digitizer should be
+                # in this format: 'ch<channel number>'.
                 if not channel.startswith('ch'):
                     continue
                 
@@ -430,7 +430,7 @@ if __name__ == '__main__':
                     charge.extend(integrate(x,y, a, b))
                         
                     if 'avg_pulse_y' in data:
-                        channel_data['avg_pulse_y'] += (data['avg_pulse_count']*data['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (data['avg_pulse_count'] + len(y))
+                        channel_data['avg_pulse_y'] = (data['avg_pulse_count']*data['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (data['avg_pulse_count'] + len(y))
                         channel_data['avg_pulse_count'] += len(y)
                     else:
                         channel_data['avg_pulse_y'] = np.mean(y, axis=0)

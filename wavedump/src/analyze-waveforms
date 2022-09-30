@@ -403,7 +403,7 @@ if __name__ == '__main__':
                     continue
                 
                 if channel not in ch_data:
-                    ch_data[channel] = {'channel': channel}
+                    ch_data[channel] = {'channel': int(channel[2:])}
                 
                 if args.upload:
                     ch_data[channel]['run'] = run
@@ -513,7 +513,6 @@ if __name__ == '__main__':
             ##################
             # Uploading Data
             ##################
-            print(list(ch_data[channel].keys()))
             if args.upload:
                 # ch_data[channel]['sodium_peak'][0] is the charge value
                 # ch_data[channel]['sodium_peak'][1] is the charge error

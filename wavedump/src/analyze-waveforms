@@ -334,7 +334,6 @@ if __name__ == '__main__':
     if not args.plot:
         # Disables the canvas from ever popping up
         gROOT.SetBatch()
-
     if args.upload:
         if 'BTL_DB_HOST' not in os.environ:
             print("need to set BTL_DB_HOST environment variable!",file=sys.stderr)
@@ -354,6 +353,7 @@ if __name__ == '__main__':
         cursor = conn.cursor()
 
     data = {}
+    ch_data = {}  
     with h5py.File(args.filename) as f:
         root_f = ROOT.TFile(args.output, "recreate")
                 
@@ -385,10 +385,8 @@ if __name__ == '__main__':
 
             cursor.execute("INSERT INTO runs (voltage, institution, git_sha1, git_dirty, filename) VALUES (%(voltage)s, %(institution)s::inst, %(git_sha1)s, %(git_dirty)s, %(filename)s) RETURNING run", data)
             result = cursor.fetchone()
-
             run = result[0]
-        sodium_charge = {}
-        spe_charge = {}
+        
         for group in f:
             if group != 'sodium' and group != 'spe':
                 print(f"Unknown group name: \"{group}\". Skipping...")
@@ -404,13 +402,16 @@ if __name__ == '__main__':
                 if args.active and channel != args.active:
                     continue
                 
+                if channel not in ch_data:
+                    ch_data[channel] = {'channel': channel}
+                
+                if args.upload:
+                    ch_data[channel]['run'] = run
+                    ch_data[channel]['barcode'] = data['barcode']
+                 
                 charge = []
                 f_charge = []
-                channel_data = {'channel': int(channel[2:]), 'sodium_rise_time': [], 'sodium_fall_time': []}
-                if args.upload:
-                    channel_data['run'] = run
-                    channel_data['barcode'] = data['barcode']
-
+                
                 ##################
                 # Integrations
                 ##################
@@ -419,9 +420,18 @@ if __name__ == '__main__':
                     if group == 'sodium':
                         a, b = get_window(x,y, left=50, right=125)
                         y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
+                        if 'avg_pulse_y' in ch_data[channel]:
+                            ch_data[channel]['avg_pulse_y'] = (ch_data[channel]['avg_pulse_count']*ch_data[channel]['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (ch_data[channel]['avg_pulse_count'] + len(y))
+                            ch_data[channel]['avg_pulse_count'] += len(y)
+                            np.append(ch_data[channel]['sodium_rise_time'], get_rise_time(x, y))
+                            np.append(ch_data[channel]['sodium_fall_time'], get_fall_time(x, y))
+                        else:
+                            ch_data[channel]['avg_pulse_y'] = np.mean(y, axis=0)
+                            ch_data[channel]['avg_pulse_count'] = len(y)
+                            ch_data[channel]['avg_pulse_x'] = x
+                            ch_data[channel]['sodium_rise_time'] = get_rise_time(x, y)
+                            ch_data[channel]['sodium_fall_time'] = get_fall_time(x, y)
                         
-                        channel_data['sodium_rise_time'].extend(get_rise_time(x, y))
-                        channel_data['sodium_fall_time'].extend(get_fall_time(x, y))
                     elif group == 'spe':
                         a, b = get_spe_window(x, args.start_time, args.integration_time)
                         y, high_filter_y = spe_baseline_subtraction(x, y, method=args.integration_method)                        
@@ -429,15 +439,13 @@ if __name__ == '__main__':
 
                     charge.extend(integrate(x,y, a, b))
                         
-                    if 'avg_pulse_y' in data:
-                        channel_data['avg_pulse_y'] = (data['avg_pulse_count']*data['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (data['avg_pulse_count'] + len(y))
-                        channel_data['avg_pulse_count'] += len(y)
-                    else:
-                        channel_data['avg_pulse_y'] = np.mean(y, axis=0)
-                        channel_data['avg_pulse_count'] = len(y)
-                        channel_data['avg_pulse_x'] = x
                 if args.plot or args.print_pdfs:
-                    plot_time_volt(x, y, channel, group, a, b, avg_y=channel_data['avg_pulse_y'], pdf=args.print_pdfs)
+                    if group == 'sodium':
+                        avg_y = ch_data[channel]['avg_pulse_y']
+                    else:
+                        # avg_y for the spe waveform is only used for plotting
+                        avg_y = np.mean(y, axis=0)
+                    plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
                     # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
                     if group == 'spe':
                         plot_time_volt(x, high_filter_y, channel, f"high filter {group}", a, b, pdf=args.print_pdfs)
@@ -460,64 +468,60 @@ if __name__ == '__main__':
                     f_h.Write()
                 
                 ##################
+                # Preparing Data for Upload
+                ##################
+                if args.upload:
+                    ch_data[channel]['sodium_rise_time'] = float(np.median(ch_data[channel]['sodium_rise_time']))
+                    ch_data[channel]['sodium_fall_time'] = float(np.median(ch_data[channel]['sodium_rise_time']))
+                    ch_data[channel]['avg_pulse_x'] = list(map(float,ch_data[channel]['avg_pulse_x']))
+                    ch_data[channel]['avg_pulse_y'] = list(map(float,ch_data[channel]['avg_pulse_y']))
+                    bincenters = (bins[:1] + bins[:-1])/2
+                    if group == 'sodium':
+                        ch_data[channel]['sodium_charge_histogram_y'] = list(map(float,np.histogram(charge,bins=bins)[0]))
+                        ch_data[channel]['sodium_charge_histogram_x'] = list(map(float,bincenters))
+                    else:
+                        ch_data[channel]['spe_charge_histogram_y'] = list(map(float,np.histogram(charge,bins=bins)[0]))
+                        ch_data[channel]['spe_charge_histogram_x'] = list(map(float,bincenters))
+
+                ##################
                 # Fitting Histogram
                 ##################
                 print(f'Fitting {group} {channel}!')
                 if group == 'sodium':
-                    sodium_charge[channel] = fit_511_funcs.fit_511(h)
+                    ch_data[channel]['sodium_peak'] = fit_511_funcs.fit_511(h)
                 else:
                     model = fit_spe_funcs.vinogradov_model()
-                    spe_charge[channel] = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
+                    ch_data[channel]['spe'] = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
                 
                 plot_hist(h, pdf=args.print_pdfs, filename=args.filename)
                 
-                ##################
-                # Uploading Data per Channel
-                ##################
-                if args.upload:
-                    channel_data['sodium_rise_time'] = float(np.median(channel_data['sodium_rise_time']))
-                    channel_data['sodium_fall_time'] = float(np.median(channel_data['sodium_rise_time']))
-                    channel_data['avg_pulse_x'] = list(map(float,channel_data['avg_pulse_x']))
-                    channel_data['avg_pulse_y'] = list(map(float,channel_data['avg_pulse_y']))
-                    # FIXME: testing
-                    channel_data['sodium_peak'] = 100
-                    channel_data['spe'] = 100
+    ##################
+    # Reviewing Data
+    ##################
+    for channel in ch_data:
+        if 'sodium_peak' not in ch_data[channel]:
+            print(f'Mising sodium data for {channel}!')
+        elif 'spe' not in ch_data[channel]:
+            print(f'Missing SPE data for {channel}!')
+        elif ch_data[channel]['sodium_peak'] is None:
+            print(f'Failed to fit {channel} sodium histogram!')
+        elif ch_data[channel]['spe'] is None:
+            print(f'Failed to fit {channel} spe histogram!')
+        else:
+            print(f'{channel}: {ch_data[channel]["sodium_peak"][0] / ch_data[channel]["spe"][0] / 0.511}')
+            
+            ##################
+            # Uploading Data
+            ##################
+            print(list(ch_data[channel].keys()))
+            if args.upload:
+                # ch_data[channel]['sodium_peak'][0] is the charge value
+                # ch_data[channel]['sodium_peak'][1] is the charge error
+                ch_data[channel]['sodium_peak'] = ch_data[channel]['sodium_peak'][0] 
+                ch_data[channel]['spe'] = ch_data[channel]['spe'][0] 
+                
+                result = cursor.execute("INSERT INTO data (channel, barcode, sodium_peak, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run) VALUES (%(channel)s, %(barcode)s, %(sodium_peak)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s)", ch_data[channel])
 
-                    bins = get_bins(charge)
-                    channel_data['sodium_charge_histogram_y'] = list(map(float,np.histogram(charge,bins=bins)[0]))
-                    bincenters = (bins[:1] + bins[:-1])/2
-                    channel_data['sodium_charge_histogram_x'] = list(map(float,bincenters))
-
-                    bins = get_bins(charge)
-                    channel_data['spe_charge_histogram_y'] = list(map(float,np.histogram(charge,bins=bins)[0]))
-                    bincenters = (bins[:1] + bins[:-1])/2
-                    channel_data['spe_charge_histogram_x'] = list(map(float,bincenters))
-
-                    result = cursor.execute("INSERT INTO data (channel, barcode, sodium_peak, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run) VALUES (%(channel)s, %(barcode)s, %(sodium_peak)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s)", channel_data)
-        
-        # FIXME: Upload this information to the database
-        # If the data is being uploaded, there should have already been a check
-        # that all channels have all the needed light output data.
-        #
-        # If the data is not being uploaded, then we have to preform the checks
-        # below. This is to enable testing on just some channels, just using
-        # sodium data, etc...
-        for i in range(16):
-            ch = f'ch{i}'
-            if ch not in sodium_charge:
-                print(f'Mising sodium data for {ch}!')
-            elif ch not in spe_charge:
-                print(f'Missing SPE data for {ch}!')
-            elif sodium_charge[ch] is None:
-                print(f'Failed to fit {ch} sodium histogram!')
-            elif spe_charge[ch] is None:
-                print(f'Failed to fit {ch} spe histogram!')
-            else:
-                # sodium_charge[ch][0] is the charge value.
-                # sodium_charge[ch][1] is the charge error.
-                # Same for spe_charge.
-                print(f'{ch}: {sodium_charge[ch][0] / spe_charge[ch][0] / 0.511}')
-    
     root_f.Close()
 
     if args.output == 'delete_me.root':

@@ -89,7 +89,6 @@
 {% block script %}
     <script src="{{ url_for('static', filename='js/d3.js') }}"></script>
     <script src="{{ url_for('static', filename='js/metricsgraphics.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/mg_line_brushing.js') }}"></script>
 
     <script>
         var avg_pulse_x = {{ info['avg_pulse_x'] | tojson }};
@@ -154,6 +153,7 @@
             description: "Average Pulse Shape",
             data: avg_pulse_data,
             chart_type: 'line',
+            area: false,
             width: $('#avg-pulse').width(),
             height: 250,
             left: 100,

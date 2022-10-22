@@ -15,7 +15,7 @@ install:
 	$(INSTALL) gunicorn.socket /etc/systemd/system
 	$(INSTALL) gunicorn.service /etc/systemd/system
 	$(INSTALL) nginx.conf /etc/nginx/nginx.conf
-	sed -i "s/127.0.0.1/$(SERVER_NAME)" /etc/nginx/nginx.conf
+	sed -i "s/127.0.0.1/$(SERVER_NAME)/g" /etc/nginx/nginx.conf
 	systemctl enable --now gunicorn.socket
 	systemctl enable --now gunicorn
 

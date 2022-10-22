@@ -101,6 +101,7 @@ Next, create a file in this directory named `settings.txt` with the following
 information:
 
 ```console
+SERVER_NAME = [url of server]
 DB_USER = "cms"
 DB_BTL_USER = "btl"
 DB_HOST = "localhost"

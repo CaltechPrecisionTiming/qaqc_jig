@@ -2,7 +2,7 @@ default: build
 
 INSTALL=install
 
-SERVER_NAME=$(shell cat settings.txt | grep SERVER_NAME | awk '{print $3}' | tr -d '"')
+SERVER_NAME=$(shell cat settings.txt | grep SERVER_NAME | awk '{print $$3}' | tr -d '"')
 
 .DEFAULT:
 	./setup.py $@

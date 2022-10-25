@@ -6,8 +6,8 @@
 #include "keyb.h"
 #include "X742CorrectionRoutines.h"
 #include "hdf5.h"
-#include "unistd.h" /* for access(). */
-#include "signal.h" /* for SIGINT. */
+#include <unistd.h> /* for access(). */
+#include <signal.h> /* for SIGINT. */
 #include <sys/statvfs.h>
 
 #define WF_SIZE 10000
@@ -1749,6 +1749,19 @@ void print_wfdata(float data[WF_SIZE][32][1024]) {
     }
 }
 
+long get_free_space(void)
+{
+    /* Returns the amount of free space in the current working directory. */
+    struct statvfs st;
+    char cwd[PATH_MAX];
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        perror("getcwd() error");
+        exit(1);
+    }
+    statvfs(cwd, &st);
+    return st.f_bfree*st.f_frsize;
+}
+
 int main(int argc, char *argv[])
 {
     WaveDumpConfig_t WDcfg;
@@ -1825,9 +1838,7 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, sigint_handler);
     
-    struct statvfs st;
-    statvfs("/home", &st);
-    double free_space = ((double)st.f_bfree * st.f_frsize)/pow(2, 30);
+    double free_space = get_free_space()/pow(2, 30);
     printf("Free Space remaining in /home: %.0fG\n", free_space);
     if (free_space < 10) {
 	fprintf(stderr, "Too little space available (< 10 GB)! Try deleting some hdf5 files. Quitting...\n");

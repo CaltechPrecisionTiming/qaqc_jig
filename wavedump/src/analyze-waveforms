@@ -13,6 +13,8 @@ import os
 import sys
 from enum import Enum
 
+canvas = []
+
 class Institution(Enum):
     """
     Note: This must be kept in sync with the values in btl_qa.sql.
@@ -32,7 +34,7 @@ def get_threshold_crossing(x, data, threshold=0.4, rising=True):
     Returns the times at which the waveforms in `x` cross `threshold*100`% of
     their minimum value.
     
-    WARNING: In cases where a pulse is cut off at the start/end of an event, this function errors.
+    WARNING: In cases where a pulse is cut off at the start/end of an event, this function produces a runtime warning.
     """
     data = np.asarray(data)
     argmin = np.argmin(data,axis=-1)
@@ -145,20 +147,29 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield (i,i + n)
 
-def convert_data(f, channel, start, stop):
+def convert_data(f, group, channel, start, stop):
     """
     Reads data from opened hdf5 file `f`. Gets the events from `start` to
     `stop` in the dataset `channel`.
     """    
-    if 'data_source' in list(f.attrs):
-        if f.attrs['data_source'] == b'CAEN':
+    if 'data_source' in f[group].attrs:
+        if f[group].attrs['data_source'] == b'CAEN':
             
-            xinc = 1/(f.attrs['drs4_frequency'] * 10**6)
-            points = f.attrs['record_length']
-            x = np.linspace(0, xinc * points, int(points)) - xinc * points * (1 - f.attrs['post_trigger']/100)
-
-            y = f[channel][start:stop] * (1/2**12)
-
+            xinc = 1/(f[group].attrs['drs4_frequency'] * 10**6)
+            points = f[group].attrs['record_length']
+            x = np.linspace(0, xinc * points, int(points)) - xinc * points * (1 - f[group].attrs['post_trigger']/100)
+            
+            # While `y` is measured in volts, it's only relatively. We could
+            # use the DC offset to determine the absolute voltage, but the DC
+            # offset isn't well defined. Setting it to about 22000 (DAC units)
+            # means approximately no offset is added, but not exactly.  This
+            # shouldn't matter much because we use a baseline subtraction
+            # method anyways.
+            y = f[group][channel][start:stop] * (1/2**12)
+    
+    # FIXME: All of the code below assumes that the datasets are in no group.
+    # `acquire-waveforms` should be updated first if we want to be able to use
+    # this function for oscilloscope data. 
     elif 'yinc' in dict(f[channel].attrs):
         x = f[channel].attrs['xorg'] + np.linspace(0,f[channel].attrs['xinc']*f[channel].attrs['points'],int(f[channel].attrs['points']))
         # FIXME
@@ -204,17 +215,111 @@ def high_filter_SPE(x, y):
     filter_data = signal.lfilter(b, a, y)
     return filter_data
 
+def spe_baseline_subtraction(x, y, method=1):
+    """ 
+    INTEGRATION METHODS
+    0: Only per event median subtraction (preformed in every method).
+    1 (default): For each event, subtract off the median of all points that lie above `cutoff`.
+                 Then, across all events, subtract off the median of all points between `a` and `b`.
+    2: Per sample median subtraction. This method is not good because the SPE signal gets diminished.
+    3: Delete all trials that have an SPE between `ma` and `mb`. Subtract off the median between `ma` and `mb` on a per event basis.
+    4: Same as 3, except no trials are deleted. Trials that have an SPE between `ma` and `mb` get reduced by the total median
+       between `ma` and `mb` of events that don't have an SPE in this range.
+    """ 
+    high_filter_y = high_filter_SPE(x, y)
+    
+    # Integration Method 0, per event median subtraction:
+    y -= np.median(y, axis=-1)[:, np.newaxis]
+    
+    if args.integration_method == 1:  # Default 
+        cutoff = -2*iqr(high_filter_y.flatten())
+        no_SPE_mask = y > cutoff 
+        y -= np.array([np.median(y[i, no_SPE_mask[i]]) for i in range(len(y))])[:, np.newaxis]
+        i_mask = np.logical_and(x>=args.start_time, x<args.start_time+args.integration_time)
+        y -= np.median(y[:, i_mask])
+    elif args.integration_method == 2:
+        # `s` for samples
+        s = y.T
+        s_mask = s > -10*iqr(high_filter_y.flatten())
+        good_s = [s[i, s_mask[i]] for i in range(len(s))]
+        print(f'average number of good samples: {np.mean([len(sub) for sub in good_s])}')
+        sample_medians = np.array([np.median(sub) for sub in good_s])
+        y -= sample_medians
+    elif args.integration_method == 3:
+        ma = -25
+        mb = 200
+        SPE_trials = np.min(y[:, np.logical_and(x >= ma, x < mb)], axis=-1) < -2 * iqr(high_filter_y[:, np.logical_and(x >= ma, x < mb)].flatten())
+        SPE_trials_idx = [i for i in range(len(y)) if SPE_trials[i]]
+        y = np.delete(y, SPE_trials_idx, axis=0)
+        # Subtract off the median between `ma` and `mb` per event
+        y -= np.median(y[:, np.logical_and(x >= ma, x < mb)], axis=-1)[:, np.newaxis]  # per event median subtraction
+        if len(y) == 0:
+            print('All trials were removed')
+    elif args.integration_method == 4:
+        ma = -25
+        mb = 200
+        m_mask = np.logical_and(x>=ma, x<mb)
+        no_SPE_trials_mask = np.min(y[:, m_mask], axis=-1) > -2 * iqr(high_filter_y[:, m_mask].flatten())
+        y -= np.array([np.median(y[i, m_mask]) if no_SPE_trials_mask[i] else np.median((y[no_SPE_trials_mask, :])[:, m_mask]) for i in range(len(y))])[:, np.newaxis]
+    elif args.integration_method != 0:
+        print('Not a valid integration method. Defaulting to integration method 0')
+    return (y, high_filter_y)
+
+def plot_time_volt(x, y, channel, data_type, a, b, avg_y=None, pdf=False, filename=None):
+    plt.figure()
+    plt.subplot(2,1,1)
+    plt.plot(x,y[:100].T)
+    plt.xlabel("Time (ns)")
+    plt.ylabel("Voltage (V)")
+    plt.axvline(x[a])
+    plt.axvline(x[b])
+    plt.subplot(2,1,2)
+    if avg_y is not None:
+        plt.plot(x,avg_y)
+    else:
+        plt.plot(x, np.median(y, axis=0))
+    plt.xlabel("Time (ns)")
+    plt.ylabel("Voltage (V)")
+    plt.axvline(x[a])
+    plt.axvline(x[b])
+    plt.suptitle(f"{data_type} {channel}")
+    if args.print_pdfs:
+        if not filename:
+            print('No filename specified; can not print pdf!')
+        else:
+            root, ext = os.path.splitext(filename)
+            plt.savefig(os.path.join(args.print_pdfs, f"{root}_{data_type}_{channel}_TimeVolt.pdf"))
+
+def plot_hist(h, pdf=False, filename=None):
+    global canvas
+    # Naming canvases this way will produce a runtime warning because ROOT
+    # will always make a default canvas with name `c1` the first time you
+    # fit a histogram. The only way I know how to get rid of it is to
+    # overwrite it like this.
+    c = ROOT.TCanvas(f'c{len(canvas)+1}')
+    canvas.append(c)
+    h.Draw()
+    c.Update()
+    if pdf:
+        if not filename:
+            print('No filename specified; can not print pdf!')
+        else:
+            root, ext = os.path.splitext(filename)
+            c.Print(os.path.join(args.print_pdfs, f"{root}_{h.GetName()}.pdf"))
+
 if __name__ == '__main__':
     from argparse import ArgumentParser
     import ROOT
+    from ROOT import gROOT
     import matplotlib.pyplot as plt
     import psycopg2
     import psycopg2.extensions
+    import fit_511_funcs
+    import fit_spe_funcs
 
     parser = ArgumentParser(description='Analyze SPE and 511 charges')
     parser.add_argument('filename',help='input filename (hdf5 format)')
-    parser.add_argument('-o','--output', default=None, help='output file name')
-    parser.add_argument('--sodium', default=False, action='store_true', help='flag to indicate data is from a sodium source')
+    parser.add_argument('-o','--output', default='delete_me.root', help='output file name')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
     parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
     parser.add_argument('-t', '--integration-time', default=300, type=float, help='SPE integration length in nanoseconds.')
@@ -225,6 +330,10 @@ if __name__ == '__main__':
     parser.add_argument('-u','--upload', default=False, action='store_true', help='upload results to the database')
     parser.add_argument('-i','--institution', default=None, type=Institution, choices=list(Institution), help='name of institution')
     args = parser.parse_args()
+
+    if not args.plot:
+        # Disables the canvas from ever popping up
+        gROOT.SetBatch()
 
     if args.upload:
         if 'BTL_DB_HOST' not in os.environ:
@@ -244,221 +353,180 @@ if __name__ == '__main__':
 
         cursor = conn.cursor()
 
-    charge = {}
-    f_charge = {}
+    data = {}
+    ch_data = {}  
     with h5py.File(args.filename) as f:
-        data = {}
-        if 'data_source' in list(f.attrs):
-            if f.attrs['data_source'] == b'CAEN':
-                data['barcode'] = int(f.attrs['barcode'])
-                data['voltage'] = int(f.attrs['voltage'])
-                data['git_sha1'] = f.attrs['git_sha1'].decode("UTF-8")
-                data['git_dirty'] = f.attrs['git_dirty'].decode("UTF-8")
-            elif args.upload:
-                print("Error: trying to upload non-CAEN data!", file=sys.stderr)
+        root_f = ROOT.TFile(args.output, "recreate")
+                
+        if args.upload:
+            if 'sodium' not in dict(f):
+                print("Missing sodium data!", file=sys.stderr)
                 sys.exit(1)
+            if 'spe' not in dict(f):
+                print("Missing SPE data!", file=sys.stderr)
+                sys.exit(1)
+            for param in f['sodium'].attrs:
+                if f['sodium'].attrs[param] != f['spe'].attrs[param]:
+                    print(f"Conflict in {param} used to take sodium and SPE data!", file=sys.stderr)
+                    sys.exit(1)
+            if 'data_source' in f['sodium'].attrs:
+                if f['sodium'].attrs['data_source'] != b'CAEN':
+                    print("Error: trying to upload non-CAEN data!", file=sys.stderr)
+                    sys.exit(1)
+            else:
+                print("Data source not specified!", file=sys.stderr)
+                sys.exit(1)
+            
+            data['barcode'] = int(f['sodium'].attrs['barcode'])
+            data['voltage'] = int(f['sodium'].attrs['voltage'])
+            data['git_sha1'] = f['sodium'].attrs['git_sha1'].decode("UTF-8")
+            data['git_dirty'] = f['sodium'].attrs['git_dirty'].decode("UTF-8")
             data['institution'] = str(args.institution)
             data['filename'] = args.filename
 
-        if args.upload:
             cursor.execute("INSERT INTO runs (voltage, institution, git_sha1, git_dirty, filename) VALUES (%(voltage)s, %(institution)s::inst, %(git_sha1)s, %(git_dirty)s, %(filename)s) RETURNING run", data)
             result = cursor.fetchone()
-
             run = result[0]
-
-        for channel in f:
-            print(channel)
-            # All relevant channels, from scope and digitizer, should be in
-            # this format: 'ch<channel number>'.
-            if channel == 'settings':
+        
+        for group in f:
+            if group != 'sodium' and group != 'spe':
+                print(f"Unknown group name: \"{group}\". Skipping...")
                 continue
-
-            if channel.startswith('b'):
-                # baseline channel, only relevant for testing
-                continue
-
-            # Only active channel is analyzed, unless it's the empty
-            # string, in which case all channels are analyzed.
-            if args.active and channel != args.active:
-                continue
-
-            N = len(f[channel])
-            
-            channel_data = {'channel': int(channel[2:]), 'run': run, 'sodium_rise_time': [], 'sodium_fall_time': []}
-
-            if f.attrs['data_source'] == b'CAEN':
-                channel_data['barcode'] = int(f.attrs['barcode'])
-
-            for i in range(0, N, args.chunks):
-                x, y = convert_data(f,channel,i,i+args.chunks)
-                if args.sodium:
-                    a, b = get_window(x,y, left=10, right=125)
-                    y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
-                    if channel in charge:
-                        charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
-                    else:
-                        charge[channel] = integrate(x,y, a, b)
-                    channel_data['sodium_rise_time'].extend(get_rise_time(x, y))
-                    channel_data['sodium_fall_time'].extend(get_fall_time(x, y))
-                else:
-                    a, b = get_spe_window(x, args.start_time, args.integration_time)
-                    
-                    high_filter_y = high_filter_SPE(x, y)
-                    
-                    ################################
-                    # INTEGRATION METHODS
-                    # 0: Only per event median subtraction (preformed in every method).
-                    # 1 (default): For each event, subtract off the median of all points that lie above `cutoff`.
-                    #              Then, across all events, subtract off the median of all points between `a` and `b`.
-                    # 2: Per sample median subtraction. This method is not good because the SPE signal gets diminished.
-                    # 3: Delete all trials that have an SPE between `ma` and `mb`. Subtract off the median between `ma` and `mb` on a per event basis.
-                    # 4: Same as 3, except no trials are deleted. Trials that have an SPE between `ma` and `mb` get reduced by the total median
-                    #    between `ma` and `mb` of events that don't have an SPE in this range.
-                    ################################
-                    
-                    # Integration Method 0, per event median subtraction:
-                    y -= np.median(y, axis=-1)[:, np.newaxis]
-                    
-                    if args.integration_method == 1: # default method
-                        cutoff = -2*iqr(high_filter_y.flatten())
-                        no_SPE_mask = y > cutoff 
-                        y -= np.array([np.median(y[i, no_SPE_mask[i]]) for i in range(len(y))])[:, np.newaxis]
-                        i_mask = np.logical_and(x>=args.start_time, x<args.start_time+args.integration_time)
-                        y -= np.median(y[:, i_mask])
-                    elif args.integration_method == 2:
-                        # `s` for samples
-                        s = y.T
-                        s_mask = s > -10*iqr(high_filter_y.flatten())
-                        good_s = [s[i, s_mask[i]] for i in range(len(s))]
-                        print(f'average number of good samples: {np.mean([len(sub) for sub in good_s])}')
-                        sample_medians = np.array([np.median(sub) for sub in good_s])
-                        y -= sample_medians
-                    elif args.integration_method == 3:
-                        ma = -25
-                        mb = 200
-                        SPE_trials = np.min(y[:, np.logical_and(x >= ma, x < mb)], axis=-1) < -2 * iqr(high_filter_y[:, np.logical_and(x >= ma, x < mb)].flatten())
-                        SPE_trials_idx = [i for i in range(len(y)) if SPE_trials[i]]
-                        y = np.delete(y, SPE_trials_idx, axis=0)
-                        # Subtract off the median between `ma` and `mb` per event
-                        y -= np.median(y[:, np.logical_and(x >= ma, x < mb)], axis=-1)[:, np.newaxis]  # per event median subtraction
-                        if len(y) == 0:
-                            print('All trials were removed')
-                    elif args.integration_method == 4:
-                        ma = -25
-                        mb = 200
-                        m_mask = np.logical_and(x>=ma, x<mb)
-                        no_SPE_trials_mask = np.min(y[:, m_mask], axis=-1) > -2 * iqr(high_filter_y[:, m_mask].flatten())
-                        y -= np.array([np.median(y[i, m_mask]) if no_SPE_trials_mask[i] else np.median((y[no_SPE_trials_mask, :])[:, m_mask]) for i in range(len(y))])[:, np.newaxis]
-                    elif args.integration_method != 0:
-                        print('Not a valid integration method. Defaulting to integration method 0')
-
-                    if channel in charge:
-                        charge[channel] = np.concatenate((charge[channel],integrate(x,y, a, b)))
-                        f_charge[channel] = np.concatenate((f_charge[channel], integrate(x, high_filter_y, a, b))) 
-                    else:
-                        charge[channel] = integrate(x,y, a, b)
-                        f_charge[channel] = integrate(x, high_filter_y, a, b)
-                    
-                if 'avg_pulse_y' in data:
-                    channel_data['avg_pulse_y'] += (data['avg_pulse_count']*data['avg_pulse_y'] + len(y)*np.mean(y, axis=0))/(data['avg_pulse_count'] + len(y))
-                    channel_data['avg_pulse_count'] += len(y)
-                else:
-                    channel_data['avg_pulse_y'] = np.mean(y, axis=0)
-                    channel_data['avg_pulse_count'] = len(y)
-                    channel_data['avg_pulse_x'] = x
+            for channel in f[group]:
+                # All relevant channels from the scope and digitizer should be
+                # in this format: 'ch<channel number>'.
+                if not channel.startswith('ch'):
+                    continue
+                
+                # Only active channel is analyzed, unless it's `None`, in which
+                # case all channels are analyzed.
+                if args.active and channel != args.active:
+                    continue
+                
+                if channel not in ch_data:
+                    ch_data[channel] = {'channel': int(channel[2:])}
+                
+                if args.upload:
+                    ch_data[channel]['run'] = run
+                    ch_data[channel]['barcode'] = data['barcode']
+                 
+                charge = []
+                f_charge = []
+                
+                ##################
+                # Integrations
+                ##################
+                for i in range(0, len(f[group][channel]), args.chunks):
+                    x, y = convert_data(f, group, channel, i, i+args.chunks)
+                    if group == 'sodium':
+                        a, b = get_window(x,y, left=50, right=125)
+                        y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
+                        if 'avg_pulse_y' in ch_data[channel]:
+                            ch_data[channel]['avg_pulse_y'] = (ch_data[channel]['avg_pulse_count']*ch_data[channel]['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (ch_data[channel]['avg_pulse_count'] + len(y))
+                            ch_data[channel]['avg_pulse_count'] += len(y)
+                            np.append(ch_data[channel]['sodium_rise_time'], get_rise_time(x, y))
+                            np.append(ch_data[channel]['sodium_fall_time'], get_fall_time(x, y))
+                        else:
+                            ch_data[channel]['avg_pulse_y'] = np.mean(y, axis=0)
+                            ch_data[channel]['avg_pulse_count'] = len(y)
+                            ch_data[channel]['avg_pulse_x'] = x
+                            ch_data[channel]['sodium_rise_time'] = get_rise_time(x, y)
+                            ch_data[channel]['sodium_fall_time'] = get_fall_time(x, y)
                         
-                    
-            if args.plot or args.print_pdfs:
-                plt.figure()
-                plt.subplot(2,1,1)
-                plt.plot(x,y[:100].T)
-                plt.xlabel("Time (ns)")
-                plt.ylabel("Voltage (V)")
-                plt.axvline(x[a])
-                plt.axvline(x[b])
-                plt.subplot(2,1,2)
-                plt.plot(channel_data['avg_pulse_x'],channel_data['avg_pulse_y'])
-                plt.xlabel("Time (ns)")
-                plt.ylabel("Voltage (V)")
-                plt.axvline(x[a])
-                plt.axvline(x[b])
-                plt.suptitle(channel)
-            if args.print_pdfs:
-                root, ext = os.path.splitext(filename)
-                plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_TimeVolt_{args.start_time}_{args.integration_time}.pdf"))
-            
-            # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
-            if (args.active == channel) and (args.plot or args.print_pdfs) and not args.sodium:
-                plt.figure()
-                plt.subplot(2,1,1)
-                plt.plot(x,high_filter_y[:100].T)
-                plt.xlabel("Time (ns)")
-                plt.ylabel("Voltage (V)")
-                plt.axvline(x[a])
-                plt.axvline(x[b])
-                plt.subplot(2,1,2)
-                plt.plot(x,np.median(high_filter_y,axis=0))
-                plt.xlabel("Time (ns)")
-                plt.ylabel("Voltage (V)")
-                plt.axvline(x[a])
-                plt.axvline(x[b])
-                plt.suptitle(channel)
+                    elif group == 'spe':
+                        a, b = get_spe_window(x, args.start_time, args.integration_time)
+                        y, high_filter_y = spe_baseline_subtraction(x, y, method=args.integration_method)                        
+                        f_charge.extend(integrate(x, high_filter_y, a, b))
 
+                    charge.extend(integrate(x,y, a, b))
+                        
+                if args.plot or args.print_pdfs:
+                    if group == 'sodium':
+                        avg_y = ch_data[channel]['avg_pulse_y']
+                    else:
+                        # avg_y for the spe waveform is only used for plotting
+                        avg_y = np.mean(y, axis=0)
+                    plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
+                    # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
+                    if group == 'spe':
+                        plot_time_volt(x, high_filter_y, channel, f"high filter {group}", a, b, pdf=args.print_pdfs)
+                
+                ##################
+                # Creating Histogram
+                ##################
+                bins = get_bins(charge)
+                h = ROOT.TH1D(f"{group}_{channel}", f"{group} Charge Integral for {channel}", len(bins), bins[0], bins[-1])
+                for x in charge:
+                    h.Fill(x)
+                h.GetXaxis().SetTitle("Charge (pC)")
+                h.Write()
+                if group == 'spe':
+                    f_bins = get_bins(f_charge)
+                    f_h = ROOT.TH1D(f'f_{channel}', f"Filtered Charge {group} Integral for {channel}", len(f_bins), f_bins[0], f_bins[-1])
+                    for x in f_charge:
+                        f_h.Fill(x)
+                    f_h.GetXaxis().SetTitle('Charge (pC)')
+                    f_h.Write()
+                
+                ##################
+                # Preparing Data for Upload
+                ##################
+                if args.upload:
+                    ch_data[channel]['sodium_rise_time'] = float(np.median(ch_data[channel]['sodium_rise_time']))
+                    ch_data[channel]['sodium_fall_time'] = float(np.median(ch_data[channel]['sodium_rise_time']))
+                    ch_data[channel]['avg_pulse_x'] = list(map(float,ch_data[channel]['avg_pulse_x']))
+                    ch_data[channel]['avg_pulse_y'] = list(map(float,ch_data[channel]['avg_pulse_y']))
+                    bincenters = (bins[:1] + bins[:-1])/2
+                    if group == 'sodium':
+                        ch_data[channel]['sodium_charge_histogram_y'] = list(map(float,np.histogram(charge,bins=bins)[0]))
+                        ch_data[channel]['sodium_charge_histogram_x'] = list(map(float,bincenters))
+                    else:
+                        ch_data[channel]['spe_charge_histogram_y'] = list(map(float,np.histogram(charge,bins=bins)[0]))
+                        ch_data[channel]['spe_charge_histogram_x'] = list(map(float,bincenters))
+
+                ##################
+                # Fitting Histogram
+                ##################
+                print(f'Fitting {group} {channel}!')
+                if group == 'sodium':
+                    ch_data[channel]['sodium_peak'] = fit_511_funcs.fit_511(h)
+                else:
+                    model = fit_spe_funcs.vinogradov_model()
+                    ch_data[channel]['spe'] = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
+                
+                plot_hist(h, pdf=args.print_pdfs, filename=args.filename)
+                
+    ##################
+    # Reviewing Data
+    ##################
+    for channel in ch_data:
+        if 'sodium_peak' not in ch_data[channel]:
+            print(f'Mising sodium data for {channel}!')
+        elif 'spe' not in ch_data[channel]:
+            print(f'Missing SPE data for {channel}!')
+        elif ch_data[channel]['sodium_peak'] is None:
+            print(f'Failed to fit {channel} sodium histogram!')
+        elif ch_data[channel]['spe'] is None:
+            print(f'Failed to fit {channel} spe histogram!')
+        else:
+            print(f'{channel}: {ch_data[channel]["sodium_peak"][0] / ch_data[channel]["spe"][0] / 0.511}')
+            
+            ##################
+            # Uploading Data
+            ##################
             if args.upload:
-                channel_data['sodium_rise_time'] = float(np.median(channel_data['sodium_rise_time']))
-                channel_data['sodium_fall_time'] = float(np.median(channel_data['sodium_rise_time']))
-                channel_data['avg_pulse_x'] = list(map(float,channel_data['avg_pulse_x']))
-                channel_data['avg_pulse_y'] = list(map(float,channel_data['avg_pulse_y']))
-                # FIXME: testing
-                channel_data['sodium_peak'] = 100
-                channel_data['spe'] = 100
+                # ch_data[channel]['sodium_peak'][0] is the charge value
+                # ch_data[channel]['sodium_peak'][1] is the charge error
+                ch_data[channel]['sodium_peak'] = ch_data[channel]['sodium_peak'][0] 
+                ch_data[channel]['spe'] = ch_data[channel]['spe'][0] 
+                
+                result = cursor.execute("INSERT INTO data (channel, barcode, sodium_peak, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run) VALUES (%(channel)s, %(barcode)s, %(sodium_peak)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s)", ch_data[channel])
 
-                bins = get_bins(charge[channel])
-                channel_data['sodium_charge_histogram_y'] = list(map(float,np.histogram(charge[channel],bins=bins)[0]))
-                bincenters = (bins[:1] + bins[:-1])/2
-                channel_data['sodium_charge_histogram_x'] = list(map(float,bincenters))
+    root_f.Close()
 
-                bins = get_bins(charge[channel])
-                channel_data['spe_charge_histogram_y'] = list(map(float,np.histogram(charge[channel],bins=bins)[0]))
-                bincenters = (bins[:1] + bins[:-1])/2
-                channel_data['spe_charge_histogram_x'] = list(map(float,bincenters))
-
-                result = cursor.execute("INSERT INTO data (channel, barcode, sodium_peak, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run) VALUES (%(channel)s, %(barcode)s, %(sodium_peak)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s)", channel_data)
-
-
-    if args.output:
-        f = ROOT.TFile(args.output,"recreate")
-
-        for channel in charge:
-            bins = get_bins(charge[channel])
-            h = ROOT.TH1D(channel,"Charge Integral for %s" % channel,len(bins),bins[0],bins[-1])
-            for x in charge[channel]:
-                h.Fill(x)
-            h.GetXaxis().SetTitle("Charge (pC)")
-            if args.sodium:            
-                bincenters = (bins[1:] + bins[:-1])/2
-                hist, bins = np.histogram(charge[channel],bins=bins)
-            
-            if args.plot or args.print_pdfs:
-                plt.figure()
-                plt.hist(charge[channel],bins=bins,histtype='step',label=channel)
-                plt.xlabel("Charge (pC)")
-                plt.legend()
-            if args.print_pdfs:
-                root, ext = os.path.splitext(filename)
-                plt.savefig(os.path.join(args.print_pdfs, f"{root}_{channel}_{args.start_time}_{args.integration_time}.pdf"))
-            h.Write()
-            if not args.sodium:
-                # The prefix `f_` will be used to denote objects that
-                # correspond to filtered data.
-                f_bins = get_bins(f_charge[channel])
-                f_h = ROOT.TH1D(f'f_{channel}', "Filtered Charge Integral for %s" % channel, len(f_bins), f_bins[0], f_bins[-1])
-                for x in f_charge[channel]:
-                    f_h.Fill(x)
-                f_h.GetXaxis().SetTitle('Charge (pC)')
-                f_h.Write()
-
-        f.Close()
+    if args.output == 'delete_me.root':
+        os.remove('delete_me.root')
 
     if args.plot:
         plt.show()
+

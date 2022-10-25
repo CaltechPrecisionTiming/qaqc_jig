@@ -414,7 +414,7 @@ void GoToNextEnabledGroup(WaveDumpRun_t *WDrun, WaveDumpConfig_t *WDcfg) {
     if ((WDcfg->EnableMask) && (WDcfg->Nch>8)) {
         int orgPlotIndex = WDrun->GroupPlotIndex;
         do {
-            WDrun->GroupPlotIndex = (++WDrun->GroupPlotIndex)%(WDcfg->Nch/8);
+            WDrun->GroupPlotIndex = (WDrun->GroupPlotIndex + 1)%(WDcfg->Nch/8);
         } while( !((1 << WDrun->GroupPlotIndex)& WDcfg->EnableMask));
         if( WDrun->GroupPlotIndex != orgPlotIndex) {
             printf("Plot group set to %d\n", WDrun->GroupPlotIndex);
@@ -1202,7 +1202,7 @@ int Set_calibrated_DCO(int handle, int ch, WaveDumpConfig_t *WDcfg, CAEN_DGTZ_Bo
 
 
 /* Gets the average reading across all events and samples for each channel */
-void get_baselines(float data[WF_SIZE][32][1024], float *baselines, int n, int chmask, int nsamples)
+void get_baselines(float data[][32][1024], float *baselines, int n, int chmask, int nsamples)
 {
     int i, j, k;
 
@@ -1227,14 +1227,15 @@ void get_baselines(float data[WF_SIZE][32][1024], float *baselines, int n, int c
     }
 }
 
-/* Write events to an HDF5 output file. If the file doesn't exist, it will be
- * created and attributes such as the record_length, post_trigger, barcode, and
- * voltage will be written.
+/* Write events to an HDF5 output file. If the file doesn't exist, it will
+ * be created and attributes such as the record_length, post_trigger,
+ * barcode, and voltage will be written.
  *
- * The output file is set up to use gzip compression, but right now it's turned
- * off. The reason is that with the full compression (gzip level 9), it was too
- * slow and so the data taking time was dominated by the compression. There is
- * probably some way to speed this up, and if so, it can be re-enabled. */
+ * The output file is set up to use gzip compression, but right now it's
+ * turned off. The reason is that with the full compression (gzip level 9),
+ * it was too slow and so the data taking time was dominated by the
+ * compression. There is probably some way to speed this up, and if so, it
+ * can be re-enabled. */
 int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, int chmask, int nsamples, WaveDumpConfig_t *WDcfg)
 {
     hid_t file, space, dset, dcpl, mem_space, file_space, group_id, baseline_group_id;
@@ -1279,7 +1280,8 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
         file = H5Fopen(filename, H5F_ACC_RDWR, H5P_DEFAULT);
     }
 
-    /* If group not in file, create the group. Else, extend the dataset in the group. */
+    /* If group not in file, create the group. Else, extend the dataset in
+     * the group. */
     if (H5Lexists(file, group_name, H5P_DEFAULT) <= 0) { 
         group_id = H5Gcreate (file, group_name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
         
@@ -1296,9 +1298,8 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
         H5Sclose(aid);
         H5Aclose(attr);
 
-        /* Creating an attribute for the root group
-         * that flags this file as being data collected from
-         * the CAEN digitizer. */
+        /* Creating an attribute for the root group that flags this file as
+         * being data collected from the CAEN digitizer. */
         aid = H5Screate(H5S_SCALAR);
         atype = H5Tcopy(H5T_C_S1);
         H5Tset_size(atype, 100);
@@ -1416,8 +1417,7 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
         H5Aclose(attr);
         H5Tclose(atype);
         
-        /* Writing the baseline data to the file
-         * in separate datasets */
+        /* Writing the baseline data to the file in separate datasets */
         sprintf(baseline_group_name, "baseline_%s", group_name);
         baseline_group_id = H5Gcreate(group_id, baseline_group_name, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
         for (i = 0; i < 32; i++) {
@@ -1528,7 +1528,8 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
         }
 
         /* Get dataspace and allocate memory for read buffer. This is a two
-         * dimensional dataset so the dynamic allocation must be done in steps. */
+         * dimensional dataset so the dynamic allocation must be done in
+         * steps. */
         file_space = H5Dget_space(dset);
         ndims = H5Sget_simple_extent_dims(file_space, dims, NULL);
 
@@ -1605,7 +1606,10 @@ void print_help()
 {
     fprintf(stderr, "usage: wavedump -o [OUTPUT] -n [NUMBER] [CONFIG_FILE]\n"
     "  -b, --barcode <barcode>    Barcode of the module being tested\n"
-    "  -v, --voltage <voltage>    Voltage (V)"
+    "  -v, --voltage <voltage>    Voltage (V)\n"
+    "  -t, --trigger <type>       Trigger type (self, software, external)\n"
+    "  -l, --label   <label>      Label (sodium, spe)\n"
+    "  --threshold   <threshold>  Trigger threshold (volts) (default: -0.1)\n"
     "  --help                     Output this help and exit.\n"
     "  -t, --trigger <trigger>    Type of trigger: \"software\", \"external\", or \"self\".\n"
     "  -l, --label <label>        Name of hdf5 group to write data to.\n"
@@ -1613,7 +1617,7 @@ void print_help()
     exit(1);
 }
 
-WaveDumpConfig_t set_default_settings() {
+WaveDumpConfig_t get_default_settings() {
     int i, j;
     WaveDumpConfig_t WDcfg;
 
@@ -1665,7 +1669,7 @@ WaveDumpConfig_t set_default_settings() {
              * to Vpp. The range shifts lineraly by setting the DC offset
              * between 22000 and 48000. For example, at 35000, the range is
              * -Vpp/2 to +Vpp/2.*/
-            WDcfg.DCoffsetGrpCh[i][j] = 0x7FFF;
+            WDcfg.DCoffsetGrpCh[i][j] = 0x55F0;
         }
     }
 
@@ -1716,17 +1720,19 @@ WaveDumpConfig_t set_default_settings() {
     return WDcfg;
 }
 
-WaveDumpConfig_t set_511_settings()
+WaveDumpConfig_t get_511_settings()
 {
     /* In the future we may want to have one function that programs all the
-     * setttings. I'm not sure if this is possible due to the order we need to do
-     * things in. For example, before we can set the trigger threshold, we have to
-     * take baseline data. */
+     * setttings. I'm not sure if this is possible due to the order we need
+     * to do things in. For example, before we can set the trigger
+     * threshold, we have to take baseline data. */
+    return get_default_settings();
 }
 
-WaveDumpConfig_t set_spe_settings()
+WaveDumpConfig_t get_spe_settings()
 {
     /* See `set_511_settings`. */
+    return get_default_settings();
 }
 
 void print_wfdata(float data[WF_SIZE][32][1024]) {
@@ -1772,10 +1778,11 @@ int main(int argc, char *argv[])
     char *trig_type = NULL;
     char *label = NULL;
     CAEN_DGTZ_X742_EVENT_t *Event742 = NULL;
+    double threshold = -0.1;
 
     FILE *f_ini;
     CAEN_DGTZ_DRS4Correction_t X742Tables[MAX_X742_GROUP_SIZE];
-    sprintf(path, "");
+    path[0] = '\0';
     int ReloadCfgStatus = 0x7FFFFFFF; // Init to the bigger positive number
 
     memset(&WDrun, 0, sizeof(WDrun));
@@ -1795,6 +1802,8 @@ int main(int argc, char *argv[])
             barcode = atoi(argv[++i]);
         } else if ((!strcmp(argv[i],"-v") || !strcmp(argv[i],"--voltage")) && i < argc - 1) {
             voltage = atof(argv[++i]);
+        } else if ((strcmp(argv[i],"--threshold")) && i < argc - 1) {
+            threshold = atof(argv[++i]);
         } else {
             config_filename = argv[i];
         }
@@ -1817,7 +1826,7 @@ int main(int argc, char *argv[])
     
     /* TODO: Make separate methods for the settings needed for
      * 511 and SPE. */
-    WDcfg = set_default_settings(trig_type);
+    WDcfg = get_default_settings(trig_type);
     
     WDcfg.voltage = voltage;
     WDcfg.barcode = barcode;
@@ -2067,7 +2076,7 @@ int main(int argc, char *argv[])
     static float wfdata[WF_SIZE][32][1024];
     static float bdata[BS_SIZE][32][1024];
     float baselines[32];
-    float thresholds[2];
+    float thresholds[16];
 
     int chmask = 0;
     int nsamples = 0;
@@ -2120,22 +2129,23 @@ int main(int argc, char *argv[])
     for (i = 0; i < 32; i++)
         printf("    ch %2i = %.0f\n", i, baselines[i]);
 
-    for (i = 0; i < 2; i++)
+    for (i = 0; i < 16; i++)
         thresholds[i] = 1e99;
 
-    /* Since we have to set the offset and threshold for the whole group, we set the
-     * threshold to the minimum baseline for all channels within a group. */
-    for (i = 0; i < 32; i++) {
+    /* Since we have to set the offset and threshold for the whole group, we
+     * set the threshold to the minimum baseline for all channels within a
+     * group. */
+    for (i = 0; i < 16; i++) {
         if (chmask & (1 << i)) {
-            if (baselines[i] < thresholds[i/8])
-                thresholds[i/8] = baselines[i];
+            thresholds[i] = baselines[i];
         }
     }
 
-    /* This is how the CAEN API says to set self-triggers, but we found that it
-     * didn't work, so we wrote directly to the registers instead. Maybe it has to
-     * do with the order in which we're programming the digitizer. These types of
-     * functions are usually called in `Program_Digitizer`. */
+    /* This is how the CAEN API says to set self-triggers, but we found that
+     * it didn't work, so we wrote directly to the registers instead. Maybe
+     * it has to do with the order in which we're programming the digitizer.
+     * These types of functions are usually called in `Program_Digitizer`.
+     */
     // ret = CAEN_DGTZ_SetChannelSelfTrigger(handle, CAEN_DGTZ_TRGMODE_ACQ_ONLY, 0xffff);
     // 
     // if (ret) {
@@ -2145,37 +2155,21 @@ int main(int argc, char *argv[])
     
     /* Set the channels to trigger on themselves */
     if (strcmp(trig_type, "self") == 0) {
-        /* Page 45 of file:///home/cptlab/Downloads/UM4270_DT5742_UserManual_rev10.pdf gives
-         * the instructions of how to set up self-trigger. */
-        int units_per_volt = (int)pow(2, (double)BoardInfo.ADC_NBits);
-        float voltage_threshold = -0.10;
-        for (i = 0; i < 2; i++) {
-            thresholds[i] += voltage_threshold * units_per_volt;
+        /* Page 45 of UM4270_DT5742_UserManual_rev10.pdf gives the
+         * instructions of how to set up self-trigger. */
+        int units_per_volt = (int) pow(2, (double) BoardInfo.ADC_NBits);
+        for (i = 0; i < 16; i++) {
+            thresholds[i] += threshold*units_per_volt;
 
             if (thresholds[i] < 1e99) {
-                
+                int group = i/8;
+                int channel = i % 8;
                 /* This sets the trigger level */
-                printf("setting trigger threshold for group %i to %i\n", i, (int) thresholds[i]);
-                ret = CAEN_DGTZ_WriteRegister(handle, 0x1080 + 256*i, (int) thresholds[i]);
-                // ret = CAEN_DGTZ_WriteRegister(handle, 0x1080 + 256*i, 0x500);
+                printf("setting trigger threshold for channel %i to %i\n", i, (int) thresholds[i]);
+                ret = CAEN_DGTZ_WriteRegister(handle, 0x1080 + 256*group, (channel << 12) | ((int) thresholds[i] & 0xfff));
 
                 if (ret) {
-                    fprintf(stderr, "failed to write register 0x%04x!\n", 0x1080 + 256*i);
-                    exit(1);
-                }
-                
-                
-                /* This sets which channels are allowed to cause a trigger event. If a channel is not
-                 * allowed, then even if it crosses the trigger threshold, the event will not
-                 * be acquired.
-                 *
-                 * When at least one channel in a group causes a trigger event, then
-                 * the signal from all the channels in that group are acquired. */
-                printf("setting channel mask for group %i to 0x%02x\n", i, (int) (chmask >> i*8) & 0xff); // There used to be 16 here instead of 8
-                ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8 + 256*i, (int) (chmask >> i*8) & 0xff);
-
-                if (ret) {
-                    fprintf(stderr, "failed to write register 0x%04x!\n", 0x10A8 + 256*i);
+                    fprintf(stderr, "failed to write register 0x%04x!\n", 0x1080 + 256*group);
                     exit(1);
                 }
             } else {
@@ -2187,14 +2181,33 @@ int main(int argc, char *argv[])
                 }
             }
         }
+
+        for (i = 0; i < 2; i++) {
+            /* This sets which channels are allowed to cause a trigger
+             * event. If a channel is not allowed, then even if it crosses
+             * the trigger threshold, the event will not be acquired.
+             *
+             * When at least one channel in a group causes a trigger event,
+             * then the signal from all the channels in that group are
+             * acquired. */
+            printf("setting channel mask for group %i to 0x%02x\n", i, (int) (chmask >> i*8) & 0xff);
+            ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8 + 256*i, (int) (chmask >> i*8) & 0xff);
+
+            if (ret) {
+                fprintf(stderr, "failed to write register 0x%04x!\n", 0x10A8 + 256*i);
+                exit(1);
+            }
+        }
     }
 
     /* Deactivating ability to self trigger */
     if (strcmp(trig_type, "external") == 0 || strcmp(trig_type, "software") == 0) {
         ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8, 0x00);
-        if(ret) printf("failed to deactivate triggers!\n");
+        if (ret)
+            fprintf(stderr, "failed to deactivate triggers!\n");
         ret = CAEN_DGTZ_WriteRegister(handle, 0x11A8, 0x00);
-        if(ret) printf("failed to deactivate triggers!\n");
+        if (ret)
+            fprintf(stderr, "failed to deactivate triggers!\n");
     }
 
     /* Enabling external trigger for laser */
@@ -2343,6 +2356,9 @@ int main(int argc, char *argv[])
     return 0;
 
 QuitProgram:
+
+    if (ErrCode)
+        fprintf(stderr, "\a%s\n", ErrMsg[ErrCode]);
 
     return 1;
 }

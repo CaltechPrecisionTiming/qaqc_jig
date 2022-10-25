@@ -448,7 +448,8 @@ if __name__ == '__main__':
                     if group == 'sodium':
                         avg_y = ch_data[channel]['avg_pulse_y']
                     else:
-                        # avg_y for the spe waveform is only used for plotting
+                        # avg_y for the spe waveform is only used for
+                        # plotting
                         avg_y = np.mean(y, axis=0)
                     plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
                     # Plotting the filtered voltage signal. Doesn't have to

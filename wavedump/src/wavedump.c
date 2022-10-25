@@ -1607,12 +1607,10 @@ void print_help()
     fprintf(stderr, "usage: wavedump -o [OUTPUT] -n [NUMBER] [CONFIG_FILE]\n"
     "  -b, --barcode <barcode>    Barcode of the module being tested\n"
     "  -v, --voltage <voltage>    Voltage (V)\n"
-    "  -t, --trigger <type>       Trigger type (self, software, external)\n"
-    "  -l, --label   <label>      Label (sodium, spe)\n"
+    "  -t, --trigger <trigger>    Type of trigger: \"software\", \"external\", or \"self\".\n"
+    "  -l, --label   <label>      Name of hdf5 group to write data to (sodium, spe)\n"
     "  --threshold   <threshold>  Trigger threshold (volts) (default: -0.1)\n"
     "  --help                     Output this help and exit.\n"
-    "  -t, --trigger <trigger>    Type of trigger: \"software\", \"external\", or \"self\".\n"
-    "  -l, --label <label>        Name of hdf5 group to write data to.\n"
     "\n");
     exit(1);
 }
@@ -1748,14 +1746,6 @@ void print_wfdata(float data[WF_SIZE][32][1024]) {
 
 int main(int argc, char *argv[])
 {
-    struct statvfs st;
-    statvfs("/home", &st);
-    double free_space = ((double)st.f_bfree * st.f_frsize) / pow(2, 30);
-    printf("Free Space remaining in /home: %fGB\n", free_space);
-    if (free_space < 10) {
-	printf("Too little space available (< 10 GB)! Try deleting some hdf5 files. Quitting...");
-	exit(1);
-    }
     WaveDumpConfig_t WDcfg;
     WaveDumpRun_t WDrun;
     CAEN_DGTZ_ErrorCode ret = CAEN_DGTZ_Success;
@@ -1824,6 +1814,15 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, sigint_handler);
     
+    struct statvfs st;
+    statvfs("/home", &st);
+    double free_space = ((double)st.f_bfree * st.f_frsize)/pow(2, 30);
+    printf("Free Space remaining in /home: %.0fG\n", free_space);
+    if (free_space < 10) {
+	fprintf(stderr, "Too little space available (< 10 GB)! Try deleting some hdf5 files. Quitting...\n");
+	exit(1);
+    }
+
     /* TODO: Make separate methods for the settings needed for
      * 511 and SPE. */
     WDcfg = get_default_settings(trig_type);
@@ -2020,13 +2019,13 @@ int main(int argc, char *argv[])
     CAEN_DGTZ_SWStopAcquisition(handle);
 
     /* First, in order to self-trigger we need to set the digitizer into
-     * transparent mode and read some data from the board to get an idea of the
-     * un-calibrated baseline.
+     * transparent mode and read some data from the board to get an idea of
+     * the un-calibrated baseline.
      *
      * See page 35 of the DT5742 manual. */
 
-    /* First, we get the register value of 0x8000, and then set the 13th bit to
-     * set it in transparent mode. */
+    /* First, we get the register value of 0x8000, and then set the 13th bit
+     * to set it in transparent mode. */
     ret = CAEN_DGTZ_ReadRegister(handle, 0x8000, &data);
 
     if (ret) {

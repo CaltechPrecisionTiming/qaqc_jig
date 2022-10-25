@@ -67,14 +67,6 @@ static uint32_t get_spi_address(uint16_t page_addr, uint16_t byte_addr) {
 
 }
 
-static uint32_t get_spi_standard_address(uint16_t page_addr, uint16_t byte_addr) {
-	uint32_t spi_address = 0;
-
-	spi_address = ((page_addr & 0x0FFF) << 9) | (byte_addr & 0x1FF); // get address using smallest page size (264)
-
-	return spi_address;
-}
-
 static uint16_t get_page_addr_from_sector(uint16_t sector) {
 	uint16_t page_addr=0;
 

@@ -125,7 +125,7 @@ def integrate(x, data, a, b):
     else:
         return -np.trapz(data[a:b],x=x[a:b])*1000/50.0
 
-def get_bins(x):
+def get_bins(x, cutoff=None):
     """
     Returns bins for the data `x` using the Freedman Diaconis rule. See
     https://en.wikipedia.org/wiki/Freedman%E2%80%93Diaconis_rule.
@@ -133,12 +133,20 @@ def get_bins(x):
     The equation below returns bins using said rule. A smaller bin value than
     this was chosen after finetuning for better fitting results.
     """
+    x = np.asarray(x)
+
+    if cutoff is not None:
+        x = x[x > cutoff]
     
     bin_width = 0.5*iqr(x)/(len(x)**(1/3.0))
+
     if bin_width == 0:
         print('Zero bin width! Quitting...', file=sys.stderr)
         sys.exit(1)
-    return np.arange(np.min(x),np.max(x),bin_width)
+
+    min = np.percentile(x,1)
+    max = np.percentile(x,99)
+    return np.arange(min,max,bin_width)
 
 def chunks(lst, n):
     """
@@ -454,7 +462,7 @@ if __name__ == '__main__':
                 ##################
                 # Creating Histogram
                 ##################
-                bins = get_bins(charge)
+                bins = get_bins(charge, cutoff=200)
                 h = ROOT.TH1D(f"{group}_{channel}", f"{group} Charge Integral for {channel}", len(bins), bins[0], bins[-1])
                 for x in charge:
                     h.Fill(x)

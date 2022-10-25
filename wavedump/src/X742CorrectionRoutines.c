@@ -251,9 +251,9 @@ int SaveCorrectionTables(char *outputFileName, uint32_t groupMask, CAEN_DGTZ_DRS
 */
 int LoadCorrectionTable(char *baseInputFileName, CAEN_DGTZ_DRS4Correction_t *tb) {
     char fnStr[MAX_BASE_INPUT_FILE_LENGTH + 1];
-    int ch, i, j, read;
+    int ch, i, j;
     FILE *inputfile;
-    char Buf[MAX_READ_CHAR + 1], *pread;
+    char Buf[MAX_READ_CHAR + 1];
 
     if(strlen(baseInputFileName) > MAX_BASE_INPUT_FILE_LENGTH + 13)
         return -1; // Too long base filename
@@ -265,12 +265,12 @@ int LoadCorrectionTable(char *baseInputFileName, CAEN_DGTZ_DRS4Correction_t *tb)
         return -2;
     for(ch=0; ch<MAX_X742_CHANNEL_SIZE; ch++) {
         while(strstr(Buf, "Calibration") != Buf)
-            pread = fgets(Buf, MAX_READ_CHAR, inputfile);
+            fgets(Buf, MAX_READ_CHAR, inputfile);
         
         for(i=0; i<1024; i+=8) {
             for(j=0; j<8; j++)
-                read = fscanf(inputfile, "%hd", &(tb->cell[ch][i+j]));
-            pread = fgets(Buf, MAX_READ_CHAR, inputfile);
+                fscanf(inputfile, "%hd", &(tb->cell[ch][i+j]));
+            fgets(Buf, MAX_READ_CHAR, inputfile);
         }
     }
     fclose(inputfile);
@@ -282,12 +282,12 @@ int LoadCorrectionTable(char *baseInputFileName, CAEN_DGTZ_DRS4Correction_t *tb)
         return -3;
     for(ch=0; ch<MAX_X742_CHANNEL_SIZE; ch++) {
         while(strstr(Buf, "Calibration") != Buf)
-            pread = fgets(Buf, MAX_READ_CHAR, inputfile);
+            fgets(Buf, MAX_READ_CHAR, inputfile);
         
         for(i=0; i<1024; i+=8) {
             for(j=0; j<8; j++)
-                read = fscanf(inputfile, "%hhd", &(tb->nsample[ch][i+j]));
-            pread = fgets(Buf, MAX_READ_CHAR, inputfile);
+                fscanf(inputfile, "%hhd", &(tb->nsample[ch][i+j]));
+            fgets(Buf, MAX_READ_CHAR, inputfile);
         }
     }
     fclose(inputfile);
@@ -298,13 +298,13 @@ int LoadCorrectionTable(char *baseInputFileName, CAEN_DGTZ_DRS4Correction_t *tb)
     if((inputfile = fopen(fnStr, "r")) == NULL)
         return -4;
     while(strstr(Buf, "Calibration") != Buf)
-        pread = fgets(Buf, MAX_READ_CHAR, inputfile);
-    pread = fgets(Buf, MAX_READ_CHAR, inputfile);
+        fgets(Buf, MAX_READ_CHAR, inputfile);
+    fgets(Buf, MAX_READ_CHAR, inputfile);
         
     for(i=0; i<1024; i+=8) {
         for(j=0; j<8; j++)
-            read = fscanf(inputfile, "%f", &(tb->time[i+j]));
-        pread = fgets(Buf, MAX_READ_CHAR, inputfile);
+            fscanf(inputfile, "%f", &(tb->time[i+j]));
+        fgets(Buf, MAX_READ_CHAR, inputfile);
     }
     fclose(inputfile);
 

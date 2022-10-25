@@ -77,7 +77,7 @@ void SetDefaultConfiguration(WaveDumpConfig_t *WDcfg) {
 */
 int ParseConfigFile(FILE *f_ini, WaveDumpConfig_t *WDcfg) 
 {
-	char str[1000], str1[1000], *pread;
+	char str[1000], str1[1000];
 	int i, ch=-1, val, Off=0, tr = -1;
     int ret = 0;
 
@@ -95,15 +95,15 @@ int ParseConfigFile(FILE *f_ini, WaveDumpConfig_t *WDcfg)
 	/* read config file and assign parameters */
 	while(!feof(f_ini)) {
 		int read;
-        char *res;
+
         // read a word from the file
         read = fscanf(f_ini, "%s", str);
         if( !read || (read == EOF) || !strlen(str))
 			continue;
         // skip comments
         if(str[0] == '#') {
-            res = fgets(str, 1000, f_ini);
-			continue;
+            fgets(str, 1000, f_ini);
+	    continue;
         }
 
         if (strcmp(str, "@ON")==0) {
@@ -168,7 +168,7 @@ int ParseConfigFile(FILE *f_ini, WaveDumpConfig_t *WDcfg)
 					return -1;
 				}
 			if (ip == 1) {
-				read = fscanf(f_ini, "%s", &WDcfg->ipAddress);
+				read = fscanf(f_ini, "%s", WDcfg->ipAddress);
 			}
 			else
 				read = fscanf(f_ini, "%d", &WDcfg->LinkNum);
@@ -219,7 +219,7 @@ int ParseConfigFile(FILE *f_ini, WaveDumpConfig_t *WDcfg)
                 char *ptr = Buf;
 
                 WDcfg->useCorrections = atoi(str1);
-                pread = fgets(Buf, 1000, f_ini); // Get the remaining line
+                fgets(Buf, 1000, f_ini); // Get the remaining line
                 WDcfg->UseManualTables = -1;
                 if(sscanf(ptr, "%s", str1) == 0) {
                     printf("Invalid syntax for parameter %s\n", str);
@@ -382,8 +382,8 @@ int ParseConfigFile(FILE *f_ini, WaveDumpConfig_t *WDcfg)
 			else
 				printf("%s: Invalid Parameter\n", str);
 
-				for (i = 0; i<MAX_SET; i++)///polarity setting (old trigger edge)is the same for all channels
-					WDcfg->PulsePolarity[i] = pp;				
+			for (i = 0; i<MAX_SET; i++)///polarity setting (old trigger edge)is the same for all channels
+			        WDcfg->PulsePolarity[i] = pp;				
 			
 			continue;
 		}
@@ -651,7 +651,7 @@ void Save_DAC_Calibration_To_Flash(int handle, WaveDumpConfig_t WDcfg, CAEN_DGTZ
 	memset(buffer, 0, 1 + VIRTUAL_PAGE_SIZE * sizeof(uint8_t));
 
 	buffer[0] = 0xD;
-	memcpy((buffer +1), calibration_data, VIRTUAL_PAGE_SIZE * sizeof(uint8_t));//copy cal vector to buffer
+	memcpy((buffer +1), calibration_data, 2*MAX_SET*sizeof(float));//copy cal vector to buffer
 	
 	err = SPIFlash_write_virtual_page(handle, OFFSET_CALIBRATION_VIRTUAL_PAGE,buffer);
 	if (err != FLASH_API_SUCCESS) {

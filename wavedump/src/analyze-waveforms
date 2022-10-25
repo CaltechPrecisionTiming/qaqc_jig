@@ -129,9 +129,6 @@ def get_bins(x, cutoff=None):
     """
     Returns bins for the data `x` using the Freedman Diaconis rule. See
     https://en.wikipedia.org/wiki/Freedman%E2%80%93Diaconis_rule.
-    
-    The equation below returns bins using said rule. A smaller bin value than
-    this was chosen after finetuning for better fitting results.
     """
     x = np.asarray(x)
 
@@ -168,20 +165,19 @@ def convert_data(f, group, channel, start, stop):
             x = np.linspace(0, xinc * points, int(points)) - xinc * points * (1 - f[group].attrs['post_trigger']/100)
             
             # While `y` is measured in volts, it's only relatively. We could
-            # use the DC offset to determine the absolute voltage, but the DC
-            # offset isn't well defined. Setting it to about 22000 (DAC units)
-            # means approximately no offset is added, but not exactly.  This
-            # shouldn't matter much because we use a baseline subtraction
-            # method anyways.
-            y = f[group][channel][start:stop] * (1/2**12)
-    
-    # FIXME: All of the code below assumes that the datasets are in no group.
-    # `acquire-waveforms` should be updated first if we want to be able to use
-    # this function for oscilloscope data. 
+            # use the DC offset to determine the absolute voltage, but the
+            # DC offset isn't well defined. Setting it to about 22000 (DAC
+            # units) means approximately no offset is added, but not
+            # exactly. This shouldn't matter much because we use a baseline
+            # subtraction method anyways.
+            y = f[group][channel][start:stop]/2**12
     elif 'yinc' in dict(f[channel].attrs):
+        # FIXME: All of the code below assumes that the datasets are in no
+        # group. `acquire-waveforms` should be updated first if we want to
+        # be able to use this function for oscilloscope data. 
         x = f[channel].attrs['xorg'] + np.linspace(0,f[channel].attrs['xinc']*f[channel].attrs['points'],int(f[channel].attrs['points']))
-        # FIXME
-        # I believe the else block in this if/else statement was for a type of hdf5 format that we no longer use.
+        # FIXME: I believe the else block in this if/else statement was for
+        # a type of hdf5 format that we no longer use.
         if True: # ':WAVeform:FORMat' in dict(f['settings'].attrs) and f['settings'].attrs[':WAVeform:FORMat'] != 'ASC':
             # convert word values -> voltages if the data was saved in a non-ascii format
             y = f[channel][start:stop]*f[channel].attrs['yinc'] + f[channel].attrs['yorg']
@@ -401,13 +397,13 @@ if __name__ == '__main__':
                 print(f"Unknown group name: \"{group}\". Skipping...")
                 continue
             for channel in f[group]:
-                # All relevant channels from the scope and digitizer should be
-                # in this format: 'ch<channel number>'.
+                # All relevant channels from the scope and digitizer should
+                # be in this format: 'ch<channel number>'.
                 if not channel.startswith('ch'):
                     continue
                 
-                # Only active channel is analyzed, unless it's `None`, in which
-                # case all channels are analyzed.
+                # Only active channel is analyzed, unless it's `None`, in
+                # which case all channels are analyzed.
                 if args.active and channel != args.active:
                     continue
                 
@@ -455,7 +451,8 @@ if __name__ == '__main__':
                         # avg_y for the spe waveform is only used for plotting
                         avg_y = np.mean(y, axis=0)
                     plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
-                    # Plotting the filtered voltage signal. Doesn't have to be included in the final draft of this code.
+                    # Plotting the filtered voltage signal. Doesn't have to
+                    # be included in the final draft of this code.
                     if group == 'spe':
                         plot_time_volt(x, high_filter_y, channel, f"high filter {group}", a, b, pdf=args.print_pdfs)
                 
@@ -531,9 +528,6 @@ if __name__ == '__main__':
                 result = cursor.execute("INSERT INTO data (channel, barcode, sodium_peak, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run) VALUES (%(channel)s, %(barcode)s, %(sodium_peak)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s)", ch_data[channel])
 
     root_f.Close()
-
-    if args.output == 'delete_me.root':
-        os.remove('delete_me.root')
 
     if args.plot:
         plt.show()

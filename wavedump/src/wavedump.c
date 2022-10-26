@@ -1789,6 +1789,7 @@ int main(int argc, char *argv[])
     double threshold = -0.1;
     int gzip_compression_level = 0;
     int starting_channel = 0;
+    int channel_mask = 0xffff;
 
     FILE *f_ini;
     CAEN_DGTZ_DRS4Correction_t X742Tables[MAX_X742_GROUP_SIZE];
@@ -1818,6 +1819,8 @@ int main(int argc, char *argv[])
             gzip_compression_level = atoi(argv[++i]);
         } else if ((strcmp(argv[i],"--starting-channel")) && i < argc - 1) {
             starting_channel = atoi(argv[++i]);
+        } else if ((strcmp(argv[i],"--channel-mask")) && i < argc - 1) {
+            channel_mask = atoi(argv[++i]);
         } else {
             config_filename = argv[i];
         }
@@ -2099,7 +2102,6 @@ int main(int argc, char *argv[])
     float baselines[32];
     float thresholds[16];
 
-    int chmask = 0;
     int nsamples = 0;
 
     if (NumEvents > WF_SIZE)
@@ -2131,8 +2133,6 @@ int main(int argc, char *argv[])
 
                     nsamples = Size;
 
-                    chmask |= 1 << (gr*8 + ch);
-
                     for (int j = 0; j < Size; j++) {
                         bdata[i][gr*8 + ch][j] = Event742->DataGroup[gr].DataChannel[ch][j];
                     }
@@ -2144,7 +2144,7 @@ int main(int argc, char *argv[])
     /* Do we still want to get baselines like this when there will
      * be a source in the dark box? It might average some SPEs or
      * a 511 signal */
-    get_baselines(bdata, baselines, NumEvents, chmask, nsamples);
+    get_baselines(bdata, baselines, NumEvents, channel_mask, nsamples);
 
     printf("Baselines for channels:\n");
     for (i = 0; i < 32; i++)
@@ -2157,7 +2157,7 @@ int main(int argc, char *argv[])
      * set the threshold to the minimum baseline for all channels within a
      * group. */
     for (i = 0; i < 16; i++) {
-        if (chmask & (1 << i)) {
+        if (channel_mask & (1 << i)) {
             thresholds[i] = baselines[i];
         }
     }
@@ -2211,8 +2211,8 @@ int main(int argc, char *argv[])
              * When at least one channel in a group causes a trigger event,
              * then the signal from all the channels in that group are
              * acquired. */
-            printf("setting channel mask for group %i to 0x%02x\n", i, (int) (chmask >> i*8) & 0xff);
-            ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8 + 256*i, (int) (chmask >> i*8) & 0xff);
+            printf("setting channel mask for group %i to 0x%02x\n", i, (int) (channel_mask >> i*8) & 0xff);
+            ret = CAEN_DGTZ_WriteRegister(handle, 0x10A8 + 256*i, (int) (channel_mask >> i*8) & 0xff);
 
             if (ret) {
                 fprintf(stderr, "failed to write register 0x%04x!\n", 0x10A8 + 256*i);
@@ -2340,7 +2340,6 @@ int main(int argc, char *argv[])
                             continue;
 
                         nsamples = Size;
-                        chmask |= 1 << (gr*8 + ch);
 
                         for (int j = 0; j < Size; j++) {
                             wfdata[nread][gr*8 + ch][j] = Event742->DataGroup[gr].DataChannel[ch][j];
@@ -2353,7 +2352,7 @@ int main(int argc, char *argv[])
 	
         if (nread > 0) {
             printf("writing %i events to file\n", nread);
-            if (add_to_output_file(output_filename, label, wfdata, bdata, nread, chmask, nsamples, &WDcfg, gzip_compression_level, starting_channel)) {
+            if (add_to_output_file(output_filename, label, wfdata, bdata, nread, channel_mask, nsamples, &WDcfg, gzip_compression_level, starting_channel)) {
                 fprintf(stderr, "failed to write events to file! quitting...\n");
                 exit(1);
             }
@@ -2368,7 +2367,7 @@ int main(int argc, char *argv[])
     if (stop)
         fprintf(stderr, "ctrl-c caught. writing out %i events\n", nread);
 
-    if (nread > 0 && add_to_output_file(output_filename, label, wfdata, bdata, nread, chmask, nsamples, &WDcfg, gzip_compression_level, starting_channel)) {
+    if (nread > 0 && add_to_output_file(output_filename, label, wfdata, bdata, nread, channel_mask, nsamples, &WDcfg, gzip_compression_level, starting_channel)) {
         fprintf(stderr, "failed to write events to file!\n");
     }
 

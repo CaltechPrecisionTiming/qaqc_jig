@@ -1759,7 +1759,7 @@ long get_free_space(void)
         exit(1);
     }
     statvfs(cwd, &st);
-    return st.f_bfree*st.f_frsize;
+    return st.f_bavail*st.f_frsize;
 }
 
 int main(int argc, char *argv[])
@@ -1860,11 +1860,19 @@ int main(int argc, char *argv[])
     }
 
     signal(SIGINT, sigint_handler);
+
+    int nchannels = 0;
+    for (i = 0; i < 16; i++)
+        if (channel_mask & (1 << i))
+            nchannels += 1;
+
+    double space_needed = nevents*nchannels*1024*sizeof(float)/pow(2,30);
     
     double free_space = get_free_space()/pow(2, 30);
-    printf("Free Space remaining in /home: %.0fG\n", free_space);
-    if (free_space < 10) {
-	fprintf(stderr, "Too little space available (< 10 GB)! Try deleting some hdf5 files. Quitting...\n");
+    printf("Required disk space:  %.0fG\n", space_needed);
+    printf("Free Space remaining: %.0fG\n", free_space);
+    if (free_space < space_needed*2) {
+	fprintf(stderr, "Too little space available! Try deleting some hdf5 files. Quitting...\n");
 	exit(1);
     }
 

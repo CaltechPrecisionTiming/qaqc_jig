@@ -1783,7 +1783,7 @@ int main(int argc, char *argv[])
     double voltage = -1;
     int barcode = 0;
     uint32_t data;
-    char *trig_type = NULL;
+    char *trig_type = "self";
     char *label = NULL;
     CAEN_DGTZ_X742_EVENT_t *Event742 = NULL;
     double threshold = -0.1;
@@ -1841,8 +1841,23 @@ int main(int argc, char *argv[])
         print_help();
     }
     
-    if (!output_filename || barcode == 0 || voltage < 0)
+    if (!output_filename) {
+        fprintf(stderr, "must specify an output filename with -o OUTPUT\n");
         print_help();
+        exit(1);
+    }
+
+    if (barcode == 0) {
+        fprintf(stderr, "please specify a barcode with --barcode\n");
+        print_help();
+        exit(1);
+    }
+
+    if (voltage < 0) {
+        fprintf(stderr, "please specify a positive voltage with --voltage\n");
+        print_help();
+        exit(1);
+    }
 
     signal(SIGINT, sigint_handler);
     

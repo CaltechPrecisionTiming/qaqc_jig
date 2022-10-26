@@ -2142,6 +2142,8 @@ int main(int argc, char *argv[])
                         bdata[i][gr*8 + ch][j] = Event742->DataGroup[gr].DataChannel[ch][j];
                     }
                 }
+            } else {
+                fprintf(stderr, "Warning: missing baseline data for group %i for event %i\n", gr, i);
             }
         }
     }
@@ -2350,6 +2352,8 @@ int main(int argc, char *argv[])
                             wfdata[nread][gr*8 + ch][j] = Event742->DataGroup[gr].DataChannel[ch][j];
                         }
                     }
+                } else {
+                    fprintf(stderr, "Warning: missing data for group %i for event %i\n", gr, nread);
                 }
             }
             nread += 1;

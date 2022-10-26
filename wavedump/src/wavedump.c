@@ -1202,7 +1202,7 @@ int Set_calibrated_DCO(int handle, int ch, WaveDumpConfig_t *WDcfg, CAEN_DGTZ_Bo
 
 
 /* Gets the average reading across all events and samples for each channel */
-void get_baselines(float data[][32][1024], float *baselines, int n, int chmask, int nsamples)
+void get_baselines(float data[][32][1024], float *baselines, int n, unsigned long chmask, int nsamples)
 {
     int i, j, k;
 
@@ -1236,7 +1236,7 @@ void get_baselines(float data[][32][1024], float *baselines, int n, int chmask, 
  * it was too slow and so the data taking time was dominated by the
  * compression. There is probably some way to speed this up, and if so, it
  * can be re-enabled. */
-int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, int chmask, int nsamples, WaveDumpConfig_t *WDcfg, int gzip_compression_level, int starting_channel)
+int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, unsigned long chmask, int nsamples, WaveDumpConfig_t *WDcfg, int gzip_compression_level, int starting_channel)
 {
     hid_t file, space, dset, dcpl, mem_space, file_space, group_id, baseline_group_id;
     herr_t status;
@@ -1789,7 +1789,7 @@ int main(int argc, char *argv[])
     double threshold = -0.1;
     int gzip_compression_level = 0;
     int starting_channel = 0;
-    int channel_mask = 0xffff;
+    unsigned long channel_mask = 0xffff;
 
     FILE *f_ini;
     CAEN_DGTZ_DRS4Correction_t X742Tables[MAX_X742_GROUP_SIZE];
@@ -1813,14 +1813,19 @@ int main(int argc, char *argv[])
             barcode = atoi(argv[++i]);
         } else if ((!strcmp(argv[i],"-v") || !strcmp(argv[i],"--voltage")) && i < argc - 1) {
             voltage = atof(argv[++i]);
-        } else if ((strcmp(argv[i],"--threshold")) && i < argc - 1) {
+        } else if ((!strcmp(argv[i],"--threshold")) && i < argc - 1) {
             threshold = atof(argv[++i]);
-        } else if ((strcmp(argv[i],"--gzip-compression-level")) && i < argc - 1) {
+        } else if ((!strcmp(argv[i],"--gzip-compression-level")) && i < argc - 1) {
             gzip_compression_level = atoi(argv[++i]);
-        } else if ((strcmp(argv[i],"--starting-channel")) && i < argc - 1) {
+        } else if ((!strcmp(argv[i],"--starting-channel")) && i < argc - 1) {
             starting_channel = atoi(argv[++i]);
-        } else if ((strcmp(argv[i],"--channel-mask")) && i < argc - 1) {
-            channel_mask = atoi(argv[++i]);
+        } else if ((!strcmp(argv[i],"--channel-mask")) && i < argc - 1) {
+            channel_mask = strtoul(argv[++i],NULL,0);
+
+            if ((channel_mask == 0) || (channel_mask == ULONG_MAX)) {
+                fprintf(stderr, "unable to convert channel mask '%s' to integer\n", argv[i]);
+                exit(1);
+            }
         } else {
             config_filename = argv[i];
         }

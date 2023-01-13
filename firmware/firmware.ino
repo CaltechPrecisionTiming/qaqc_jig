@@ -1,11 +1,26 @@
+/* Firmware to control the BTL QA/QC board at Caltech.
+ * 
+ * Anthony LaTorre <alatorre@caltech.edu>
+ * Lautaro Narvaez <lautaro@caltech.edu> */
 #include <Wire.h>
 #include "PCA9557.h"
 #include "AD5593R.h"
 
+#define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
+
 #define PCA9557_DEBUG
+
+/* Generic delay after setting pins high/low. */
+#define DELAY 100
+
+char cmd[256];
+char err[256];
+int k = 0;
 
 int debug = 1;
 
+/* Which pin address each of the HV relays are connected to, i.e. the HV relay
+ * labelled KC1 on the board is controlled by changing the output of pin 6. */
 #define KC1 6
 #define KC2 7
 #define KC3 4
@@ -13,13 +28,25 @@ int debug = 1;
 #define KC5 2
 #define KC6 3
 #define ADC 1
+/* The I/O number for the AD5593R. */
+#define THERMISTOR1 0
+#define THERMISTOR2 1
+#define THERMISTOR3 2
+#define TEC_SENSE 3
 #define TEC_CTRL1 4
 #define TEC_CTRL2 5
 #define TEC_CTRL3 6
 
+/* Array of HV relay pins and names. */
 int hv_relays[6] = {KC1,KC2,KC3,KC4,KC5,KC6};
 int hv_relay_names[6] = {"KC1","KC2","KC3","KC4","KC5","KC6"};
+int tec_relays[3] = {TEC_CTRL1, TEC_CTRL2, TEC_CTRL3};
+int tec_relay_names[3] = {"TEC_CTRL1", "TEC_CTRL2", "TEC_CTRL3"};
+int thermistors[4] = {THERMISTOR1, THERMISTOR2, THERMISTOR3, TEC_SENSE};
+int thermistor_names[4] = {"THERMISTOR1", "THERMISTOR2", "THERMISTOR3", "TEC_SENSE"};
 
+/* Base address for the PCA9557. This base address is modified by the three
+ * least significant bits set by the DIP switches on each board. */
 #define BASE_ADDR 0x18
 
 /* Note: The DIP switches are backwards from what you'd think, i.e. if the
@@ -37,24 +64,64 @@ PCA9557 bus[8] = {
     PCA9557(BASE_ADDR+7, &Wire)  // 111
 };
 
+/* Which 3 module boards are present. For the final setup this should be all
+ * 1's. However when testing a small number of boards, we have no way to test
+ * which boards are connected since the Wire library resets the whole Teensy if
+ * it fails to communicate, so we need to manually keep track of which boards
+ * are present. */
+int active[8] = {
+    1,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+};
+
+/* Create the object to talk to the AD5593R. Note that we don't set a pin for
+ * the base address. I'm not entirely sure what the author of that package had
+ * in mind with that pin, but we manually manage setting the address pin each
+ * time we want to talk to it by setting the ADC pin on the PCA9557.
+ *
+ * Note that the way the code is structured, you have to set that pin HIGH on
+ * the ones you don't want to talk to and only set it low for the one you do
+ * want to talk to.
+ *
+ * The pinout for the AD5593 is as follows:
+ *
+ *     4  - I/O0 - thermistor A1_1
+ *     5  - I/O1 - thermistor A1_2
+ *     6  - I/O2 - thermistor A1_3
+ *     7  - I/O3 - TEC sense
+ *     8  - I/O4 - TEC control 1
+ *     9  - I/O5 - TEC control 2
+ *     10 - I/O6 - TEC control 3
+ *     11 - I/O7 - NC
+ *
+ * The VREF pin is connected to ground with a capacitor. */
 AD5593R gpio(-1);
 bool my_DACs[8] = {0,0,0,0,1,1,1,1};
 bool my_ADCs[8] = {1,1,1,1,0,0,0,0};
 
-void setup()
+int reset()
 {
     int i, j;
     char msg[100];
 
-    Serial.begin(9600);
-    Wire.begin();
-
     /* Loop over each of the 3 module boards. */
-    for (i = 0; i < 2; i++) {
-        /* Loop over the six HV relays. */
-        for (j = 0; j < 6; j++) {
-            /* Set the pin to be an output.
+    for (i = 0; i < LEN(bus); i++) {
+        if (!active[i]) {
+            sprintf(msg, "Skipping board %i because it's not active\n", i);
+            Serial.print(msg);
+            continue;
+        }
 
+        /* Loop over the six HV relays. */
+        for (j = 0; j < LEN(hv_relays); j++) {
+            /* Set the pin to be an output.
+             *
              * Note: I have the code here set up to be able to detect an error,
              * but it turns out for some reason that it never errors and if it
              * can't talk to the chip it just resets the whole Teensy. I tried
@@ -66,10 +133,11 @@ void setup()
                 Serial.print(msg);
                 break;
             }
-            delay(500);
-            set_relay(i, hv_relays[j], LOW);
-            delay(500);
+            delay(DELAY);
+            bus_write(i, hv_relays[j], LOW);
+            delay(DELAY);
         }
+
         /* Set the pin which sets the address for the GPIO chip to be an
          * output. */
         if (!bus[i].pinMode(ADC,OUTPUT)) {
@@ -77,17 +145,22 @@ void setup()
             Serial.print(msg);
         }
 
-        /* Set the address pin HIGH so we don't talk to multiple chips at once.
-         */
-        set_relay(i, ADC, HIGH);
-        delay(500);
+        /* Set the address pin HIGH so we don't talk to multiple chips at once. */
+        bus_write(i, ADC, HIGH);
+        delay(DELAY);
     }
 
     /* Loop over each of the 3 module boards. */
-    for (i = 0; i < 2; i++) {
+    for (i = 0; i < LEN(bus); i++) {
+        if (!active[i]) {
+            sprintf(msg, "Skipping board %i because it's not active\n", i);
+            Serial.print(msg);
+            continue;
+        }
+
         /* Enable the ADC pin so we can talk to this chip. */
-        set_relay(i, ADC, LOW);
-        delay(500);
+        bus_write(i, ADC, LOW);
+        delay(DELAY);
         gpio.configure_DACs(my_DACs);
         gpio.configure_ADCs(my_ADCs);
         gpio.enable_internal_Vref();
@@ -102,40 +175,215 @@ void setup()
         if (gpio.write_DAC(TEC_CTRL3,0) < 0) {
             Serial.print("error setting DAC!\n");
         }
-        delay(500);
+        delay(DELAY);
         /* Always need to set it back low at the end to avoid talking to
          * multiple chips. */
-        set_relay(i, ADC, HIGH);
+        bus_write(i, ADC, HIGH);
     }
 }
 
-int i = 0;
+void setup()
+{
+    Serial.begin(9600);
+    Wire.begin();
 
-void set_tec_relay(int bus_index, int address, bool value)
+    reset();
+}
+
+/* Read an ADC value on the AD5593R.
+ *
+ * Arguments:
+ *     - bus_index: The number of the 3 module board, i.e. 0 for 0b000, 1 for 0b001, etc.
+ *     - address: The pin number on the chip, i.e. TEC_CTRL1, TEC_CTRL2, TEC_CTRL3.
+ *     - value: pointer to a float
+ *
+ * Returns 0 on success, -1 on error. */
+int gpio_read(int bus_index, int address, float *value)
 {
     /* Enable the ADC pin so we can talk to this chip. */
-    set_relay(bus_index, ADC, LOW);
-    if (gpio.write_DAC(address,value ? 3.3 : 0) < 0) {
-        Serial.print("error setting DAC!\n");
-    }
-    set_relay(bus_index, ADC, HIGH);
+    if (bus_write(bus_index, ADC, LOW)) return -1;
+    *value = gpio.read_ADC(address);
+    if (bus_write(bus_index, ADC, HIGH)) return -1;
+    return 0;
 }
 
-/* Turn on/off a relay on the PCA9557. Address should be the address of the
- * relay, and value should be ON/OFF. */
-void set_relay(int bus_index, int address, int value)
+/* Turn on/off an output on the AD5593R.
+ *
+ * Arguments:
+ *     - bus_index: The number of the 3 module board, i.e. 0 for 0b000, 1 for 0b001, etc.
+ *     - address: The pin number on the chip, i.e. TEC_CTRL1, TEC_CTRL2, TEC_CTRL3.
+ *     - value: HIGH/LOW
+ *
+ * Returns 0 on success, -1 on error. */
+int gpio_write(int bus_index, int address, bool value)
+{
+    /* Enable the ADC pin so we can talk to this chip. */
+    if (bus_write(bus_index, ADC, LOW)) return -1;
+    if (gpio.write_DAC(address, value ? 3.3 : 0) < 0) {
+        Serial.print("error setting DAC!\n");
+        bus_write(bus_index, ADC, HIGH);
+        return -1;
+    }
+    if (bus_write(bus_index, ADC, HIGH)) return -1;
+    return 0;
+}
+
+/* Turn on/off an output on the PCA9557.
+ *
+ * Arguments:
+ *     - bus_index: The number of the 3 module board, i.e. 0 for 0b000, 1 for 0b001, etc.
+ *     - address: The pin number on the chip, i.e. KC1, KC2, ADC, etc.
+ *     - value: HIGH/LOW
+ *
+ * Returns 0 on success, -1 on error. */
+int bus_write(int bus_index, int address, int value)
 {
     if (debug) {
         char msg[100];
         sprintf(msg,"Setting bus 0x%1x address 0x%08x to %s\n", bus_index, address, value ? "HIGH" : "LOW");
         Serial.print(msg);
     }
-    bus[bus_index].digitalWrite(address,value);
+    if (!bus[bus_index].digitalWrite(address,value))
+        return -1;
+    else
+        return 0;
+}
+
+/* Performs a user command based on a string. Examples of commands:
+ *
+ * "tec_write 1 0 1" - turn TEC 0 on on board 1
+ * "tec_write 2 1 0" - turn TEC 1 off on board 2
+ * "hv_write 2 1 0" - turn HV relay 1 off on board 2
+ *
+ * Returns 0 or 1 on success, -1 on error. Returns 0 if there is no return
+ * value, 1 if there is a return value. If there is an error, the global `err`
+ * string contains an error message. */
+int do_command(char *cmd, float *value)
+{
+    int i;
+    char *tokens[10];
+    char *tok;
+
+    tok = strtok(cmd, " ");
+    while (tok != NULL && i <= LEN(tokens) - 1) {
+        tokens[i++] = tok;
+        tok = strtok(NULL, " ");
+    }
+
+    if (!strcmp(tokens[0], "tec_write")) {
+        int bus_index = atoi(tokens[1]);
+        int address = atoi(tokens[2]);
+        int value = atoi(tokens[3]);
+        if (bus_index < 0 || bus_index > LEN(bus)) {
+            sprintf(err, "bus index %i is not valid", bus_index);
+            return -1;
+        } else if (!active[bus_index]) {
+            sprintf(err, "bus index %i is not active", bus_index);
+            return -1;
+        } else if (address < 0 || address > LEN(tec_relays)) {
+            sprintf(err, "address %i is not valid", address);
+            return -1;
+        } else if (value < 0 || value > 1) {
+            sprintf(err, "value %i must be 0 or 1", value);
+            return -1;
+        }
+        gpio_write(bus_index,tec_relays[address],value);
+    } else if (!strcmp(tokens[0], "hv_write")) {
+        int bus_index = atoi(tokens[1]);
+        int address = atoi(tokens[2]);
+        int value = atoi(tokens[3]);
+        if (bus_index < 0 || bus_index > LEN(bus)) {
+            sprintf(err, "bus index %i is not valid", bus_index);
+            return -1;
+        } else if (!active[bus_index]) {
+            sprintf(err, "bus index %i is not active", bus_index);
+            return -1;
+        } else if (address < 0 || address > LEN(hv_relays)) {
+            sprintf(err, "address %i is not valid", address);
+            return -1;
+        } else if (value < 0 || value > 1) {
+            sprintf(err, "value %i must be 0 or 1", value);
+            return -1;
+        }
+        bus_write(bus_index,hv_relays[address],value);
+    } else if (!strcmp(tokens[0], "thermistor_read")) {
+        int bus_index = atoi(tokens[1]);
+        int address = atoi(tokens[2]);
+        if (bus_index < 0 || bus_index > LEN(bus)) {
+            sprintf(err, "bus index %i is not valid", bus_index);
+            return -1;
+        } else if (!active[bus_index]) {
+            sprintf(err, "bus index %i is not active", bus_index);
+            return -1;
+        } else if (address < 0 || address > LEN(hv_relays)) {
+            sprintf(err, "address %i is not valid", address);
+            return -1;
+        } else if (value == NULL) {
+            sprintf(err, "value must not be set to NULL");
+            return -1;
+        }
+        gpio_read(bus_index,thermistors[address],value);
+        return 1;
+    } else if (!strcmp(tokens[0], "tec_sense_read")) {
+        int bus_index = atoi(tokens[1]);
+        if (bus_index < 0 || bus_index > LEN(bus)) {
+            sprintf(err, "bus index %i is not valid", bus_index);
+            return -1;
+        } else if (!active[bus_index]) {
+            sprintf(err, "bus index %i is not active", bus_index);
+            return -1;
+        } else if (value == NULL) {
+            sprintf(err, "value must not be set to NULL");
+            return -1;
+        }
+        gpio_read(bus_index,TEC_SENSE,value);
+        return 1;
+    }
+
+    return 0;
 }
 
 void loop()
 {
-    set_relay(0, ADC,i++ % 2 ? LOW : HIGH);
-    set_tec_relay(0,TEC_CTRL1,true);
+    char msg[100];
+    float temp = 0;
+
+    while (Serial.available() > 0) {
+        if (k >= LEN(cmd) - 1) {
+            Serial.print("Error: too many characters in command!\n");
+            k = 0;
+        }
+        cmd[k++] = Serial.read();
+        if (cmd[k] == '\n') {
+            cmd[k] = '\0';
+            temp = 0;
+            int rv = do_command(cmd, &temp);
+            if (rv < 0) {
+                sprintf(msg, "%s\n", err);
+                Serial.print(msg);
+            } else if (rv > 0) {
+                sprintf(msg, "%.2f\n", temp);
+                Serial.print(msg);
+            } else {
+                Serial.print("ok\n");
+            }
+            k = 0;
+        }
+    }
+
+    if (debug) {
+        gpio_read(0, THERMISTOR1, &temp);
+        sprintf(msg, "Thermistor 1: %.2f\n", temp);
+        Serial.print(msg);
+        gpio_read(0, THERMISTOR2, &temp);
+        sprintf(msg, "Thermistor 2: %.2f\n", temp);
+        Serial.print(msg);
+        gpio_read(0, THERMISTOR3, &temp);
+        sprintf(msg, "Thermistor 3: %.2f\n", temp);
+        Serial.print(msg);
+        gpio_read(0, TEC_SENSE, &temp);
+        sprintf(msg, "TEC SENSE:    %.2f\n", temp);
+        Serial.print(msg);
+    }
     delay(1000);
 }

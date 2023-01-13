@@ -338,6 +338,9 @@ int do_command(char *cmd, float *value)
         }
         gpio_read(bus_index,TEC_SENSE,value);
         return 1;
+    } else {
+        sprintf(err, "unknown command '%s'", tokens[0]);
+        return -1;
     }
 
     return 0;

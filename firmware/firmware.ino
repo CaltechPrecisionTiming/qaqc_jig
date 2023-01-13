@@ -357,8 +357,8 @@ void loop()
             k = 0;
         }
         cmd[k++] = Serial.read();
-        if (cmd[k] == '\n') {
-            cmd[k] = '\0';
+        if (cmd[k-1] == '\n') {
+            cmd[k-1] = '\0';
             temp = 0;
             int rv = do_command(cmd, &temp);
             if (rv < 0) {

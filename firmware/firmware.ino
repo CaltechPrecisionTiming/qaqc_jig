@@ -72,12 +72,12 @@ PCA9557 bus[8] = {
 int active[8] = {
     1,
     1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
 };
 
 /* Create the object to talk to the AD5593R. Note that we don't set a pin for
@@ -107,14 +107,16 @@ bool my_ADCs[8] = {1,1,1,1,0,0,0,0};
 
 int reset()
 {
-    int i, j;
+    int i, j, rv;
     char msg[100];
+
+    rv = 0;
 
     /* Loop over each of the 3 module boards. */
     for (i = 0; i < LEN(bus); i++) {
         if (!active[i]) {
-            sprintf(msg, "Skipping board %i because it's not active\n", i);
-            Serial.print(msg);
+            sprintf(err, "Skipping board %i because it's not active\n", i);
+            Serial.print(err);
             continue;
         }
 
@@ -129,8 +131,9 @@ int reset()
              * doesn't have the timeout function added yet. I'm going to keep
              * this code here in case we figure out some way to update it. */
             if (!bus[i].pinMode(hv_relays[j],OUTPUT)) {
-                sprintf(msg, "Error setting pin mode for address 0x%1x %s. Aborting...\n", i, hv_relay_names[j]);
-                Serial.print(msg);
+                sprintf(err, "Error setting pin mode for address 0x%1x %s. Aborting...\n", i, hv_relay_names[j]);
+                Serial.print(err);
+                rv = -1;
                 break;
             }
             delay(DELAY);
@@ -141,8 +144,9 @@ int reset()
         /* Set the pin which sets the address for the GPIO chip to be an
          * output. */
         if (!bus[i].pinMode(ADC,OUTPUT)) {
-            sprintf(msg, "Error setting pin mode for address 0x%1x ADC. Aborting...\n", i);
-            Serial.print(msg);
+            sprintf(err, "Error setting pin mode for address 0x%1x ADC. Aborting...\n", i);
+            Serial.print(err);
+            rv = -1;
         }
 
         /* Set the address pin HIGH so we don't talk to multiple chips at once. */
@@ -153,8 +157,9 @@ int reset()
     /* Loop over each of the 3 module boards. */
     for (i = 0; i < LEN(bus); i++) {
         if (!active[i]) {
-            sprintf(msg, "Skipping board %i because it's not active\n", i);
-            Serial.print(msg);
+            sprintf(err, "Skipping board %i because it's not active\n", i);
+            Serial.print(err);
+            rv = -1;
             continue;
         }
 
@@ -167,19 +172,27 @@ int reset()
         gpio.set_DAC_max_2x_Vref();
         gpio.set_ADC_max_2x_Vref();
         if (gpio.write_DAC(TEC_CTRL1,0) < 0) {
-            Serial.print("error setting DAC!\n");
+            sprintf(err, "Error setting TEC relay 1 on bus %i\n", i);
+            Serial.print(err);
+            rv = -1;
         }
         if (gpio.write_DAC(TEC_CTRL2,0) < 0) {
-            Serial.print("error setting DAC!\n");
+            sprintf(err, "Error setting TEC relay 2 on bus %i\n", i);
+            Serial.print(err);
+            rv = -1;
         }
         if (gpio.write_DAC(TEC_CTRL3,0) < 0) {
-            Serial.print("error setting DAC!\n");
+            sprintf(err, "Error setting TEC relay 3 on bus %i\n", i);
+            Serial.print(err);
+            rv = -1;
         }
         delay(DELAY);
         /* Always need to set it back low at the end to avoid talking to
          * multiple chips. */
         bus_write(i, ADC, HIGH);
     }
+
+    return rv;
 }
 
 void setup()
@@ -248,6 +261,8 @@ int bus_write(int bus_index, int address, int value)
     else
         return 0;
 }
+
+bool poll[8] = {false,false,false,false,false,false,false,false};
 
 /* Performs a user command based on a string. Examples of commands:
  *
@@ -338,6 +353,34 @@ int do_command(char *cmd, float *value)
         }
         gpio_read(bus_index,TEC_SENSE,value);
         return 1;
+    } else if (!strcmp(tokens[0], "reset")) {
+        if (reset())
+            return -1;
+    } else if (!strcmp(tokens[0], "poll")) {
+        int bus_index = atoi(tokens[1]);
+        int value = atoi(tokens[2]);
+
+        if (bus_index < 0 || bus_index > LEN(bus)) {
+            sprintf(err, "bus index %i is not valid", bus_index);
+            return -1;
+        } else if (!active[bus_index]) {
+            sprintf(err, "bus index %i is not active", bus_index);
+            return -1;
+        }
+
+        if (value)
+            poll[bus_index] = true;
+        else
+            poll[bus_index] = false;
+    } else if (!strcmp(tokens[0], "set_active_bitmask")) {
+        int bitmask = atoi(tokens[1]);
+
+        for (i = 0; i < LEN(bus); i++) {
+            if (bitmask & (1 << i))
+                active[i] = 1;
+            else
+                active[i] = 0;
+        }
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);
         return -1;
@@ -348,6 +391,7 @@ int do_command(char *cmd, float *value)
 
 void loop()
 {
+    int i;
     char msg[100];
     float temp = 0;
 
@@ -374,19 +418,21 @@ void loop()
         }
     }
 
-    if (debug) {
-        gpio_read(0, THERMISTOR1, &temp);
-        sprintf(msg, "Thermistor 1: %.2f\n", temp);
-        Serial.print(msg);
-        gpio_read(0, THERMISTOR2, &temp);
-        sprintf(msg, "Thermistor 2: %.2f\n", temp);
-        Serial.print(msg);
-        gpio_read(0, THERMISTOR3, &temp);
-        sprintf(msg, "Thermistor 3: %.2f\n", temp);
-        Serial.print(msg);
-        gpio_read(0, TEC_SENSE, &temp);
-        sprintf(msg, "TEC SENSE:    %.2f\n", temp);
-        Serial.print(msg);
+    for (i = 0; i < LEN(bus); i++) {
+        if (active[i] && poll[i]) {
+            gpio_read(i, THERMISTOR1, &temp);
+            sprintf(msg, "%i Thermistor 1: %.2f\n", i, temp);
+            Serial.print(msg);
+            gpio_read(i, THERMISTOR2, &temp);
+            sprintf(msg, "%i Thermistor 2: %.2f\n", i, temp);
+            Serial.print(msg);
+            gpio_read(i, THERMISTOR3, &temp);
+            sprintf(msg, "%i Thermistor 3: %.2f\n", i, temp);
+            Serial.print(msg);
+            gpio_read(i, TEC_SENSE, &temp);
+            sprintf(msg, "%i TEC SENSE:    %.2f\n", i, temp);
+            Serial.print(msg);
+        }
     }
     delay(1000);
 }

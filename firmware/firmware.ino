@@ -8,7 +8,7 @@
 
 #define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
-#define PCA9557_DEBUG
+//#define PCA9557_DEBUG
 
 /* Generic delay after setting pins high/low. */
 #define DELAY 100

@@ -17,7 +17,7 @@ char cmd[256];
 char err[256];
 int k = 0;
 
-int debug = 1;
+bool debug = false;
 
 /* Which pin address each of the HV relays are connected to, i.e. the HV relay
  * labelled KC1 on the board is controlled by changing the output of pin 6. */
@@ -380,6 +380,14 @@ int do_command(char *cmd, float *value)
                 active[i] = 1;
             else
                 active[i] = 0;
+        }
+    } else if (!strcmp(tokens[0], "debug")) {
+        int value = atoi(tokens[1]);
+
+        if (value)
+            debug = true;
+        else
+            debug = false;
         }
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);

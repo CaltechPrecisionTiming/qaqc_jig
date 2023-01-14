@@ -129,7 +129,7 @@ int reset()
              * doesn't have the timeout function added yet. I'm going to keep
              * this code here in case we figure out some way to update it. */
             if (!bus[i].pinMode(hv_relays[j],OUTPUT)) {
-                sprintf("Error setting pin mode for address 0x%1x %s. Aborting...\n", i, hv_relay_names[j]);
+                sprintf(msg, "Error setting pin mode for address 0x%1x %s. Aborting...\n", i, hv_relay_names[j]);
                 Serial.print(msg);
                 break;
             }
@@ -141,7 +141,7 @@ int reset()
         /* Set the pin which sets the address for the GPIO chip to be an
          * output. */
         if (!bus[i].pinMode(ADC,OUTPUT)) {
-            sprintf("Error setting pin mode for address 0x%1x ADC. Aborting...\n", i);
+            sprintf(msg, "Error setting pin mode for address 0x%1x ADC. Aborting...\n", i);
             Serial.print(msg);
         }
 

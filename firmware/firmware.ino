@@ -39,11 +39,11 @@ bool debug = false;
 
 /* Array of HV relay pins and names. */
 int hv_relays[6] = {KC1,KC2,KC3,KC4,KC5,KC6};
-int hv_relay_names[6] = {"KC1","KC2","KC3","KC4","KC5","KC6"};
+const char *hv_relay_names[6] = {"KC1","KC2","KC3","KC4","KC5","KC6"};
 int tec_relays[3] = {TEC_CTRL1, TEC_CTRL2, TEC_CTRL3};
-int tec_relay_names[3] = {"TEC_CTRL1", "TEC_CTRL2", "TEC_CTRL3"};
+const char *tec_relay_names[3] = {"TEC_CTRL1", "TEC_CTRL2", "TEC_CTRL3"};
 int thermistors[4] = {THERMISTOR1, THERMISTOR2, THERMISTOR3, TEC_SENSE};
-int thermistor_names[4] = {"THERMISTOR1", "THERMISTOR2", "THERMISTOR3", "TEC_SENSE"};
+const char *thermistor_names[4] = {"THERMISTOR1", "THERMISTOR2", "THERMISTOR3", "TEC_SENSE"};
 
 /* Base address for the PCA9557. This base address is modified by the three
  * least significant bits set by the DIP switches on each board. */

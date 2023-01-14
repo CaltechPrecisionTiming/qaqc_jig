@@ -275,17 +275,22 @@ bool poll[8] = {false,false,false,false,false,false,false,false};
  * string contains an error message. */
 int do_command(char *cmd, float *value)
 {
-    int i = 0;
+    int i;
+    int ntok = 0;
     char *tokens[10];
     char *tok;
 
     tok = strtok(cmd, " ");
-    while (tok != NULL && i <= LEN(tokens) - 1) {
-        tokens[i++] = tok;
+    while (tok != NULL && ntok <= LEN(tokens) - 1) {
+        tokens[ntok++] = tok;
         tok = strtok(NULL, " ");
     }
 
     if (!strcmp(tokens[0], "tec_write")) {
+        if (ntok != 4) {
+            sprintf(err, "tec_write command expects 3 arguments: tec_write [bus] [address] [value]");
+            return -1;
+        }
         int bus_index = atoi(tokens[1]);
         int address = atoi(tokens[2]);
         int value = atoi(tokens[3]);
@@ -304,6 +309,10 @@ int do_command(char *cmd, float *value)
         }
         gpio_write(bus_index,tec_relays[address],value);
     } else if (!strcmp(tokens[0], "hv_write")) {
+        if (ntok != 4) {
+            sprintf(err, "hv_write command expects 3 arguments: tec_write [bus] [address] [value]");
+            return -1;
+        }
         int bus_index = atoi(tokens[1]);
         int address = atoi(tokens[2]);
         int value = atoi(tokens[3]);
@@ -322,6 +331,10 @@ int do_command(char *cmd, float *value)
         }
         bus_write(bus_index,hv_relays[address],value);
     } else if (!strcmp(tokens[0], "thermistor_read")) {
+        if (ntok != 3) {
+            sprintf(err, "thermistor_read command expects 2 arguments: thermistor_read [bus] [address]");
+            return -1;
+        }
         int bus_index = atoi(tokens[1]);
         int address = atoi(tokens[2]);
         if (bus_index < 0 || bus_index > LEN(bus)) {
@@ -340,6 +353,10 @@ int do_command(char *cmd, float *value)
         gpio_read(bus_index,thermistors[address],value);
         return 1;
     } else if (!strcmp(tokens[0], "tec_sense_read")) {
+        if (ntok != 2) {
+            sprintf(err, "tec_sense_read command expects 1 argument: tec_sense_read [bus]");
+            return -1;
+        }
         int bus_index = atoi(tokens[1]);
         if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
@@ -354,9 +371,17 @@ int do_command(char *cmd, float *value)
         gpio_read(bus_index,TEC_SENSE,value);
         return 1;
     } else if (!strcmp(tokens[0], "reset")) {
+        if (ntok != 1) {
+            sprintf(err, "reset command expects 0 arguments");
+            return -1;
+        }
         if (reset())
             return -1;
     } else if (!strcmp(tokens[0], "poll")) {
+        if (ntok != 3) {
+            sprintf(err, "poll command expects 2 arguments: poll [bus] [1/0]");
+            return -1;
+        }
         int bus_index = atoi(tokens[1]);
         int value = atoi(tokens[2]);
 
@@ -373,6 +398,10 @@ int do_command(char *cmd, float *value)
         else
             poll[bus_index] = false;
     } else if (!strcmp(tokens[0], "set_active_bitmask")) {
+        if (ntok != 2) {
+            sprintf(err, "set_active_bitmask command expects 1 argument: set_active_bitmask [bitmask]");
+            return -1;
+        }
         int bitmask = atoi(tokens[1]);
 
         for (i = 0; i < LEN(bus); i++) {
@@ -382,6 +411,10 @@ int do_command(char *cmd, float *value)
                 active[i] = 0;
         }
     } else if (!strcmp(tokens[0], "debug")) {
+        if (ntok != 1) {
+            sprintf(err, "debug command expects 1 argument: debug [1/0]");
+            return -1;
+        }
         int value = atoi(tokens[1]);
 
         if (value)

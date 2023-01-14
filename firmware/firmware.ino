@@ -443,6 +443,10 @@ void loop()
         cmd[k++] = Serial.read();
         if (cmd[k-1] == '\n') {
             cmd[k-1] = '\0';
+
+            sprintf(msg, "received command: %s\n", cmd);
+            Serial.print(msg);
+
             temp = 0;
             int rv = do_command(cmd, &temp);
             if (rv < 0) {

@@ -137,7 +137,11 @@ int reset()
                 break;
             }
             delay(DELAY);
-            bus_write(i, hv_relays[j], LOW);
+            if (bus_write(i, hv_relays[j], LOW)) {
+                sprintf(err, "Error setting relay for board %i LOW\n", i);
+                Serial.print(err);
+                rv = -1;
+            }
             delay(DELAY);
         }
 
@@ -150,7 +154,11 @@ int reset()
         }
 
         /* Set the address pin HIGH so we don't talk to multiple chips at once. */
-        bus_write(i, ADC, HIGH);
+        if (bus_write(i, ADC, HIGH)) {
+            sprintf(err, "Error setting address pin for board %i HIGH\n", i);
+            Serial.print(err);
+            rv = -1;
+        }
         delay(DELAY);
     }
 
@@ -164,7 +172,13 @@ int reset()
         }
 
         /* Enable the ADC pin so we can talk to this chip. */
-        bus_write(i, ADC, LOW);
+        if (bus_write(i, ADC, LOW)) {
+            sprintf(err, "Error setting address pin for board %i LOW\n", i);
+            Serial.print(err);
+            rv = -1;
+            continue;
+        }
+
         delay(DELAY);
         gpio.configure_DACs(my_DACs);
         gpio.configure_ADCs(my_ADCs);
@@ -189,7 +203,11 @@ int reset()
         delay(DELAY);
         /* Always need to set it back low at the end to avoid talking to
          * multiple chips. */
-        bus_write(i, ADC, HIGH);
+        if (bus_write(i, ADC, HIGH)) {
+            sprintf(err, "Error setting address pin for board %i HIGH\n", i);
+            Serial.print(err);
+            rv = -1;
+        }
     }
 
     return rv;

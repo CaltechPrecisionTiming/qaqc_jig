@@ -388,7 +388,6 @@ int do_command(char *cmd, float *value)
             debug = true;
         else
             debug = false;
-        }
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);
         return -1;

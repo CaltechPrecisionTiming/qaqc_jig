@@ -260,7 +260,7 @@ int bus_write(int bus_index, int address, int value)
  * string contains an error message. */
 int do_command(char *cmd, float *value)
 {
-    int i;
+    int i = 0;
     char *tokens[10];
     char *tok;
 

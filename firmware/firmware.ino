@@ -330,7 +330,7 @@ int do_command(char *cmd, float *value)
         int bus_index = atoi(tokens[1]);
         int address = atoi(tokens[2]);
         if (strtobool(tokens[3],&ison)) {
-            sprintf(err, "expected argument 3 to be yes/no but got '%s'" % tokens[3]);
+            sprintf(err, "expected argument 3 to be yes/no but got '%s'", tokens[3]);
             return -1;
         } else if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
@@ -351,7 +351,7 @@ int do_command(char *cmd, float *value)
         int bus_index = atoi(tokens[1]);
         int address = atoi(tokens[2]);
         if (strtobool(tokens[3],&ison)) {
-            sprintf(err, "expected argument 3 to be yes/no but got '%s'" % tokens[3]);
+            sprintf(err, "expected argument 3 to be yes/no but got '%s'", tokens[3]);
             return -1;
         } else if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
@@ -419,7 +419,7 @@ int do_command(char *cmd, float *value)
         int bus_index = atoi(tokens[1]);
 
         if (strtobool(tokens[2],&ison)) {
-            sprintf(err, "expected argument 2 to be yes/no but got '%s'" % tokens[2]);
+            sprintf(err, "expected argument 2 to be yes/no but got '%s'", tokens[2]);
             return -1;
         } else if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
@@ -450,8 +450,9 @@ int do_command(char *cmd, float *value)
         }
 
         if (strtobool(tokens[1],&ison)) {
-            sprintf(err, "expected argument 1 to be yes/no but got '%s'" % tokens[1]);
+            sprintf(err, "expected argument 1 to be yes/no but got '%s'", tokens[1]);
             return -1;
+        }
 
         debug = ison;
     } else if (!strcmp(tokens[0], "help")) {

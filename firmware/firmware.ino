@@ -282,11 +282,28 @@ int bus_write(int bus_index, int address, int value)
 
 bool poll[8] = {false,false,false,false,false,false,false,false};
 
+int strtobool(const char *str, bool *value)
+{
+    if (!strcasecmp(str,"on") || !strcasecmp(str,"1"))
+        *value = true;
+    else if (!strcasecmp(str,"off") || !strcasecmp(str,"0"))
+        *value = false;
+    else
+        return -1;
+    return 0;
+}
+
 /* Performs a user command based on a string. Examples of commands:
  *
- * "tec_write 1 0 1" - turn TEC 0 on on board 1
- * "tec_write 2 1 0" - turn TEC 1 off on board 2
- * "hv_write 2 1 0" - turn HV relay 1 off on board 2
+ * "tec_write 1 0 on" - turn TEC 0 on on board 1
+ * "tec_write 2 1 off" - turn TEC 1 off on board 2
+ * "hv_write 2 1 off" - turn HV relay 1 off on board 2
+ * "thermistor_read [bus] [address]" - read thermistor voltage
+ * "tec_sense_read [bus]" - read tec sensor current
+ * "reset" - reset all boards to their nominal state
+ * "poll [bus] [1/0]" - start polling thermistors and tec current reading
+ * "set_active_bitmask [bitmask]" - set which boards are currently plugged in
+ * "debug [1/0]" - turn debugging on or off
  *
  * Returns 0 or 1 on success, -1 on error. Returns 0 if there is no return
  * value, 1 if there is a return value. If there is an error, the global `err`
@@ -297,6 +314,7 @@ int do_command(char *cmd, float *value)
     int ntok = 0;
     char *tokens[10];
     char *tok;
+    bool ison;
 
     tok = strtok(cmd, " ");
     while (tok != NULL && ntok <= LEN(tokens) - 1) {
@@ -311,8 +329,10 @@ int do_command(char *cmd, float *value)
         }
         int bus_index = atoi(tokens[1]);
         int address = atoi(tokens[2]);
-        int value = atoi(tokens[3]);
-        if (bus_index < 0 || bus_index > LEN(bus)) {
+        if (strtobool(tokens[3],&ison)) {
+            sprintf(err, "expected argument 3 to be yes/no but got '%s'" % tokens[3]);
+            return -1;
+        } else if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
@@ -321,11 +341,8 @@ int do_command(char *cmd, float *value)
         } else if (address < 0 || address > LEN(tec_relays)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
-        } else if (value < 0 || value > 1) {
-            sprintf(err, "value %i must be 0 or 1", value);
-            return -1;
         }
-        gpio_write(bus_index,tec_relays[address],value);
+        gpio_write(bus_index,tec_relays[address],ison);
     } else if (!strcmp(tokens[0], "hv_write")) {
         if (ntok != 4) {
             sprintf(err, "hv_write command expects 3 arguments: tec_write [bus] [address] [value]");
@@ -333,8 +350,10 @@ int do_command(char *cmd, float *value)
         }
         int bus_index = atoi(tokens[1]);
         int address = atoi(tokens[2]);
-        int value = atoi(tokens[3]);
-        if (bus_index < 0 || bus_index > LEN(bus)) {
+        if (strtobool(tokens[3],&ison)) {
+            sprintf(err, "expected argument 3 to be yes/no but got '%s'" % tokens[3]);
+            return -1;
+        } else if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
@@ -343,11 +362,8 @@ int do_command(char *cmd, float *value)
         } else if (address < 0 || address > LEN(hv_relays)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
-        } else if (value < 0 || value > 1) {
-            sprintf(err, "value %i must be 0 or 1", value);
-            return -1;
         }
-        bus_write(bus_index,hv_relays[address],value);
+        bus_write(bus_index,hv_relays[address],ison);
     } else if (!strcmp(tokens[0], "thermistor_read")) {
         if (ntok != 3) {
             sprintf(err, "thermistor_read command expects 2 arguments: thermistor_read [bus] [address]");
@@ -401,9 +417,11 @@ int do_command(char *cmd, float *value)
             return -1;
         }
         int bus_index = atoi(tokens[1]);
-        int value = atoi(tokens[2]);
 
-        if (bus_index < 0 || bus_index > LEN(bus)) {
+        if (strtobool(tokens[2],&ison)) {
+            sprintf(err, "expected argument 2 to be yes/no but got '%s'" % tokens[2]);
+            return -1;
+        } else if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
@@ -411,10 +429,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (value)
-            poll[bus_index] = true;
-        else
-            poll[bus_index] = false;
+        poll[bus_index] = ison;
     } else if (!strcmp(tokens[0], "set_active_bitmask")) {
         if (ntok != 2) {
             sprintf(err, "set_active_bitmask command expects 1 argument: set_active_bitmask [bitmask]");
@@ -433,12 +448,22 @@ int do_command(char *cmd, float *value)
             sprintf(err, "debug command expects 1 argument: debug [1/0]");
             return -1;
         }
-        int value = atoi(tokens[1]);
 
-        if (value)
-            debug = true;
-        else
-            debug = false;
+        if (strtobool(tokens[1],&ison)) {
+            sprintf(err, "expected argument 1 to be yes/no but got '%s'" % tokens[1]);
+            return -1;
+
+        debug = ison;
+    } else if (!strcmp(tokens[0], "help")) {
+        sprintf(err,"tec_write [card] [tec] [on/off]\n"
+                    "hv_write [card] [relay] [on/off]\n"
+                    "thermistor_read [bus] [address]\n"
+                    "tec_sense_read [bus]\n"
+                    "reset\n"
+                    "poll [bus] [on/off]\n"
+                    "set_active_bitmask [bitmask]\n"
+                    "debug [on/off]\n");
+        return -1;
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);
         return -1;

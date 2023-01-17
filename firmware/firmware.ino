@@ -5,6 +5,7 @@
 #include <Wire.h>
 #include "PCA9557.h"
 #include "AD5593R.h"
+#include <errno.h>
 
 #define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
@@ -293,6 +294,18 @@ int strtobool(const char *str, bool *value)
     return 0;
 }
 
+int mystrtol(const char *str, long *value)
+{
+    char *endptr;
+    errno = 0;
+    *value = strtol(str,&endptr,0);
+    if (errno)
+        return -1;
+    if (endptr == str)
+        return -1;
+    return 0;
+}
+
 /* Performs a user command based on a string. Examples of commands:
  *
  * "tec_write 1 0 on" - turn TEC 0 on on board 1
@@ -301,9 +314,9 @@ int strtobool(const char *str, bool *value)
  * "thermistor_read [bus] [address]" - read thermistor voltage
  * "tec_sense_read [bus]" - read tec sensor current
  * "reset" - reset all boards to their nominal state
- * "poll [bus] [1/0]" - start polling thermistors and tec current reading
+ * "poll [bus] [on/off]" - start polling thermistors and tec current reading
  * "set_active_bitmask [bitmask]" - set which boards are currently plugged in
- * "debug [1/0]" - turn debugging on or off
+ * "debug [on/off]" - turn debugging on or off
  *
  * Returns 0 or 1 on success, -1 on error. Returns 0 if there is no return
  * value, 1 if there is a return value. If there is an error, the global `err`
@@ -315,6 +328,8 @@ int do_command(char *cmd, float *value)
     char *tokens[10];
     char *tok;
     bool ison;
+    long bus_index, address;
+    long bitmask;
 
     tok = strtok(cmd, " ");
     while (tok != NULL && ntok <= LEN(tokens) - 1) {
@@ -327,12 +342,19 @@ int do_command(char *cmd, float *value)
             sprintf(err, "tec_write command expects 3 arguments: tec_write [bus] [address] [value]");
             return -1;
         }
-        int bus_index = atoi(tokens[1]);
-        int address = atoi(tokens[2]);
+
         if (strtobool(tokens[3],&ison)) {
             sprintf(err, "expected argument 3 to be yes/no but got '%s'", tokens[3]);
             return -1;
-        } else if (bus_index < 0 || bus_index > LEN(bus)) {
+        } else if (mystrtol(tokens[1],&bus_index)) {
+            sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
+            return -1;
+        } else if (mystrtol(tokens[2],&address)) {
+            sprintf(err, "expected argument 2 to be integer but got '%s'", tokens[2]);
+            return -1;
+        }
+
+        if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
@@ -348,12 +370,19 @@ int do_command(char *cmd, float *value)
             sprintf(err, "hv_write command expects 3 arguments: tec_write [bus] [address] [value]");
             return -1;
         }
-        int bus_index = atoi(tokens[1]);
-        int address = atoi(tokens[2]);
+
         if (strtobool(tokens[3],&ison)) {
             sprintf(err, "expected argument 3 to be yes/no but got '%s'", tokens[3]);
             return -1;
-        } else if (bus_index < 0 || bus_index > LEN(bus)) {
+        } else if (mystrtol(tokens[1],&bus_index)) {
+            sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
+            return -1;
+        } else if (mystrtol(tokens[2],&address)) {
+            sprintf(err, "expected argument 2 to be integer but got '%s'", tokens[2]);
+            return -1;
+        }
+
+        if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
@@ -369,8 +398,15 @@ int do_command(char *cmd, float *value)
             sprintf(err, "thermistor_read command expects 2 arguments: thermistor_read [bus] [address]");
             return -1;
         }
-        int bus_index = atoi(tokens[1]);
-        int address = atoi(tokens[2]);
+
+        if (mystrtol(tokens[1],&bus_index)) {
+            sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
+            return -1;
+        } else if (mystrtol(tokens[2],&address)) {
+            sprintf(err, "expected argument 2 to be integer but got '%s'", tokens[2]);
+            return -1;
+        }
+
         if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
@@ -391,7 +427,12 @@ int do_command(char *cmd, float *value)
             sprintf(err, "tec_sense_read command expects 1 argument: tec_sense_read [bus]");
             return -1;
         }
-        int bus_index = atoi(tokens[1]);
+
+        if (mystrtol(tokens[1],&bus_index)) {
+            sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
+            return -1;
+        }
+
         if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
@@ -413,15 +454,19 @@ int do_command(char *cmd, float *value)
             return -1;
     } else if (!strcmp(tokens[0], "poll")) {
         if (ntok != 3) {
-            sprintf(err, "poll command expects 2 arguments: poll [bus] [1/0]");
+            sprintf(err, "poll command expects 2 arguments: poll [bus] [on/off]");
             return -1;
         }
-        int bus_index = atoi(tokens[1]);
 
-        if (strtobool(tokens[2],&ison)) {
+        if (mystrtol(tokens[1],&bus_index)) {
+            sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
+            return -1;
+        } else if (strtobool(tokens[2],&ison)) {
             sprintf(err, "expected argument 2 to be yes/no but got '%s'", tokens[2]);
             return -1;
-        } else if (bus_index < 0 || bus_index > LEN(bus)) {
+        }
+
+        if (bus_index < 0 || bus_index > LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
@@ -435,7 +480,11 @@ int do_command(char *cmd, float *value)
             sprintf(err, "set_active_bitmask command expects 1 argument: set_active_bitmask [bitmask]");
             return -1;
         }
-        int bitmask = atoi(tokens[1]);
+
+        if (mystrtol(tokens[1],&bitmask)) {
+            sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
+            return -1;
+        }
 
         for (i = 0; i < LEN(bus); i++) {
             if (bitmask & (1 << i))
@@ -445,7 +494,7 @@ int do_command(char *cmd, float *value)
         }
     } else if (!strcmp(tokens[0], "debug")) {
         if (ntok != 1) {
-            sprintf(err, "debug command expects 1 argument: debug [1/0]");
+            sprintf(err, "debug command expects 1 argument: debug [on/off]");
             return -1;
         }
 

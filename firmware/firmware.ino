@@ -6,10 +6,28 @@
 #include "PCA9557.h"
 #include "AD5593R.h"
 #include <errno.h>
+#include <Ethernet.h>
+#include <EthernetUdp.h>
 
 #define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
 //#define PCA9557_DEBUG
+
+// Enter a MAC address and IP address for your controller below.
+// The IP address will be dependent on your local network:
+byte mac[] = {
+  0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA
+};
+IPAddress ip(192, 168, 1, 177);
+
+unsigned int localPort = 8888;      // local port to listen on
+
+// buffers for receiving and sending data
+char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
+char ReplyBuffer[] = "acknowledged";        // a string to send back
+
+// An EthernetUDP instance to let us send and receive packets over UDP
+EthernetUDP Udp;
 
 /* Generic delay after setting pins high/low. */
 #define DELAY 100
@@ -218,6 +236,24 @@ void setup()
 {
     Serial.begin(9600);
     Wire.begin();
+
+    // start the Ethernet
+    Ethernet.begin(mac, ip);
+
+    // Check for Ethernet hardware present
+    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
+        Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
+        while (true) {
+            delay(1); // do nothing, no point running without Ethernet hardware
+        }
+    }
+
+    if (Ethernet.linkStatus() == LinkOFF) {
+        Serial.println("Ethernet cable is not connected.");
+    }
+
+    // start UDP
+    Udp.begin(localPort);
 
     reset();
 }
@@ -553,6 +589,49 @@ void loop()
             }
             k = 0;
         }
+    }
+
+    // if there's data available, read a packet
+    int packetSize = Udp.parsePacket();
+    if (packetSize) {
+        if (debug) {
+            Serial.print("Received packet of size ");
+            Serial.println(packetSize);
+            Serial.print("From ");
+            IPAddress remote = Udp.remoteIP();
+            for (int i=0; i < 4; i++) {
+                Serial.print(remote[i], DEC);
+                if (i < 3) {
+                    Serial.print(".");
+                }
+            }
+
+            Serial.print(", port ");
+            Serial.println(Udp.remotePort());
+        }
+
+        // read the packet into packetBufffer
+        Udp.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
+        Serial.println("Contents:");
+        Serial.println(packetBuffer);
+
+        temp = 0;
+        int rv = do_command(cmd, &temp);
+        if (rv < 0) {
+            sprintf(msg, "%s\n", err);
+            Serial.print(msg);
+        } else if (rv > 0) {
+            sprintf(msg, "%.2f\n", temp);
+            Serial.print(msg);
+        } else {
+            sprintf(msg, "ok\n");
+            Serial.print("ok\n");
+        }
+
+        // send a reply to the IP address and port that sent us the packet we received
+        Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
+        Udp.write(msg);
+        Udp.endPacket();
     }
 
     for (i = 0; i < LEN(bus); i++) {

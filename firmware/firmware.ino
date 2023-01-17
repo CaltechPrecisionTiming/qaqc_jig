@@ -367,7 +367,7 @@ int do_command(char *cmd, float *value)
         gpio_write(bus_index,tec_relays[address],ison);
     } else if (!strcmp(tokens[0], "hv_write")) {
         if (ntok != 4) {
-            sprintf(err, "hv_write command expects 3 arguments: tec_write [bus] [address] [value]");
+            sprintf(err, "hv_write command expects 3 arguments: hv_write [bus] [address] [value]");
             return -1;
         }
 

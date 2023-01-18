@@ -6,8 +6,8 @@
 #include "PCA9557.h"
 #include "AD5593R.h"
 #include <errno.h>
-#include <Ethernet.h>
-#include <EthernetUdp.h>
+#include <NativeEthernet.h>
+#include <NativeEthernetUdp.h>
 
 #define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
@@ -55,6 +55,11 @@ bool debug = false;
 #define TEC_CTRL1 4
 #define TEC_CTRL2 5
 #define TEC_CTRL3 6
+
+/* Teensy outputs. */
+#define PIN_MR PIN_D2
+#define PIN_CR2 PIN_D3
+#define PIN_CR1 PIN_D4
 
 /* Array of HV relay pins and names. */
 int hv_relays[6] = {KC1,KC2,KC3,KC4,KC5,KC6};
@@ -130,6 +135,10 @@ int reset()
     char msg[100];
 
     rv = 0;
+
+    digitalWrite(PIN_MR,LOW);
+    digitalWrite(PIN_CR2,LOW);
+    digitalWrite(PIN_CR1,LOW);
 
     /* Loop over each of the 3 module boards. */
     for (i = 0; i < LEN(bus); i++) {
@@ -232,6 +241,31 @@ int reset()
     return rv;
 }
 
+int set_attenuation(bool ison)
+{
+    int i;
+
+    /* Bring the master reset high to zero all the outputs. */
+    digitalWrite(PIN_MR,HIGH);
+
+    digitalWrite(ison ? PIN_CR2 : PIN_CR1,LOW);
+
+    delay(100);
+
+    for (i = 0; i < 100; i++) {
+        /* Clock in either the attenuated or unattenuated relays. */
+        digitalWrite(ison ? PIN_CR2 : PIN_CR1,HIGH);
+        delay(100);
+        digitalWrite(ison ? PIN_CR2 : PIN_CR1,LOW);
+        delay(100);
+    }
+
+    /* Bring the master reset high to zero all the outputs. */
+    digitalWrite(PIN_MR,HIGH);
+
+    return 0;
+}
+
 void setup()
 {
     Serial.begin(9600);
@@ -254,6 +288,13 @@ void setup()
 
     // start UDP
     Udp.begin(localPort);
+
+    /* Master reset. */
+    pinMode(PIN_MR,OUTPUT);
+    /* Relay clock 2. */
+    pinMode(PIN_CR2,OUTPUT);
+    /* Relay clock 1. */
+    pinMode(PIN_CR1,OUTPUT);
 
     reset();
 }
@@ -353,6 +394,7 @@ int mystrtol(const char *str, long *value)
  * "poll [bus] [on/off]" - start polling thermistors and tec current reading
  * "set_active_bitmask [bitmask]" - set which boards are currently plugged in
  * "debug [on/off]" - turn debugging on or off
+ * "set_attenuation [on/off]" - turn attenuation on or off
  *
  * Returns 0 or 1 on success, -1 on error. Returns 0 if there is no return
  * value, 1 if there is a return value. If there is an error, the global `err`
@@ -373,7 +415,19 @@ int do_command(char *cmd, float *value)
         tok = strtok(NULL, " ");
     }
 
-    if (!strcmp(tokens[0], "tec_write")) {
+    if (!strcmp(tokens[0], "set_attenuation")) {
+        if (ntok != 2) {
+            sprintf(err, "set_attenuation command expects 1 argument: set_attenuation [on/off]");
+            return -1;
+        }
+
+        if (strtobool(tokens[3],&ison)) {
+            sprintf(err, "expected argument 3 to be yes/no but got '%s'", tokens[3]);
+            return -1;
+        }
+
+        set_attenuation(ison);
+    } else if (!strcmp(tokens[0], "tec_write")) {
         if (ntok != 4) {
             sprintf(err, "tec_write command expects 3 arguments: tec_write [bus] [address] [value]");
             return -1;
@@ -548,7 +602,8 @@ int do_command(char *cmd, float *value)
                     "reset\n"
                     "poll [bus] [on/off]\n"
                     "set_active_bitmask [bitmask]\n"
-                    "debug [on/off]\n");
+                    "debug [on/off]\n"
+                    "set_attenuation [on/off]\n");
         return -1;
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);

@@ -15,6 +15,11 @@
 
 #define MAX_MSG_LENGTH 1024
 
+/* Maximum number of stepper steps to take when trying to find home.
+ *
+ * FIXME: Need to determine an actual number for this. */
+#define MAX_STEPS 100
+
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
 byte mac[] = {
@@ -60,19 +65,29 @@ bool debug = false;
 #define TEC_CTRL3 6
 
 /* Teensy outputs. */
-/* FIXME: The below are wrong? */
-#define PIN_MR1 PIN_D36
-#define PIN_MR2 PIN_D33
-#define PIN_ATT PIN_D38
-#define PIN_THRU PIN_D37
+#define PIN_MR1       PIN_D36
+#define PIN_MR2       PIN_D32
+#define PIN_ATT       PIN_D38
+#define PIN_THRU      PIN_D37
 /* Pins to set the step and microstep size. */
-#define PIN_STP_M0 PIN_D5
-#define PIN_STP_M1 PIN_D4
-#define PIN_STP_M2 PIN_D3
-#define PIN_STP_HOME PIN_D17
+#define PIN_STP_FAULT PIN_D0
+#define PIN_STP_SLEEP PIN_D1
+#define PIN_STP_RESET PIN_D2
+#define PIN_STP_M2    PIN_D3
+#define PIN_STP_M1    PIN_D4
+#define PIN_STP_M0    PIN_D5
+#define PIN_STP_STEP  PIN_D6
+/* Does this need to go negative? */
+#define PIN_STP_DIR   PIN_D7
+#define PIN_DAC_CLEAR PIN_D8
+#define PIN_BI_SD     PIN_D9
+#define PIN_CS        PIN_D10
+#define PIN_MOSI      PIN_D11
+/* Analog pins. */
 /* HV voltage and current. */
-#define PIN_BIAS_VREAD PIN_D15
-#define PIN_BIAS_IREAD PIN_D14
+#define PIN_BIAS_IREAD PIN_A0
+#define PIN_BIAS_VREAD PIN_A1
+#define PIN_STP_HOME   PIN_D17
 /* Stepper enable. Goes through two limit switches first. */
 #define PIN_STP_EN_UC PIN_D23
 
@@ -329,10 +344,16 @@ void setup()
     pinMode(PIN_STP_M2,OUTPUT);
     /* Master reset. */
     pinMode(PIN_MR,OUTPUT);
-    /* Relay clock 2. */
-    pinMode(PIN_CR2,OUTPUT);
-    /* Relay clock 1. */
-    pinMode(PIN_CR1,OUTPUT);
+    /* Relay clock attenuation. */
+    pinMode(PIN_ATT,OUTPUT);
+    /* Relay clock through. */
+    pinMode(PIN_THRU,OUTPUT);
+    /* Stepper home limit switch. */
+    pinMode(PIN_STP_HOME,INPUT);
+    /* Should be pulled down by default, but just to make sure. */
+    pinMode(pin, INPUT_PULLDOWN);
+    pinMode(PIN_STP_STEP,OUTPUT);
+    pinMode(PIN_STP_DIR,OUTPUT);
 
     reset();
 }
@@ -452,7 +473,29 @@ int do_command(char *cmd, float *value)
         tok = strtok(NULL, " ");
     }
 
-    if (!strcmp(tokens[0], "set_attenuation")) {
+    if (!strcmp(tokens[0], "step")) {
+        if (ntok != 2) {
+            sprintf(err, "step command expects 1 argument: step [steps]");
+            return -1;
+        }
+
+        if (mystrtol(tokens[1],&bus_index)) {
+            sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
+            return -1;
+
+        step(bus_index);
+
+        return 0;
+    } else if (!strcmp(tokens[0], "step_home")) {
+        if (ntok != 1) {
+            sprintf(err, "step_home command expects 0 arguments");
+            return -1;
+        }
+
+        step_home();
+
+        return 0;
+    } else if (!strcmp(tokens[0], "set_attenuation")) {
         if (ntok != 2) {
             sprintf(err, "set_attenuation command expects 1 argument: set_attenuation [on/off]");
             return -1;
@@ -640,11 +683,51 @@ int do_command(char *cmd, float *value)
                     "poll [bus] [on/off]\n"
                     "set_active_bitmask [bitmask]\n"
                     "debug [on/off]\n"
-                    "set_attenuation [on/off]\n");
+                    "set_attenuation [on/off]\n",
+                    "step_home\n",
+                    "step [steps]\n");
         return -1;
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);
         return -1;
+    }
+
+    return 0;
+}
+
+int step(int steps)
+{
+    /* FIXME: Need to determine direction. */
+    int i = 0;
+
+    if (steps < 0)
+        digitalWrite(PIN_STP_DIR,false);
+    else
+        digitalWrite(PIN_STP_DIR,true);
+
+    steps = abs(steps);
+
+    while (++i < MAX_STEPS && i < steps) {
+        digitalWrite(PIN_STP_STEP,true);
+        delay(100);
+        digitalWrite(PIN_STP_STEP,false);
+        delay(100);
+    }
+
+    return 0;
+}
+
+int step_home(void)
+{
+    /* FIXME: Need to determine direction. */
+    int i = 0;
+
+    digitalWrite(PIN_STP_DIR,true);
+    while (++i < MAX_STEPS && digitalRead(PIN_STP_HOME) == false) {
+        digitalWrite(PIN_STP_STEP,true);
+        delay(100);
+        digitalWrite(PIN_STP_STEP,false);
+        delay(100);
     }
 
     return 0;

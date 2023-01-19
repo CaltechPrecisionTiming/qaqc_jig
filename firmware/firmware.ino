@@ -77,7 +77,6 @@ bool debug = false;
 #define PIN_STP_M1    PIN_D4
 #define PIN_STP_M0    PIN_D5
 #define PIN_STP_STEP  PIN_D6
-/* Does this need to go negative? */
 #define PIN_STP_DIR   PIN_D7
 #define PIN_DAC_CLEAR PIN_D8
 #define PIN_BI_SD     PIN_D9
@@ -89,7 +88,7 @@ bool debug = false;
 #define PIN_BIAS_VREAD PIN_A1
 #define PIN_STP_HOME   PIN_D17
 /* Stepper enable. Goes through two limit switches first. */
-#define PIN_STP_EN_UC PIN_D23
+#define PIN_STP_EN_UC  PIN_D23
 
 /* Array of HV relay pins and names. */
 int hv_relays[6] = {KC1,KC2,KC3,KC4,KC5,KC6};
@@ -357,13 +356,32 @@ void setup()
     pinMode(PIN_STP_FAULT,INPUT);
     pinMode(PIN_STP_SLEEP,OUTPUT);
     pinMode(PIN_STP_RESET,OUTPUT);
+    pinMode(PIN_STP_EN_UC,OUTPUT);
+    pinMode(PIN_BIAS_IREAD,INPUT);
+    pinMode(PIN_BIAS_VREAD,INPUT);
 
     /* Start off with the stepper in sleep mode. */
     digitalWrite(PIN_STP_SLEEP,false);
     /* Enable the driver by bringing the reset high. */
     digitalWrite(PIN_STP_RESET,true);
+    /* Right now things have to be hooked up such that we always drive this
+     * high and hook up the limit switches in the normally closed configuration.
+     * This isn't ideal since if they get disconnected it will be enabled.
+     *
+     * FIXME: Change this if we ever change the design. */
+    digitalWrite(PIN_STP_EN_UC,false);
 
     reset();
+}
+
+int bias_iread(int *value)
+{
+    *value = analogRead(PIN_BIAS_IREAD);
+}
+
+int bias_vread(int *value)
+{
+    *value = analogRead(PIN_BIAS_VREAD);
 }
 
 /* Read an ADC value on the AD5593R.
@@ -481,7 +499,29 @@ int do_command(char *cmd, float *value)
         tok = strtok(NULL, " ");
     }
 
-    if (!strcmp(tokens[0], "step")) {
+    if (!strcmp(tokens[0], "bias_vread")) {
+        if (ntok != 1) {
+            sprintf(err, "bias_vread command expects 0 arguments");
+            return -1;
+        }
+
+        if (bias_vread(&bus_index)) return -1;
+
+        *value = bus_index;
+
+        return 0;
+    } else if (!strcmp(tokens[0], "bias_iread")) {
+        if (ntok != 1) {
+            sprintf(err, "bias_iread command expects 0 arguments");
+            return -1;
+        }
+
+        if (bias_iread(&bus_index)) return -1;
+
+        *value = bus_index;
+
+        return 0;
+    } else if (!strcmp(tokens[0], "step")) {
         if (ntok != 2) {
             sprintf(err, "step command expects 1 argument: step [steps]");
             return -1;
@@ -693,7 +733,9 @@ int do_command(char *cmd, float *value)
                     "debug [on/off]\n"
                     "set_attenuation [on/off]\n",
                     "step_home\n",
-                    "step [steps]\n");
+                    "step [steps]\n",
+                    "bias_iread\n",
+                    "bias_vread\n");
         return -1;
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);

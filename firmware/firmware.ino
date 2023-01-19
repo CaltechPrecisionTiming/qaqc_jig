@@ -479,9 +479,11 @@ int mystrtol(const char *str, long *value)
  * "debug [on/off]" - turn debugging on or off
  * "set_attenuation [on/off]" - turn attenuation on or off
  *
- * Returns 0 or 1 on success, -1 on error. Returns 0 if there is no return
- * value, 1 if there is a return value. If there is an error, the global `err`
- * string contains an error message. */
+ * Returns 0, 1, or 2 on success, -1 on error. Returns 0 if there is no return
+ * value, 1 if there is an integer return value, and 2 if there is a floating
+ * point return value. Note that since the return value is passed as a float,
+ * we just convert any integer return values to a float. If there is an error,
+ * the global `err` string contains an error message. */
 int do_command(char *cmd, float *value)
 {
     int i;
@@ -809,6 +811,21 @@ int step_home(void)
     return 0;
 }
 
+/* Formats the return message based on the return value of do_command(). The
+ * return message is printed to the global variable msg. */
+void format_message(int rv, float value)
+{
+    if (rv < 0) {
+        sprintf(msg, "-%s\n", err);
+    } else if (rv == 1) {
+        sprintf(msg, ":%i\n", (int) temp);
+    } else if (rv == 2) {
+        sprintf(msg, ",%.18f\n", temp);
+    } else {
+        sprintf(msg, "+ok\n");
+    }
+}
+
 void loop()
 {
     int i;
@@ -828,19 +845,8 @@ void loop()
 
             temp = 0;
             int rv = do_command(cmd, &temp);
-            if (rv < 0) {
-                sprintf(msg, "-%s\n", err);
-                Serial.print(msg);
-            } else if (rv == 1) {
-                sprintf(msg, ":%i\n", (int) temp);
-                Serial.print(msg);
-            } else if (rv == 2) {
-                sprintf(msg, ",%.18f\n", temp);
-                Serial.print(msg);
-            } else {
-                sprintf("+ok\n");
-                Serial.print(msg);
-            }
+            format_message(rv,temp);
+            Serial.print(msg);
             k = 0;
         }
     }
@@ -871,16 +877,8 @@ void loop()
 
         temp = 0;
         int rv = do_command(packetBuffer, &temp);
-        if (rv < 0) {
-            sprintf(msg, "-%s\n", err);
-            Serial.print(msg);
-        } else if (rv > 0) {
-            sprintf(msg, "+%.2f\n", temp);
-            Serial.print(msg);
-        } else {
-            sprintf(msg, "+ok\n");
-            Serial.print(msg);
-        }
+        format_message(rv,temp);
+        Serial.print(msg);
 
         // send a reply to the IP address and port that sent us the packet we received
         Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());

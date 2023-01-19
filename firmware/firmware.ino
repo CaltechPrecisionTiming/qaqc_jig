@@ -60,9 +60,21 @@ bool debug = false;
 #define TEC_CTRL3 6
 
 /* Teensy outputs. */
-#define PIN_MR PIN_D2
-#define PIN_CR2 PIN_D3
-#define PIN_CR1 PIN_D4
+/* FIXME: The below are wrong? */
+#define PIN_MR1 PIN_D36
+#define PIN_MR2 PIN_D33
+#define PIN_ATT PIN_D38
+#define PIN_THRU PIN_D37
+/* Pins to set the step and microstep size. */
+#define PIN_STP_M0 PIN_D5
+#define PIN_STP_M1 PIN_D4
+#define PIN_STP_M2 PIN_D3
+#define PIN_STP_HOME PIN_D17
+/* HV voltage and current. */
+#define PIN_BIAS_VREAD PIN_D15
+#define PIN_BIAS_IREAD PIN_D14
+/* Stepper enable. Goes through two limit switches first. */
+#define PIN_STP_EN_UC PIN_D23
 
 /* Array of HV relay pins and names. */
 int hv_relays[6] = {KC1,KC2,KC3,KC4,KC5,KC6};
@@ -138,9 +150,18 @@ int reset()
 
     rv = 0;
 
-    digitalWrite(PIN_MR,LOW);
-    digitalWrite(PIN_CR2,LOW);
-    digitalWrite(PIN_CR1,LOW);
+    /* Set the stepper motor to step in full steps.
+     * See https://www.pololu.com/product/2133. */
+    digitalWrite(PIN_STP_M0,LOW);
+    digitalWrite(PIN_STP_M1,LOW);
+    digitalWrite(PIN_STP_M2,LOW);
+    digitalWrite(PIN_MR1,LOW);
+    digitalWrite(PIN_MR2,LOW);
+    digitalWrite(PIN_ATT,LOW);
+    digitalWrite(PIN_THRU,LOW);
+
+    /* Set all the relays to not attenuated. */
+    set_attenuation(false);
 
     /* Loop over each of the 3 module boards. */
     for (i = 0; i < LEN(bus); i++) {
@@ -243,27 +264,38 @@ int reset()
     return rv;
 }
 
+/* Clock in the decade counter to set the attenuation.
+ *
+ * See https://www.ti.com/lit/ds/symlink/cd74hc4017.pdf?ts=1674132460909. */
 int set_attenuation(bool ison)
 {
     int i;
 
     /* Bring the master reset high to zero all the outputs. */
-    digitalWrite(PIN_MR,HIGH);
+    digitalWrite(PIN_MR1,HIGH);
+    digitalWrite(PIN_MR2,HIGH);
 
-    digitalWrite(ison ? PIN_CR2 : PIN_CR1,LOW);
+    delay(100);
+
+    /* Bring the master reset low to enable us to clock in the coils. */
+    digitalWrite(PIN_MR1,LOW);
+    digitalWrite(PIN_MR2,LOW);
+
+    digitalWrite(ison ? PIN_ATT : PIN_THRU,LOW);
 
     delay(100);
 
     for (i = 0; i < 100; i++) {
         /* Clock in either the attenuated or unattenuated relays. */
-        digitalWrite(ison ? PIN_CR2 : PIN_CR1,HIGH);
+        digitalWrite(ison ? PIN_ATT : PIN_THRU,HIGH);
         delay(100);
-        digitalWrite(ison ? PIN_CR2 : PIN_CR1,LOW);
+        digitalWrite(ison ? PIN_ATT : PIN_THRU,LOW);
         delay(100);
     }
 
     /* Bring the master reset high to zero all the outputs. */
-    digitalWrite(PIN_MR,HIGH);
+    digitalWrite(PIN_MR1,HIGH);
+    digitalWrite(PIN_MR2,HIGH);
 
     return 0;
 }
@@ -291,6 +323,10 @@ void setup()
     // start UDP
     Udp.begin(localPort);
 
+    /* Pins to set the step and microstep size. */
+    pinMode(PIN_STP_M0,OUTPUT);
+    pinMode(PIN_STP_M1,OUTPUT);
+    pinMode(PIN_STP_M2,OUTPUT);
     /* Master reset. */
     pinMode(PIN_MR,OUTPUT);
     /* Relay clock 2. */

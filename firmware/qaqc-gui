@@ -10,14 +10,40 @@ ASSEMBLY_CENTERS = [
 ]
 
 NUMBER_OF_MODULES = [str(i) for i in range(1,13)]
+NUMBER_OF_BOARDS = [str(i) for i in range(1,5)]
 
 def take_data():
-    print("number of modules selected is ", n.get())
+    n_boards = n_boards_var.get()
+    n_modules = n_modules_var.get()
+    
+    client = Client()
+
+    # First, we try to get the stepper to the home position
+    if stepper_enable.get():
+        print("sending command step_home")
+        try:
+            client.query("step_home")
+        except Exception as e:
+            entry.delete(0,tk.END)
+            entry.insert(0,str(e))
+
+def step_home():
+    client = Client()
+    try:
+        client.query("step_home")
+    except Exception as e:
+        entry.delete(0,tk.END)
+        entry.insert(0,str(e))
 
 window = tk.Tk()
 
-button = tk.Button(text="Take Data", width=25, height=5, command=take_data)
+entry = tk.Entry(width=50)
+entry.pack()
 
+button_home = tk.Button(text="Stepper Home", width=25, height=5, command=step_home)
+button_home.pack()
+
+button = tk.Button(text="Take Data", width=25, height=5, command=take_data)
 button.pack()
 
 assembly_center = tk.StringVar(window)
@@ -26,11 +52,20 @@ assembly_center.set(ASSEMBLY_CENTERS[0])
 w = tk.OptionMenu(window, assembly_center, *ASSEMBLY_CENTERS)
 w.pack()
 
-n = tk.StringVar(window)
-n.set(NUMBER_OF_MODULES[0])
+n_modules_var = tk.StringVar(window)
+n_modules_var.set(NUMBER_OF_MODULES[0])
 
-w = tk.OptionMenu(window, n, *NUMBER_OF_MODULES)
+w = tk.OptionMenu(window, n_modules_var, *NUMBER_OF_MODULES)
 w.pack()
 
+n_boards_var = tk.StringVar(window)
+n_boards_var.set(NUMBER_OF_BOARDS[0])
+
+w_boards = tk.OptionMenu(window, n_boards_var, *NUMBER_OF_BOARDS)
+w_boards.pack()
+
+stepper_enable = tk.IntVar(value=1)
+stepper_enable_checkbox = tk.Checkbutton(window, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
+stepper_enable_checkbox.pack()
 
 window.mainloop()

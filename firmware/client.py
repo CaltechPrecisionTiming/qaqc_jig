@@ -8,6 +8,7 @@ class Client(object):
         self.sock = socket.socket(family=socket.AF_INET,type=socket.SOCK_DGRAM)
         self.ip = ip
         self.port = port
+        self.sock.settimeout(2)
 
     def query(self, msg):
         self.send(msg)
@@ -16,7 +17,8 @@ class Client(object):
     def send(self, msg):
         if not msg.endswith("\n"):
             msg += '\n'
-        self.sock.sendto(len(msg),(self.ip,self.port))
+        msg = str.encode(msg)
+        self.sock.sendto(msg,(self.ip,self.port))
 
     def recv(self):
         reply = self.sock.recvfrom(1024)

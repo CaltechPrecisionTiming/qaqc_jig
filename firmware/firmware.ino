@@ -13,6 +13,8 @@
 
 //#define PCA9557_DEBUG
 
+#define MAX_MSG_LENGTH 1024
+
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
 byte mac[] = {
@@ -32,8 +34,9 @@ EthernetUDP Udp;
 /* Generic delay after setting pins high/low. */
 #define DELAY 100
 
-char cmd[256];
-char err[256];
+char cmd[MAX_MESSAGE_LENGTH];
+char err[MAX_MESSAGE_LENGTH];
+char msg[MAX_MESSAGE_LENGTH];
 int k = 0;
 
 bool debug = false;
@@ -132,7 +135,6 @@ bool my_ADCs[8] = {1,1,1,1,0,0,0,0};
 int reset()
 {
     int i, j, rv;
-    char msg[100];
 
     rv = 0;
 
@@ -348,7 +350,6 @@ int gpio_write(int bus_index, int address, bool value)
 int bus_write(int bus_index, int address, int value)
 {
     if (debug) {
-        char msg[100];
         sprintf(msg,"Setting bus 0x%1x address 0x%08x to %s\n", bus_index, address, value ? "HIGH" : "LOW");
         Serial.print(msg);
     }
@@ -616,7 +617,6 @@ int do_command(char *cmd, float *value)
 void loop()
 {
     int i;
-    char msg[100];
     float temp = 0;
 
     while (Serial.available() > 0) {
@@ -634,13 +634,14 @@ void loop()
             temp = 0;
             int rv = do_command(cmd, &temp);
             if (rv < 0) {
-                sprintf(msg, "%s\n", err);
+                sprintf(msg, "-%s\n", err);
                 Serial.print(msg);
             } else if (rv > 0) {
-                sprintf(msg, "%.2f\n", temp);
+                sprintf(msg, "+%.2f\n", temp);
                 Serial.print(msg);
             } else {
-                Serial.print("ok\n");
+                sprintf("+ok\n");
+                Serial.print(msg);
             }
             k = 0;
         }
@@ -673,14 +674,14 @@ void loop()
         temp = 0;
         int rv = do_command(cmd, &temp);
         if (rv < 0) {
-            sprintf(msg, "%s\n", err);
+            sprintf(msg, "-%s\n", err);
             Serial.print(msg);
         } else if (rv > 0) {
-            sprintf(msg, "%.2f\n", temp);
+            sprintf(msg, "+%.2f\n", temp);
             Serial.print(msg);
         } else {
-            sprintf(msg, "ok\n");
-            Serial.print("ok\n");
+            sprintf(msg, "+ok\n");
+            Serial.print(msg);
         }
 
         // send a reply to the IP address and port that sent us the packet we received

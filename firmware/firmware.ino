@@ -354,6 +354,14 @@ void setup()
     pinMode(pin, INPUT_PULLDOWN);
     pinMode(PIN_STP_STEP,OUTPUT);
     pinMode(PIN_STP_DIR,OUTPUT);
+    pinMode(PIN_STP_FAULT,INPUT);
+    pinMode(PIN_STP_SLEEP,OUTPUT);
+    pinMode(PIN_STP_RESET,OUTPUT);
+
+    /* Start off with the stepper in sleep mode. */
+    digitalWrite(PIN_STP_SLEEP,false);
+    /* Enable the driver by bringing the reset high. */
+    digitalWrite(PIN_STP_RESET,true);
 
     reset();
 }
@@ -483,7 +491,7 @@ int do_command(char *cmd, float *value)
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
 
-        step(bus_index);
+        if (step(bus_index)) return -1;
 
         return 0;
     } else if (!strcmp(tokens[0], "step_home")) {
@@ -492,7 +500,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        step_home();
+        if (step_home()) return -1;
 
         return 0;
     } else if (!strcmp(tokens[0], "set_attenuation")) {
@@ -697,9 +705,12 @@ int do_command(char *cmd, float *value)
 
 int step(int steps)
 {
-    /* FIXME: Need to determine direction. */
     int i = 0;
 
+    /* Start off with the stepper in sleep mode. */
+    digitalWrite(PIN_STP_SLEEP,true);
+
+    /* FIXME: Need to determine direction. */
     if (steps < 0)
         digitalWrite(PIN_STP_DIR,false);
     else
@@ -708,27 +719,51 @@ int step(int steps)
     steps = abs(steps);
 
     while (++i < MAX_STEPS && i < steps) {
+        if (digitalRead(PIN_STP_FAULT) == false) {
+            /* Put the stepper back in sleep mode. */
+            digitalWrite(PIN_STP_SLEEP,false);
+
+            sprintf(err, "stepper driver detected a fault");
+            return -1;
+        }
         digitalWrite(PIN_STP_STEP,true);
         delay(100);
         digitalWrite(PIN_STP_STEP,false);
         delay(100);
     }
+
+    /* Put the stepper back in sleep mode. */
+    digitalWrite(PIN_STP_SLEEP,false);
 
     return 0;
 }
 
 int step_home(void)
 {
-    /* FIXME: Need to determine direction. */
     int i = 0;
 
+    /* Start off with the stepper in sleep mode. */
+    digitalWrite(PIN_STP_SLEEP,true);
+
+    /* FIXME: Need to determine direction. */
     digitalWrite(PIN_STP_DIR,true);
+
     while (++i < MAX_STEPS && digitalRead(PIN_STP_HOME) == false) {
+        if (digitalRead(PIN_STP_FAULT) == false) {
+            /* Put the stepper back in sleep mode. */
+            digitalWrite(PIN_STP_SLEEP,false);
+
+            sprintf(err, "stepper driver detected a fault");
+            return -1;
+        }
         digitalWrite(PIN_STP_STEP,true);
         delay(100);
         digitalWrite(PIN_STP_STEP,false);
         delay(100);
     }
+
+    /* Put the stepper back in sleep mode. */
+    digitalWrite(PIN_STP_SLEEP,false);
 
     return 0;
 }

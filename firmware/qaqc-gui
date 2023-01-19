@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+from client import Client
+import tkinter as tk
+
+ASSEMBLY_CENTERS = [
+    "Caltech",
+    "UVA",
+    "Milano",
+    "CERN"
+]
+
+NUMBER_OF_MODULES = [str(i) for i in range(1,13)]
+
+def take_data():
+    print("number of modules selected is ", n.get())
+
+window = tk.Tk()
+
+button = tk.Button(text="Take Data", width=25, height=5, command=take_data)
+
+button.pack()
+
+assembly_center = tk.StringVar(window)
+assembly_center.set(ASSEMBLY_CENTERS[0])
+
+w = tk.OptionMenu(window, assembly_center, *ASSEMBLY_CENTERS)
+w.pack()
+
+n = tk.StringVar(window)
+n.set(NUMBER_OF_MODULES[0])
+
+w = tk.OptionMenu(window, n, *NUMBER_OF_MODULES)
+w.pack()
+
+
+window.mainloop()

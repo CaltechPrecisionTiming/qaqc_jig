@@ -31,7 +31,6 @@ unsigned int localPort = 8888;      // local port to listen on
 
 // buffers for receiving and sending data
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
-char ReplyBuffer[] = "acknowledged";        // a string to send back
 
 // An EthernetUDP instance to let us send and receive packets over UDP
 EthernetUDP Udp;
@@ -520,7 +519,7 @@ int do_command(char *cmd, float *value)
 
         *value = bus_index;
 
-        return 0;
+        return 1;
     } else if (!strcmp(tokens[0], "step")) {
         if (ntok != 2) {
             sprintf(err, "step command expects 1 argument: step [steps]");
@@ -533,7 +532,7 @@ int do_command(char *cmd, float *value)
 
         if (step(bus_index)) return -1;
 
-        return 0;
+        return 1;
     } else if (!strcmp(tokens[0], "step_home")) {
         if (ntok != 1) {
             sprintf(err, "step_home command expects 0 arguments");
@@ -639,7 +638,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
         gpio_read(bus_index,thermistors[address],value);
-        return 1;
+        return 2;
     } else if (!strcmp(tokens[0], "tec_sense_read")) {
         if (ntok != 2) {
             sprintf(err, "tec_sense_read command expects 1 argument: tec_sense_read [bus]");
@@ -662,7 +661,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
         gpio_read(bus_index,TEC_SENSE,value);
-        return 1;
+        return 2;
     } else if (!strcmp(tokens[0], "reset")) {
         if (ntok != 1) {
             sprintf(err, "reset command expects 0 arguments");
@@ -832,8 +831,11 @@ void loop()
             if (rv < 0) {
                 sprintf(msg, "-%s\n", err);
                 Serial.print(msg);
-            } else if (rv > 0) {
-                sprintf(msg, "+%.2f\n", temp);
+            } else if (rv == 1) {
+                sprintf(msg, ":%i\n", (int) temp);
+                Serial.print(msg);
+            } else if (rv == 2) {
+                sprintf(msg, ",%.18f\n", temp);
                 Serial.print(msg);
             } else {
                 sprintf("+ok\n");
@@ -868,7 +870,7 @@ void loop()
         Serial.println(packetBuffer);
 
         temp = 0;
-        int rv = do_command(cmd, &temp);
+        int rv = do_command(packetBuffer, &temp);
         if (rv < 0) {
             sprintf(msg, "-%s\n", err);
             Serial.print(msg);

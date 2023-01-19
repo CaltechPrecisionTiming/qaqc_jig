@@ -9,13 +9,25 @@ class Client(object):
         self.ip = ip
         self.port = port
 
+    def query(self, msg):
+        self.send(msg)
+        return self.recv()
+
     def send(self, msg):
         if not msg.endswith("\n"):
             msg += '\n'
         self.sock.sendto(len(msg),(self.ip,self.port))
 
     def recv(self):
-        return self.sock.recvfrom(1024)
+        reply = self.sock.recvfrom(1024)
+        if reply[0] == ':':
+            return int(reply[1:])
+        elif reply[0] == ',':
+            return float(reply[1:])
+        elif reply[0] == '+':
+            return reply[1:]
+        elif reply[0] == '-':
+            raise Exception(reply[1:])
 
 if __name__ == '__main__':
     import argparse
@@ -28,5 +40,4 @@ if __name__ == '__main__':
     client = Client(args.ip_address, args.port)
     while True:
         msg = raw_input(">>> ")
-        client.send(msg)
-        print(client.recv())
+        print(client.query(msg))

@@ -37,35 +37,54 @@ def step_home():
 
 window = tk.Tk()
 
-entry = tk.Entry(width=50)
+frame_menu = tk.Frame()
+frame_settings = tk.Frame()
+frame_log = tk.Frame()
+frame_buttons = tk.Frame()
+
+entry = tk.Entry(master=frame_log,width=50)
 entry.pack()
 
-button_home = tk.Button(text="Stepper Home", width=25, height=5, command=step_home)
+button_home = tk.Button(master=frame_buttons,text="Stepper Home", width=25, height=5, command=step_home)
 button_home.pack()
 
-button = tk.Button(text="Take Data", width=25, height=5, command=take_data)
+button = tk.Button(master=frame_buttons,text="Take Data", width=25, height=5, command=take_data)
 button.pack()
 
-assembly_center = tk.StringVar(window)
+assembly_center = tk.StringVar(frame_menu)
 assembly_center.set(ASSEMBLY_CENTERS[0])
 
-w = tk.OptionMenu(window, assembly_center, *ASSEMBLY_CENTERS)
-w.pack()
+assembly_center_label = tk.Label(frame_menu,text="Assembly Center: ")
+assembly_center_label.grid(row=0,column=0)
 
-n_modules_var = tk.StringVar(window)
+assembly_center_menu = tk.OptionMenu(frame_menu, assembly_center, *ASSEMBLY_CENTERS)
+assembly_center_menu.grid(row=0,column=1)
+
+n_modules_label = tk.Label(frame_menu,text="Number of Modules: ")
+n_modules_label.grid(row=1,column=0)
+
+n_modules_var = tk.StringVar(frame_menu)
 n_modules_var.set(NUMBER_OF_MODULES[0])
 
-w = tk.OptionMenu(window, n_modules_var, *NUMBER_OF_MODULES)
-w.pack()
+n_modules_menu = tk.OptionMenu(frame_menu, n_modules_var, *NUMBER_OF_MODULES)
+n_modules_menu.grid(row=1,column=1)
 
-n_boards_var = tk.StringVar(window)
+n_boards_label = tk.Label(frame_menu,text="Number of Boards: ")
+n_boards_label.grid(row=2,column=0)
+
+n_boards_var = tk.StringVar(frame_menu)
 n_boards_var.set(NUMBER_OF_BOARDS[0])
 
-w_boards = tk.OptionMenu(window, n_boards_var, *NUMBER_OF_BOARDS)
-w_boards.pack()
+n_boards_menu = tk.OptionMenu(frame_menu, n_boards_var, *NUMBER_OF_BOARDS)
+n_boards_menu.grid(row=2,column=1)
 
-stepper_enable = tk.IntVar(value=1)
-stepper_enable_checkbox = tk.Checkbutton(window, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
+stepper_enable = tk.IntVar(frame_settings, value=1)
+stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
 stepper_enable_checkbox.pack()
+
+frame_menu.grid(row=0,column=0)
+frame_settings.grid(row=0,column=1)
+frame_log.grid(row=1,column=0)
+frame_buttons.grid(row=1,column=1)
 
 window.mainloop()

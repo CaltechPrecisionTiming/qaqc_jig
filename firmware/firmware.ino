@@ -491,6 +491,7 @@ int tec_check(int bus_address, int address, float *value)
     delay(10);
 
     /* Now, read the sense relay a few times and average the result. */
+    sum = 0.0;
     for (i = 0; i < naverage; i++) {
         if (gpio_read(bus_index,TEC_SENSE,&sense)) {
             sprintf(err, "failed to read tec sense relay on bus %i", bus_index);

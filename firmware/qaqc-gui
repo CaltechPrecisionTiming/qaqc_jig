@@ -73,7 +73,7 @@ def take_data():
                 entry.delete(0,tk.END)
                 entry.insert(0,str(e))
                 return
-            barcode = barcode_entries[i*4 + k//2].get()
+            barcode = barcodes[i*4 + k//2].get()
             filename = 'module_%i.hdf5' % barcode
             # Now, we take data
             if k % 2 == 0:
@@ -130,12 +130,18 @@ assembly_center = tk.StringVar(frame_menu)
 assembly_center.set(ASSEMBLY_CENTERS[0])
 
 barcode_labels = []
+barcodes = []
 barcode_entries = []
 for i in range(12):
     barcode_labels.append(tk.Label(frame_barcodes,text="Barcode %i: " % i))
     barcode_labels[-1].grid(row=i,column=0)
-    barcode_entries.append(tk.Entry(frame_barcodes,text="0"))
+    barcodes.append(tk.StringVar(frame_menu))
+    barcode_entries.append(tk.Entry(frame_barcodes,textvariable=barcodes[-1]))
     barcode_entries[-1].grid(row=i,column=1)
+
+
+for i in range(11):
+    barcode_entries[i].bind('<Return>', lambda x, i=i: barcode_entries[i+1].focus())
 
 assembly_center_label = tk.Label(frame_menu,text="Assembly Center: ")
 assembly_center_label.grid(row=0,column=0)

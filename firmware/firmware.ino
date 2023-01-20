@@ -248,7 +248,7 @@ int reset()
         gpio.configure_ADCs(my_ADCs);
         gpio.enable_internal_Vref();
         gpio.set_DAC_max_2x_Vref();
-        gpio.set_ADC_max_2x_Vref();
+        gpio.set_ADC_max_1x_Vref();
         if (gpio.write_DAC(TEC_CTRL1,0) < 0) {
             sprintf(err, "Error setting TEC relay 1 on bus %i\n", i);
             Serial.print(err);

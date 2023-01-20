@@ -466,6 +466,45 @@ int mystrtol(const char *str, long *value)
     return 0;
 }
 
+/* Read out the current through the TEC `address` on card `bus_address`. Here,
+ * we try to do this very accurately by taking the reading very quick. Arjan
+ * mentioned that the resistance of the TEC will change rapidly when you start
+ * passing current through it. Therefore, we only turn on the TEC relay for a
+ * few milliseconds and take the measurement. We also average 10 measurements
+ * to try and get a more reliable measurement. */
+int tec_check(int bus_address, int address, float *value)
+{
+    int i;
+    float sum, sense;
+    int naverage = 10;
+
+    /* First, make sure all the TEC relays are open. */
+    for (i = 0; i < LEN(tec_relays); i++) {
+        gpio_write(bus_index,tec_relays[i],false);
+
+    delay(100);
+
+    /* Now, we close the relay */
+    gpio_write(bus_index,tec_relays[address],false);
+
+    /* Datasheet says it takes about 3 ms to open, so we wait at least 10. */
+    delay(10);
+
+    /* Now, read the sense relay a few times and average the result. */
+    for (i = 0; i < naverage; i++) {
+        if (gpio_read(bus_index,TEC_SENSE,&sense)) {
+            sprintf(err, "failed to read tec sense relay on bus %i", bus_index);
+            return -1;
+        }
+        sum += sense;
+    }
+
+    /* Now, we open the relay */
+    gpio_write(bus_index,tec_relays[address],false);
+
+    *value = sum/naverage;
+}
+
 /* Performs a user command based on a string. Examples of commands:
  *
  * "tec_write 1 0 on" - turn TEC 0 on on board 1
@@ -641,6 +680,35 @@ int do_command(char *cmd, float *value)
         }
         gpio_read(bus_index,thermistors[address],value);
         return 2;
+    } else if (!strcmp(tokens[0], "tec_check")) {
+        if (ntok != 2) {
+            sprintf(err, "tec_check command expects 2 argument: tec_check [bus] [address]");
+            return -1;
+        }
+
+        if (mystrtol(tokens[1],&bus_index)) {
+            sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
+            return -1;
+        } else if (mystrtol(tokens[2],&address)) {
+            sprintf(err, "expected argument 2 to be integer but got '%s'", tokens[2]);
+            return -1;
+        }
+
+        if (bus_index < 0 || bus_index > LEN(bus)) {
+            sprintf(err, "bus index %i is not valid", bus_index);
+            return -1;
+        } else if (!active[bus_index]) {
+            sprintf(err, "bus index %i is not active", bus_index);
+            return -1;
+        } else if (address < 0 || address > LEN(tec_relays)) {
+            sprintf(err, "address %i is not valid", address);
+            return -1;
+        } else if (value == NULL) {
+            sprintf(err, "value must not be set to NULL");
+            return -1;
+        }
+        if (tec_check(bus_index,address,value)) return -1;
+        return 2;
     } else if (!strcmp(tokens[0], "tec_sense_read")) {
         if (ntok != 2) {
             sprintf(err, "tec_sense_read command expects 1 argument: tec_sense_read [bus]");
@@ -728,6 +796,7 @@ int do_command(char *cmd, float *value)
                     "hv_write [card] [relay] [on/off]\n"
                     "thermistor_read [bus] [address]\n"
                     "tec_sense_read [bus]\n"
+                    "tec_check [bus]\n"
                     "reset\n"
                     "poll [bus] [on/off]\n"
                     "set_active_bitmask [bitmask]\n"

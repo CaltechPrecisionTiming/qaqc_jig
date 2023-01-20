@@ -12,6 +12,16 @@ ASSEMBLY_CENTERS = [
 NUMBER_OF_MODULES = [str(i) for i in range(1,13)]
 NUMBER_OF_BOARDS = [str(i) for i in range(1,5)]
 
+board_addresses = {
+    0: [0,1],
+    1: [2,3],
+    2: [4,5],
+    3: [6,7],
+    4: [8,9]
+}
+
+relays = [0,1,2,3,4,5]
+
 def take_data():
     n_boards = n_boards_var.get()
     n_modules = n_modules_var.get()
@@ -26,6 +36,69 @@ def take_data():
         except Exception as e:
             entry.delete(0,tk.END)
             entry.insert(0,str(e))
+            return
+
+    # Next, we take the single PE data
+    try:
+        client.query("set_attenuation off")
+    except Exception as e:
+        entry.delete(0,tk.END)
+        entry.insert(0,str(e))
+        return
+
+    # First, make sure all the HV relays are off
+    for i in range(n_boards):
+        for bus in board_addresses[i]:
+            for k in relays:
+                try:
+                    client.query("hv_write %i %i off" % (bus, k))
+                except Exception as e:
+                    entry.delete(0,tk.END)
+                    entry.insert(0,str(e))
+
+    files = []
+    # Now, we turn them on one by one and take data
+    for i in range(n_boards):
+        for k in relays:
+            for bus in board_addresses[i]:
+                try:
+                    client.query("hv_write %i %i on" % (bus, k))
+                except Exception as e:
+                    entry.delete(0,tk.END)
+                    entry.insert(0,str(e))
+            # Turn the attenuation off to take SPE data
+            try:
+                client.query("set_attenuation off")
+            except Exception as e:
+                entry.delete(0,tk.END)
+                entry.insert(0,str(e))
+                return
+            barcode = barcode_entries[i*4 + k//2].get()
+            filename = 'module_%i.hdf5' % barcode
+            # Now, we take data
+            if k % 2 == 0:
+                starting_channel = 0
+            else:
+                starting_channel = 16
+            p = Popen(['wavedump','-b',barcode,'-v',hv_menu_entry.get(),'-t','software','-l','spe','--starting-channel',starting_channel,'-n',100000,filename])
+            p.wait()
+            # Turn the attenuation on to take sodium data
+            try:
+                client.query("set_attenuation off")
+            except Exception as e:
+                entry.delete(0,tk.END)
+                entry.insert(0,str(e))
+                return
+            p = Popen(['wavedump','-b',barcode,'-v',hv_menu_entry.get(),'-t','self','-l','sodium','--starting-channel',starting_channel,'-n',100000,filename])
+            p.wait()
+            files.append(filename)
+
+    # Now, we analyze the files
+    for filename in filenames:
+        root, ext = splitext(filename)
+        root_filename = "%s.root" % root
+        p = Popen(['analyze-waveforms',filename,'-o', root_filename, '-u', '-i', assembly_center.get()])
+        p.wait()
 
 def step_home():
     client = Client()
@@ -34,6 +107,7 @@ def step_home():
     except Exception as e:
         entry.delete(0,tk.END)
         entry.insert(0,str(e))
+        return
 
 window = tk.Tk()
 
@@ -41,6 +115,7 @@ frame_menu = tk.Frame()
 frame_settings = tk.Frame()
 frame_log = tk.Frame()
 frame_buttons = tk.Frame()
+frame_barcodes = tk.Frame()
 
 entry = tk.Entry(master=frame_log,width=50)
 entry.pack()
@@ -53,6 +128,14 @@ button.pack()
 
 assembly_center = tk.StringVar(frame_menu)
 assembly_center.set(ASSEMBLY_CENTERS[0])
+
+barcode_labels = []
+barcode_entries = []
+for i in range(12):
+    barcode_labels.append(tk.Label(frame_barcodes,text="Barcode %i: " % i))
+    barcode_labels[-1].grid(row=i,column=0)
+    barcode_entries.append(tk.Entry(frame_barcodes,text="0"))
+    barcode_entries.grid(row=i,column=1)
 
 assembly_center_label = tk.Label(frame_menu,text="Assembly Center: ")
 assembly_center_label.grid(row=0,column=0)
@@ -77,6 +160,11 @@ n_boards_var.set(NUMBER_OF_BOARDS[0])
 
 n_boards_menu = tk.OptionMenu(frame_menu, n_boards_var, *NUMBER_OF_BOARDS)
 n_boards_menu.grid(row=2,column=1)
+
+hv_menu_label = tk.Label(frame_menu, "HV (V): ")
+hv_menu_label.grid(row=3,column=0)
+hv_menu_entry = tk.Entry(frame_menu)
+hv_menu_entry.grid(row=3,column=1)
 
 stepper_enable = tk.IntVar(frame_settings, value=1)
 stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)

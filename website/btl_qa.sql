@@ -2,6 +2,8 @@ CREATE TYPE inst AS ENUM (
     'Caltech',
     'UVA',
     'Rome'
+    'Milano'
+    'CERN'
 );
 
 CREATE TYPE sipm_type AS ENUM (

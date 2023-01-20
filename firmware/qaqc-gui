@@ -24,7 +24,6 @@ relays = [0,1,2,3,4,5]
 
 def take_data():
     n_boards = n_boards_var.get()
-    n_modules = n_modules_var.get()
     
     client = Client()
 
@@ -132,13 +131,16 @@ assembly_center.set(ASSEMBLY_CENTERS[0])
 barcode_labels = []
 barcodes = []
 barcode_entries = []
+module_available = []
 for i in range(12):
     barcode_labels.append(tk.Label(frame_barcodes,text="Barcode %i: " % i))
     barcode_labels[-1].grid(row=i,column=0)
     barcodes.append(tk.StringVar(frame_menu))
     barcode_entries.append(tk.Entry(frame_barcodes,textvariable=barcodes[-1]))
     barcode_entries[-1].grid(row=i,column=1)
-
+    module_available.append(tk.IntVar(frame_barcodes, value=1))
+    checkbox = tk.Checkbutton(frame_barcodes, text='Present', variable=module_available[-1], onvalue=1, offvalue=0)
+    checkbox.grid(row=i,column=2)
 
 for i in range(11):
     barcode_entries[i].bind('<Return>', lambda x, i=i: barcode_entries[i+1].focus())
@@ -148,15 +150,6 @@ assembly_center_label.grid(row=0,column=0)
 
 assembly_center_menu = tk.OptionMenu(frame_menu, assembly_center, *ASSEMBLY_CENTERS)
 assembly_center_menu.grid(row=0,column=1)
-
-n_modules_label = tk.Label(frame_menu,text="Number of Modules: ")
-n_modules_label.grid(row=1,column=0)
-
-n_modules_var = tk.StringVar(frame_menu)
-n_modules_var.set(NUMBER_OF_MODULES[0])
-
-n_modules_menu = tk.OptionMenu(frame_menu, n_modules_var, *NUMBER_OF_MODULES)
-n_modules_menu.grid(row=1,column=1)
 
 n_boards_label = tk.Label(frame_menu,text="Number of Boards: ")
 n_boards_label.grid(row=2,column=0)

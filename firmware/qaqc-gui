@@ -23,7 +23,7 @@ board_addresses = {
 relays = [0,1,2,3,4,5]
 
 def take_data():
-    n_boards = n_boards_var.get()
+    n_boards = int(n_boards_var.get())
     
     client = Client()
 
@@ -73,6 +73,11 @@ def take_data():
                 entry.insert(0,str(e))
                 return
             barcode = barcodes[i*4 + k//2].get()
+            if barcode == '':
+                entry.delete(0,tk.END)
+                entry.insert(0,'Need to enter a barcode for module %i' % (i*4 + k//2 + 1))
+                return
+                
             filename = 'module_%i.hdf5' % barcode
             # Now, we take data
             if k % 2 == 0:
@@ -132,6 +137,7 @@ barcode_labels = []
 barcodes = []
 barcode_entries = []
 module_available = []
+module_checkbox = []
 for i in range(12):
     barcode_labels.append(tk.Label(frame_barcodes,text="Barcode %i: " % i))
     barcode_labels[-1].grid(row=i,column=0)
@@ -140,6 +146,7 @@ for i in range(12):
     barcode_entries[-1].grid(row=i,column=1)
     module_available.append(tk.IntVar(frame_barcodes, value=1))
     checkbox = tk.Checkbutton(frame_barcodes, text='Present', variable=module_available[-1], onvalue=1, offvalue=0)
+    module_checkbox.append(checkbox)
     checkbox.grid(row=i,column=2)
 
 for i in range(11):
@@ -155,10 +162,26 @@ n_boards_label = tk.Label(frame_menu,text="Number of Boards: ")
 n_boards_label.grid(row=2,column=0)
 
 n_boards_var = tk.StringVar(frame_menu)
-n_boards_var.set(NUMBER_OF_BOARDS[0])
+n_boards_var.set(NUMBER_OF_BOARDS[3])
 
-n_boards_menu = tk.OptionMenu(frame_menu, n_boards_var, *NUMBER_OF_BOARDS)
+def n_boards_changed(*args):
+    for i in range(4):
+        if i + 1 <= int(n_boards_var.get()):
+            module_checkbox[i*3].configure(state=tk.NORMAL)
+            module_checkbox[i*3+1].configure(state=tk.NORMAL)
+            module_checkbox[i*3+2].configure(state=tk.NORMAL)
+        else:
+            module_checkbox[i*3].configure(state=tk.DISABLED)
+            module_checkbox[i*3+1].configure(state=tk.DISABLED)
+            module_checkbox[i*3+2].configure(state=tk.DISABLED)
+            module_available[i*3].set(0)
+            module_available[i*3+1].set(0)
+            module_available[i*3+2].set(0)
+
+n_boards_menu = tk.OptionMenu(frame_menu, n_boards_var, *NUMBER_OF_BOARDS, command=n_boards_changed)
 n_boards_menu.grid(row=2,column=1)
+
+n_boards_changed()
 
 hv_menu_label = tk.Label(frame_menu, text="HV (V): ")
 hv_menu_label.grid(row=3,column=0)

@@ -672,7 +672,7 @@ int do_command(char *cmd, float *value)
         } else if (!active[bus_index]) {
             sprintf(err, "bus index %i is not active", bus_index);
             return -1;
-        } else if (address < 0 || address > LEN(hv_relays)) {
+        } else if (address < 0 || address > LEN(thermistors)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
         } else if (value == NULL) {

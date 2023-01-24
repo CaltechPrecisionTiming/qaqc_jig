@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 from client import Client
 import tkinter as tk
+from tkinter import ttk
+import random
+
+DEBUG = True
 
 ASSEMBLY_CENTERS = [
     "Caltech",
@@ -17,7 +21,6 @@ board_addresses = {
     1: [2,3],
     2: [4,5],
     3: [6,7],
-    4: [8,9]
 }
 
 relays = [0,1,2,3,4,5]
@@ -104,6 +107,43 @@ def take_data():
         p = Popen(['analyze-waveforms',filename,'-o', root_filename, '-u', '-i', assembly_center.get()])
         p.wait()
 
+def poll():
+    client = Client()
+
+    n_boards = int(n_boards_var.get())
+
+    print("n_boards = ", n_boards)
+    
+    # First, make sure all the HV relays are off
+    for i in range(n_boards):
+        for bus in board_addresses[i]:
+            for k in range(3):
+                # k number of module in board bus
+                if not DEBUG:
+                    try:
+                        thermistor_value = client.query("thermistor_read %i %i" % (bus, k))
+                    except Exception as e:
+                        entry.delete(0,tk.END)
+                        entry.insert(0,str(e))
+                        return
+                    try:
+                        tec_value = client.query("tec_check %i %i" % (bus, k))
+                    except Exception as e:
+                        entry.delete(0,tk.END)
+                        entry.insert(0,str(e))
+                        return
+                else:
+                    thermistor_value = random.uniform(20,30)
+                    tec_value = random.uniform(20,30)
+
+                n = (bus//2)*3 + k
+                if bus % 2 == 0:
+                    thermistor_text[(n,'a')].config(text="%.2f" % thermistor_value)
+                    thermistor_text[(n,'tec_a')].config(text="%.2f" % tec_value)
+                else:
+                    thermistor_text[(n,'b')].config(text="%.2f" % thermistor_value)
+                    thermistor_text[(n,'tec_b')].config(text="%.2f" % tec_value)
+
 def step_home():
     client = Client()
     try:
@@ -115,11 +155,46 @@ def step_home():
 
 window = tk.Tk()
 
-frame_menu = tk.Frame()
-frame_settings = tk.Frame()
-frame_log = tk.Frame()
-frame_buttons = tk.Frame()
-frame_barcodes = tk.Frame()
+frame_main = tk.Frame(window)
+frame_config = tk.Frame(window)
+frame_main.pack(side=tk.LEFT)
+frame_config.pack(side=tk.RIGHT)
+
+tab = ttk.Notebook(frame_main)
+tab1 = ttk.Frame(tab)
+tab2 = ttk.Frame(tab)
+tab.add(tab1,text="Normal")
+tab.add(tab2,text="Advanced")
+tab.pack(expand=1,fill='both')
+
+frame_menu = tk.Frame(tab1)
+frame_settings = tk.Frame(tab1)
+frame_log = tk.Frame(frame_config)
+frame_buttons = tk.Frame(tab1)
+frame_barcodes = tk.Frame(frame_config)
+frame_thermistor = tk.Frame(tab2)
+frame_adv_buttons = tk.Frame(tab2)
+
+tk.Label(frame_thermistor,text="Thermistor A (C)").grid(row=0,column=1)
+tk.Label(frame_thermistor,text="Thermistor B (C)").grid(row=0,column=2)
+tk.Label(frame_thermistor,text="TEC A (Ohms)").grid(row=0,column=3)
+tk.Label(frame_thermistor,text="TEC B (Ohms)").grid(row=0,column=4)
+thermistor_labels = {}
+thermistor_text = {}
+for i in range(12):
+    thermistor_labels[i] = tk.Label(frame_thermistor,text="Barcode %i: " % i)
+    thermistor_labels[i].grid(row=i+1,column=0)
+    thermistor_text[(i,'a')] = tk.Label(frame_thermistor,text="")
+    thermistor_text[(i,'a')].grid(row=i+1,column=1)
+    thermistor_text[(i,'b')] = tk.Label(frame_thermistor,text="")
+    thermistor_text[(i,'b')].grid(row=i+1,column=2)
+    thermistor_text[(i,'tec_a')] = tk.Label(frame_thermistor,text="")
+    thermistor_text[(i,'tec_a')].grid(row=i+1,column=3)
+    thermistor_text[(i,'tec_b')] = tk.Label(frame_thermistor,text="")
+    thermistor_text[(i,'tec_b')].grid(row=i+1,column=4)
+
+button_poll = tk.Button(master=frame_adv_buttons,text="Poll", width=25, height=5, command=poll)
+button_poll.pack()
 
 entry = tk.Entry(master=frame_log,width=50)
 entry.pack()
@@ -194,8 +269,10 @@ stepper_enable_checkbox.pack()
 
 frame_menu.grid(row=0,column=0)
 frame_settings.grid(row=0,column=1)
-frame_log.grid(row=1,column=0)
+frame_log.pack()
 frame_buttons.grid(row=1,column=1)
-frame_barcodes.grid(row=2,column=0)
+frame_barcodes.pack()
+frame_thermistor.grid(row=0,column=0)
+frame_adv_buttons.grid(row=1,column=0)
 
 window.mainloop()

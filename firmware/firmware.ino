@@ -472,12 +472,12 @@ int mystrtoi(const char *str, int *value)
     return 0;
 }
 
-/* Read out the current through the TEC `address` on card `bus_address`. Here,
- * we try to do this very accurately by taking the reading very quick. Arjan
- * mentioned that the resistance of the TEC will change rapidly when you start
- * passing current through it. Therefore, we only turn on the TEC relay for a
- * few milliseconds and take the measurement. We also average 10 measurements
- * to try and get a more reliable measurement. */
+/* Returns the total resistance of the TEC `address` on card `bus_address`.
+ * Here, we try to do this very accurately by taking the reading very quick.
+ * Arjan mentioned that the resistance of the TEC will change rapidly when you
+ * start passing current through it. Therefore, we only turn on the TEC relay
+ * for a few milliseconds and take the measurement. We also average 10
+ * measurements to try and get a more reliable measurement. */
 int tec_check(int bus_address, int address, float *value)
 {
     int i;
@@ -493,8 +493,10 @@ int tec_check(int bus_address, int address, float *value)
     /* Now, we close the relay */
     gpio_write(bus_address,tec_relays[address],false);
 
-    /* Datasheet says it takes about 3 ms to open, so we wait at least 10. */
-    delay(10);
+    /* Datasheet says it takes about 3 ms to open, but I've tested it and it
+     * seems even without a delay here the relay is already open. We wait 1 ms
+     * just to be safe. */
+    delay(1);
 
     /* Now, read the sense relay a few times and average the result. */
     sum = 0.0;
@@ -509,7 +511,17 @@ int tec_check(int bus_address, int address, float *value)
     /* Now, we open the relay */
     gpio_write(bus_address,tec_relays[address],false);
 
-    *value = sum/naverage;
+    /* Compute the voltage across the sense resistor by averaging the readings. */
+    float vsense = sum/naverage;
+    /* Compute the current through the 25 mOhm sense resistor. */
+    float isense = vsense/25e-3;
+    /* The supply voltage we are sending across the TECs.
+     *
+     * Note: This isn't guaranteed to be 3.3 V by the board design. It requires
+     * that the user hooks up the 3.3 V rail to the TEC voltage. */
+    float supply_voltage = 3.3;
+
+    *value = supply_voltage/isense;
     return 0;
 }
 

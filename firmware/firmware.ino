@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <NativeEthernet.h>
 #include <NativeEthernetUdp.h>
+#include <limits.h>
 
 #define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
@@ -375,11 +376,13 @@ void setup()
 int bias_iread(int *value)
 {
     *value = analogRead(PIN_BIAS_IREAD);
+    return 0;
 }
 
 int bias_vread(int *value)
 {
     *value = analogRead(PIN_BIAS_VREAD);
+    return 0;
 }
 
 /* Read an ADC value on the AD5593R.
@@ -453,15 +456,19 @@ int strtobool(const char *str, bool *value)
     return 0;
 }
 
-int mystrtol(const char *str, long *value)
+int mystrtoi(const char *str, int *value)
 {
+    long lvalue;
     char *endptr;
     errno = 0;
-    *value = strtol(str,&endptr,0);
+    lvalue = strtol(str,&endptr,0);
     if (errno)
         return -1;
     if (endptr == str)
         return -1;
+    if (lvalue > INT_MAX || lvalue < INT_MIN)
+        return -1;
+    *value = (int) lvalue;
     return 0;
 }
 
@@ -503,6 +510,7 @@ int tec_check(int bus_address, int address, float *value)
     gpio_write(bus_address,tec_relays[address],false);
 
     *value = sum/naverage;
+    return 0;
 }
 
 /* Performs a user command based on a string. Examples of commands:
@@ -530,8 +538,8 @@ int do_command(char *cmd, float *value)
     char *tokens[10];
     char *tok;
     bool ison;
-    long bus_index, address;
-    long bitmask;
+    int bus_index, address;
+    int bitmask;
 
     tok = strtok(cmd, " ");
     while (tok != NULL && ntok <= LEN(tokens) - 1) {
@@ -567,7 +575,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (mystrtol(tokens[1],&bus_index)) {
+        if (mystrtoi(tokens[1],&bus_index)) {
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
         }
@@ -605,10 +613,10 @@ int do_command(char *cmd, float *value)
         if (strtobool(tokens[3],&ison)) {
             sprintf(err, "expected argument 3 to be yes/no but got '%s'", tokens[3]);
             return -1;
-        } else if (mystrtol(tokens[1],&bus_index)) {
+        } else if (mystrtoi(tokens[1],&bus_index)) {
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
-        } else if (mystrtol(tokens[2],&address)) {
+        } else if (mystrtoi(tokens[2],&address)) {
             sprintf(err, "expected argument 2 to be integer but got '%s'", tokens[2]);
             return -1;
         }
@@ -633,10 +641,10 @@ int do_command(char *cmd, float *value)
         if (strtobool(tokens[3],&ison)) {
             sprintf(err, "expected argument 3 to be yes/no but got '%s'", tokens[3]);
             return -1;
-        } else if (mystrtol(tokens[1],&bus_index)) {
+        } else if (mystrtoi(tokens[1],&bus_index)) {
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
-        } else if (mystrtol(tokens[2],&address)) {
+        } else if (mystrtoi(tokens[2],&address)) {
             sprintf(err, "expected argument 2 to be integer but got '%s'", tokens[2]);
             return -1;
         }
@@ -658,10 +666,10 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (mystrtol(tokens[1],&bus_index)) {
+        if (mystrtoi(tokens[1],&bus_index)) {
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
-        } else if (mystrtol(tokens[2],&address)) {
+        } else if (mystrtoi(tokens[2],&address)) {
             sprintf(err, "expected argument 2 to be integer but got '%s'", tokens[2]);
             return -1;
         }
@@ -687,10 +695,10 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (mystrtol(tokens[1],&bus_index)) {
+        if (mystrtoi(tokens[1],&bus_index)) {
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
-        } else if (mystrtol(tokens[2],&address)) {
+        } else if (mystrtoi(tokens[2],&address)) {
             sprintf(err, "expected argument 2 to be integer but got '%s'", tokens[2]);
             return -1;
         }
@@ -716,7 +724,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (mystrtol(tokens[1],&bus_index)) {
+        if (mystrtoi(tokens[1],&bus_index)) {
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
         }
@@ -746,7 +754,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (mystrtol(tokens[1],&bus_index)) {
+        if (mystrtoi(tokens[1],&bus_index)) {
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
         } else if (strtobool(tokens[2],&ison)) {
@@ -769,7 +777,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (mystrtol(tokens[1],&bitmask)) {
+        if (mystrtoi(tokens[1],&bitmask)) {
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
         }
@@ -802,10 +810,10 @@ int do_command(char *cmd, float *value)
                     "poll [bus] [on/off]\n"
                     "set_active_bitmask [bitmask]\n"
                     "debug [on/off]\n"
-                    "set_attenuation [on/off]\n",
-                    "step_home\n",
-                    "step [steps]\n",
-                    "bias_iread\n",
+                    "set_attenuation [on/off]\n"
+                    "step_home\n"
+                    "step [steps]\n"
+                    "bias_iread\n"
                     "bias_vread\n");
         return -1;
     } else {

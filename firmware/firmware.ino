@@ -349,8 +349,6 @@ void setup()
     pinMode(PIN_THRU,OUTPUT);
     /* Stepper home limit switch. */
     pinMode(PIN_STP_HOME,INPUT);
-    /* Should be pulled down by default, but just to make sure. */
-    pinMode(pin, INPUT_PULLDOWN);
     pinMode(PIN_STP_STEP,OUTPUT);
     pinMode(PIN_STP_DIR,OUTPUT);
     pinMode(PIN_STP_FAULT,INPUT);
@@ -480,13 +478,13 @@ int tec_check(int bus_address, int address, float *value)
     int naverage = 10;
 
     /* First, make sure all the TEC relays are open. */
-    for (i = 0; i < LEN(tec_relays); i++) {
-        gpio_write(bus_index,tec_relays[i],false);
+    for (i = 0; i < LEN(tec_relays); i++)
+        gpio_write(bus_address,tec_relays[i],false);
 
     delay(100);
 
     /* Now, we close the relay */
-    gpio_write(bus_index,tec_relays[address],false);
+    gpio_write(bus_address,tec_relays[address],false);
 
     /* Datasheet says it takes about 3 ms to open, so we wait at least 10. */
     delay(10);
@@ -494,15 +492,15 @@ int tec_check(int bus_address, int address, float *value)
     /* Now, read the sense relay a few times and average the result. */
     sum = 0.0;
     for (i = 0; i < naverage; i++) {
-        if (gpio_read(bus_index,TEC_SENSE,&sense)) {
-            sprintf(err, "failed to read tec sense relay on bus %i", bus_index);
+        if (gpio_read(bus_address,TEC_SENSE,&sense)) {
+            sprintf(err, "failed to read tec sense relay on bus %i", bus_address);
             return -1;
         }
         sum += sense;
     }
 
     /* Now, we open the relay */
-    gpio_write(bus_index,tec_relays[address],false);
+    gpio_write(bus_address,tec_relays[address],false);
 
     *value = sum/naverage;
 }
@@ -572,6 +570,7 @@ int do_command(char *cmd, float *value)
         if (mystrtol(tokens[1],&bus_index)) {
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
+        }
 
         if (step(bus_index)) return -1;
 
@@ -889,9 +888,9 @@ void format_message(int rv, float value)
     if (rv < 0) {
         sprintf(msg, "-%s\n", err);
     } else if (rv == 1) {
-        sprintf(msg, ":%i\n", (int) temp);
+        sprintf(msg, ":%i\n", (int) value);
     } else if (rv == 2) {
-        sprintf(msg, ",%.18f\n", temp);
+        sprintf(msg, ",%.18f\n", value);
     } else {
         sprintf(msg, "+ok\n");
     }

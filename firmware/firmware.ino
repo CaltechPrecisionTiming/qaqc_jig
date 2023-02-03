@@ -38,9 +38,9 @@ EthernetUDP Udp;
 /* Generic delay after setting pins high/low. */
 #define DELAY 100
 
-char cmd[MAX_MESSAGE_LENGTH];
-char err[MAX_MESSAGE_LENGTH];
-char msg[MAX_MESSAGE_LENGTH];
+char cmd[MAX_MSG_LENGTH];
+char err[MAX_MSG_LENGTH];
+char msg[MAX_MSG_LENGTH];
 int k = 0;
 
 bool debug = false;
@@ -64,30 +64,30 @@ bool debug = false;
 #define TEC_CTRL3 6
 
 /* Teensy outputs. */
-#define PIN_MR1       PIN_D36
-#define PIN_MR2       PIN_D32
-#define PIN_ATT       PIN_D38
-#define PIN_THRU      PIN_D37
+#define PIN_MR1       (36)
+#define PIN_MR2       (32)
+#define PIN_ATT       (38)
+#define PIN_THRU      (37)
 /* Pins to set the step and microstep size. */
-#define PIN_STP_FAULT PIN_D0
-#define PIN_STP_SLEEP PIN_D1
-#define PIN_STP_RESET PIN_D2
-#define PIN_STP_M2    PIN_D3
-#define PIN_STP_M1    PIN_D4
-#define PIN_STP_M0    PIN_D5
-#define PIN_STP_STEP  PIN_D6
-#define PIN_STP_DIR   PIN_D7
-#define PIN_DAC_CLEAR PIN_D8
-#define PIN_BI_SD     PIN_D9
-#define PIN_CS        PIN_D10
-#define PIN_MOSI      PIN_D11
+#define PIN_STP_FAULT (0)
+#define PIN_STP_SLEEP (1)
+#define PIN_STP_RESET (2)
+#define PIN_STP_M2    (3)
+#define PIN_STP_M1    (4)
+#define PIN_STP_M0    (5)
+#define PIN_STP_STEP  (6)
+#define PIN_STP_DIR   (7)
+#define PIN_DAC_CLEAR (8)
+#define PIN_BI_SD     (9)
+#define PIN_CS        (10)
+#define PIN_MOSI      (11)
 /* Analog pins. */
 /* HV voltage and current. */
 #define PIN_BIAS_IREAD PIN_A0
 #define PIN_BIAS_VREAD PIN_A1
-#define PIN_STP_HOME   PIN_D17
+#define PIN_STP_HOME   (17)
 /* Stepper enable. Goes through two limit switches first. */
-#define PIN_STP_EN_UC  PIN_D23
+#define PIN_STP_EN_UC  (23)
 
 /* Array of HV relay pins and names. */
 int hv_relays[6] = {KC1,KC2,KC3,KC4,KC5,KC6};
@@ -341,7 +341,8 @@ void setup()
     pinMode(PIN_STP_M1,OUTPUT);
     pinMode(PIN_STP_M2,OUTPUT);
     /* Master reset. */
-    pinMode(PIN_MR,OUTPUT);
+    pinMode(PIN_MR1,OUTPUT);
+    pinMode(PIN_MR2,OUTPUT);
     /* Relay clock attenuation. */
     pinMode(PIN_ATT,OUTPUT);
     /* Relay clock through. */

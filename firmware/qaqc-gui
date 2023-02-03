@@ -1,243 +1,322 @@
 #!/usr/bin/env python3
+"""
+GUI for controlling the Caltech BTL QA/QC jig.
+
+Author: Anthony LaTorre
+Last Updated: Jan 24, 2023
+"""
 from client import Client
 import tkinter as tk
 from tkinter import ttk
 import random
+from os.path import join, expanduser, exists, splitext
+import json
 
+# Debug mode. Right now this just controls whether we draw random numbers for
+# polling.
 DEBUG = True
 
+# Assembly centers. This should be synchronized with the SQL file at
+# ../website/btl_qa.sql.
 ASSEMBLY_CENTERS = [
     "Caltech",
     "UVA",
     "Milano",
-    "CERN"
+    "CERN",
+    "Peking"
 ]
 
-NUMBER_OF_MODULES = [str(i) for i in range(1,13)]
 NUMBER_OF_BOARDS = [str(i) for i in range(1,5)]
 
-board_addresses = {
+BOARD_ADDRESSES = {
     0: [0,1],
     1: [2,3],
     2: [4,5],
     3: [6,7],
 }
 
-relays = [0,1,2,3,4,5]
+RELAYS = [0,1,2,3,4,5]
+
+def print_warning(msg):
+    start = entry.index(tk.INSERT)
+    if not msg.endswith('\n'):
+        msg += '\n'
+    entry.insert(tk.END,msg)
+    stop = entry.index(tk.INSERT)
+    entry.tag_add("error",start,stop)
+
+def run_command(cmd):
+    entry.insert(tk.END, " ".join(map(str,cmd)) + '\n')
+    if DEBUG:
+        return 0
+    p = Popen(cmd)
+    stdout, stderr = p.communicate()
+    entry.insert(tk.END,stdout)
+    if p.returncode != 0:
+        print_warning(stderr)
+    return p.returncode
+
+def save(filename=None):
+    """
+    Save the GUI state from the json file specified by `filename`.
+    """
+    if filename is None:
+        filename = join(expanduser("~"),".qaqc_gui.settings")
+    data = {}
+    data['assembly_center'] = assembly_center.get()
+    data['n_boards'] = int(n_boards_var.get())
+    data['barcodes'] = [barcode.get() for barcode in barcodes]
+    data['module_available'] = [available.get() for available in module_available]
+    data['hv'] = hv.get()
+    data['ip_address'] = ip_address.get()
+    print("Saving GUI state from '%s'" % filename)
+    with open(filename,'w') as f:
+        json.dump(data,f)
+
+def load(filename=None):
+    """
+    Load the GUI state from the json file specified by `filename`.
+    """
+    if filename is None:
+        filename = join(expanduser("~"),".qaqc_gui.settings")
+    print("Loading GUI state from '%s'" % filename)
+    if exists(filename):
+        with open(filename,'r') as f:
+            data = json.load(f)
+        if 'assembly_center' in data:
+            assembly_center.set(data['assembly_center'])
+        if 'n_boards' in data:
+            n_boards_var.set(str(data['n_boards']))
+        if 'barcodes' in data:
+            for i, barcode in enumerate(data['barcodes']):
+                barcodes[i].set(barcode)
+        if 'module_available' in data:
+            for i, available in enumerate(data['module_available']):
+                module_available[i].set(available)
+        if 'hv' in data:
+            hv.set(data['hv'])
+        if 'ip_address' in data:
+            ip_address.set(data['ip_address'])
+        n_boards_changed()
+
+def on_closing():
+    """
+    Function to run before the window is closed. Right now we just save the GUI
+    state and then quit the program.
+    """
+    save()
+    root.destroy()
+
+def query(client, cmd):
+    entry.insert(tk.END, "%s\n" % cmd)
+    entry.yview(tk.END)
+    if not DEBUG:
+        return client.query(cmd)
 
 def take_data():
+    """
+    Function to take single PE and 511 keV data for all the modules marked
+    present in the GUI. First, we move the stepper motor, then take single PE
+    data, then 511 data, and finally analyze it and upload the results to the
+    database.
+    """
+    # Clear error messages
+    entry.delete(1.0,tk.END)
+
     n_boards = int(n_boards_var.get())
     
-    client = Client()
+    # Make sure they entered the barcodes first.
+    for i in range(12):
+        if not module_available[i].get():
+            continue
+
+        barcode = barcodes[i].get()
+        if barcode == '':
+            print_warning('Need to enter a barcode for module %i\n' % i)
+            return
+
+    client = Client(ip_address.get())
 
     # First, we try to get the stepper to the home position
     if stepper_enable.get():
-        print("sending command step_home")
         try:
-            client.query("step_home")
+            query(client, "step_home")
         except Exception as e:
-            entry.delete(0,tk.END)
-            entry.insert(0,str(e))
+            print_warning(str(e))
             return
 
     # Next, we take the single PE data
     try:
-        client.query("set_attenuation off")
+        query(client, "set_attenuation off")
     except Exception as e:
-        entry.delete(0,tk.END)
-        entry.insert(0,str(e))
+        print_warning(str(e))
         return
 
     # First, make sure all the HV relays are off
     for i in range(n_boards):
-        for bus in board_addresses[i]:
-            for k in relays:
+        for bus in BOARD_ADDRESSES[i]:
+            for k in RELAYS:
                 try:
-                    client.query("hv_write %i %i off" % (bus, k))
+                    query(client, "hv_write %i %i off" % (bus, k))
                 except Exception as e:
-                    entry.delete(0,tk.END)
-                    entry.insert(0,str(e))
+                    print_warning(str(e))
 
-    files = []
+    filenames = []
     # Now, we turn them on one by one and take data
-    for i in range(n_boards):
-        for k in relays:
-            for bus in board_addresses[i]:
+    for i in range(12):
+        if not module_available[i].get():
+            entry.insert(tk.END, "Skipping module %i\n" % i)
+            continue
+
+        # Loop over first 8 channels and second eight channels
+        for j in range(2):
+            # Diagram to help figure out what's going on. It's drawn as if you
+            # are looking top down at the modules plugged in:
+            #
+            #     Bus HV1 HV2 Module Bus HV1 HV2
+            #     --- --- --- ------ --- --- ---
+            #      2   4   5     5    3   4   5
+            #      2   2   3     4    3   2   3
+            #      2   0   1     3    3   0   1
+            #
+            #      0   4   5     2    1   4   5
+            #      0   2   3     1    1   2   3
+            #      0   0   1     0    1   0   1
+
+            # Loop over left and right sides
+            for k in range(2):
+                bus = i//2 + k
+                relay = (i % 3)*2 + j
+
                 try:
-                    client.query("hv_write %i %i on" % (bus, k))
+                    query(client, "hv_write %i %i on" % (bus, relay))
                 except Exception as e:
-                    entry.delete(0,tk.END)
-                    entry.insert(0,str(e))
+                    print_warning(str(e))
+
             # Turn the attenuation off to take SPE data
             try:
-                client.query("set_attenuation off")
+                query(client, "set_attenuation off")
             except Exception as e:
-                entry.delete(0,tk.END)
-                entry.insert(0,str(e))
+                print_warning(str(e))
                 return
-            barcode = barcodes[i*4 + k//2].get()
+
+            barcode = barcodes[i].get()
             if barcode == '':
-                entry.delete(0,tk.END)
-                entry.insert(0,'Need to enter a barcode for module %i' % (i*4 + k//2 + 1))
+                print_warning('Need to enter a barcode for module %i\n' % i)
                 return
                 
-            filename = 'module_%i.hdf5' % barcode
+            filename = 'module_%i.hdf5' % int(barcode)
             # Now, we take data
-            if k % 2 == 0:
+            if j % 2 == 0:
                 starting_channel = 0
             else:
                 starting_channel = 16
-            p = Popen(['wavedump','-b',barcode,'-v',hv_menu_entry.get(),'-t','software','-l','spe','--starting-channel',starting_channel,'-n',100000,filename])
-            p.wait()
+
+            if run_command(['wavedump','-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--starting-channel',starting_channel,'-n',100000,filename]):
+                 return
+
             # Turn the attenuation on to take sodium data
             try:
-                client.query("set_attenuation off")
+                query(client, "set_attenuation on")
             except Exception as e:
-                entry.delete(0,tk.END)
-                entry.insert(0,str(e))
+                print_warning(str(e))
                 return
-            p = Popen(['wavedump','-b',barcode,'-v',hv_menu_entry.get(),'-t','self','-l','sodium','--starting-channel',starting_channel,'-n',100000,filename])
-            p.wait()
-            files.append(filename)
+
+            if run_command(['wavedump','-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--starting-channel',starting_channel,'-n',100000,filename]):
+                return
+
+            # Loop over left and right sides
+            for k in range(2):
+                bus = i//2 + k
+                relay = (i % 3)*2 + j
+
+                try:
+                    query(client, "hv_write %i %i off" % (bus, relay))
+                except Exception as e:
+                    print_warning(str(e))
+
+            filenames.append(filename)
 
     # Now, we analyze the files
     for filename in filenames:
         root, ext = splitext(filename)
         root_filename = "%s.root" % root
-        p = Popen(['analyze-waveforms',filename,'-o', root_filename, '-u', '-i', assembly_center.get()])
-        p.wait()
+        if run_command(['analyze-waveforms',filename,'-o', root_filename, '-u', '-i', assembly_center.get()]):
+            return
 
 def poll():
+    """
+    Read all the thermistor temperatures and the TEC resistance.
+    """
+    # Clear error messages
+    entry.delete(1.0,tk.END)
+
     client = Client()
 
-    n_boards = int(n_boards_var.get())
-
-    print("n_boards = ", n_boards)
-    
-    # First, make sure all the HV relays are off
-    for i in range(n_boards):
-        for bus in board_addresses[i]:
-            for k in range(3):
-                # k number of module in board bus
-                if not DEBUG:
-                    try:
-                        thermistor_value = client.query("thermistor_read %i %i" % (bus, k))
-                    except Exception as e:
-                        entry.delete(0,tk.END)
-                        entry.insert(0,str(e))
-                        return
-                    try:
-                        tec_value = client.query("tec_check %i %i" % (bus, k))
-                    except Exception as e:
-                        entry.delete(0,tk.END)
-                        entry.insert(0,str(e))
-                        return
+    for i in range(12):
+        if not module_available[i].get():
+            print("Skipping module %i" % i)
+            for k in range(2):
+                bus = i//2 + k
+                thermistor = i % 3
+                if k % 2 == 0:
+                    thermistor_text[(i,'a')].config(text="")
+                    thermistor_text[(i,'tec_a')].config(text="")
                 else:
+                    thermistor_text[(i,'b')].config(text="")
+                    thermistor_text[(i,'tec_b')].config(text="")
+            continue
+
+        # Loop over left and right sides
+        for k in range(2):
+            # Diagram to help figure out what's going on. It's drawn as if you
+            # are looking top down at the modules plugged in:
+            #
+            #     Bus Thermistor Module Bus Thermistor
+            #     --- ---------- ------ --- ----------
+            #      2      2         5    3      2
+            #      2      1         4    3      1
+            #      2      0         3    3      0
+            #
+            #      0      2         2    1      2
+            #      0      1         1    1      1
+            #      0      0         0    1      0
+            bus = i//2 + k
+            thermistor = i % 3
+
+            try:
+                thermistor_value = query(client, "thermistor_read %i %i" % (bus, thermistor))
+                if DEBUG:
                     thermistor_value = random.uniform(20,30)
-                    tec_value = random.uniform(20,30)
+            except Exception as e:
+                print_warning(str(e))
+                return
 
-                n = (bus//2)*3 + k
-                if bus % 2 == 0:
-                    thermistor_text[(n,'a')].config(text="%.2f" % thermistor_value)
-                    thermistor_text[(n,'tec_a')].config(text="%.2f" % tec_value)
-                else:
-                    thermistor_text[(n,'b')].config(text="%.2f" % thermistor_value)
-                    thermistor_text[(n,'tec_b')].config(text="%.2f" % tec_value)
+            try:
+                tec_value = query(client, "tec_check %i %i" % (bus, thermistor))
+                if DEBUG:
+                    tec_value = random.uniform(7,10)
+            except Exception as e:
+                print_warning(str(e))
+                return
+
+            if k % 2 == 0:
+                thermistor_text[(i,'a')].config(text="%.2f" % thermistor_value)
+                thermistor_text[(i,'tec_a')].config(text="%.2f" % tec_value)
+            else:
+                thermistor_text[(i,'b')].config(text="%.2f" % thermistor_value)
+                thermistor_text[(i,'tec_b')].config(text="%.2f" % tec_value)
 
 def step_home():
+    # Clear error messages
+    entry.delete(1.0,tk.END)
+
     client = Client()
     try:
-        client.query("step_home")
+        query(client, "step_home")
     except Exception as e:
-        entry.delete(0,tk.END)
-        entry.insert(0,str(e))
+        print_warning(str(e))
         return
-
-window = tk.Tk()
-
-frame_main = tk.Frame(window)
-frame_config = tk.Frame(window)
-frame_main.pack(side=tk.LEFT)
-frame_config.pack(side=tk.RIGHT)
-
-tab = ttk.Notebook(frame_main)
-tab1 = ttk.Frame(tab)
-tab2 = ttk.Frame(tab)
-tab.add(tab1,text="Normal")
-tab.add(tab2,text="Advanced")
-tab.pack(expand=1,fill='both')
-
-frame_menu = tk.Frame(tab1)
-frame_settings = tk.Frame(tab1)
-frame_log = tk.Frame(frame_config)
-frame_buttons = tk.Frame(tab1)
-frame_barcodes = tk.Frame(frame_config)
-frame_thermistor = tk.Frame(tab2)
-frame_adv_buttons = tk.Frame(tab2)
-
-tk.Label(frame_thermistor,text="Thermistor A (C)").grid(row=0,column=1)
-tk.Label(frame_thermistor,text="Thermistor B (C)").grid(row=0,column=2)
-tk.Label(frame_thermistor,text="TEC A (Ohms)").grid(row=0,column=3)
-tk.Label(frame_thermistor,text="TEC B (Ohms)").grid(row=0,column=4)
-thermistor_labels = {}
-thermistor_text = {}
-for i in range(12):
-    thermistor_labels[i] = tk.Label(frame_thermistor,text="Barcode %i: " % i)
-    thermistor_labels[i].grid(row=i+1,column=0)
-    thermistor_text[(i,'a')] = tk.Label(frame_thermistor,text="")
-    thermistor_text[(i,'a')].grid(row=i+1,column=1)
-    thermistor_text[(i,'b')] = tk.Label(frame_thermistor,text="")
-    thermistor_text[(i,'b')].grid(row=i+1,column=2)
-    thermistor_text[(i,'tec_a')] = tk.Label(frame_thermistor,text="")
-    thermistor_text[(i,'tec_a')].grid(row=i+1,column=3)
-    thermistor_text[(i,'tec_b')] = tk.Label(frame_thermistor,text="")
-    thermistor_text[(i,'tec_b')].grid(row=i+1,column=4)
-
-button_poll = tk.Button(master=frame_adv_buttons,text="Poll", width=25, height=5, command=poll)
-button_poll.pack()
-
-entry = tk.Entry(master=frame_log,width=50)
-entry.pack()
-
-button_home = tk.Button(master=frame_buttons,text="Stepper Home", width=25, height=5, command=step_home)
-button_home.pack()
-
-button = tk.Button(master=frame_buttons,text="Take Data", width=25, height=5, command=take_data)
-button.pack()
-
-assembly_center = tk.StringVar(frame_menu)
-assembly_center.set(ASSEMBLY_CENTERS[0])
-
-barcode_labels = []
-barcodes = []
-barcode_entries = []
-module_available = []
-module_checkbox = []
-for i in range(12):
-    barcode_labels.append(tk.Label(frame_barcodes,text="Barcode %i: " % i))
-    barcode_labels[-1].grid(row=i,column=0)
-    barcodes.append(tk.StringVar(frame_menu))
-    barcode_entries.append(tk.Entry(frame_barcodes,textvariable=barcodes[-1]))
-    barcode_entries[-1].grid(row=i,column=1)
-    module_available.append(tk.IntVar(frame_barcodes, value=1))
-    checkbox = tk.Checkbutton(frame_barcodes, text='Present', variable=module_available[-1], onvalue=1, offvalue=0)
-    module_checkbox.append(checkbox)
-    checkbox.grid(row=i,column=2)
-
-for i in range(11):
-    barcode_entries[i].bind('<Return>', lambda x, i=i: barcode_entries[i+1].focus())
-
-assembly_center_label = tk.Label(frame_menu,text="Assembly Center: ")
-assembly_center_label.grid(row=0,column=0)
-
-assembly_center_menu = tk.OptionMenu(frame_menu, assembly_center, *ASSEMBLY_CENTERS)
-assembly_center_menu.grid(row=0,column=1)
-
-n_boards_label = tk.Label(frame_menu,text="Number of Boards: ")
-n_boards_label.grid(row=2,column=0)
-
-n_boards_var = tk.StringVar(frame_menu)
-n_boards_var.set(NUMBER_OF_BOARDS[3])
 
 def n_boards_changed(*args):
     for i in range(4):
@@ -253,26 +332,150 @@ def n_boards_changed(*args):
             module_available[i*3+1].set(0)
             module_available[i*3+2].set(0)
 
-n_boards_menu = tk.OptionMenu(frame_menu, n_boards_var, *NUMBER_OF_BOARDS, command=n_boards_changed)
-n_boards_menu.grid(row=2,column=1)
+if __name__ == '__main__':
+    # Create the root window
+    root = tk.Tk()
 
-n_boards_changed()
+    # Make sure to save before quitting
+    root.protocol("WM_DELETE_WINDOW", on_closing)
 
-hv_menu_label = tk.Label(frame_menu, text="HV (V): ")
-hv_menu_label.grid(row=3,column=0)
-hv_menu_entry = tk.Entry(frame_menu)
-hv_menu_entry.grid(row=3,column=1)
+    # Right now there are three main frames in the window: the main frame with
+    # buttons for taking data and showing results, a second frame for settings
+    # like which modules are present, and a third frame for error messages.
+    frame_top = tk.Frame(root)
+    frame_bottom = tk.Frame(root)
 
-stepper_enable = tk.IntVar(frame_settings, value=1)
-stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
-stepper_enable_checkbox.pack()
+    frame_main = tk.LabelFrame(frame_top,text="Main")
+    frame_config = tk.LabelFrame(frame_top,text="Settings")
+    frame_log = tk.LabelFrame(frame_bottom,text="Messages")
 
-frame_menu.grid(row=0,column=0)
-frame_settings.grid(row=0,column=1)
-frame_log.pack()
-frame_buttons.grid(row=1,column=1)
-frame_barcodes.pack()
-frame_thermistor.grid(row=0,column=0)
-frame_adv_buttons.grid(row=1,column=0)
+    frame_top.pack(expand=1,fill='both',side=tk.TOP)
+    frame_bottom.pack(expand=1,fill='both',side=tk.BOTTOM)
 
-window.mainloop()
+    frame_main.pack(expand=1,fill='both',side=tk.LEFT)
+    frame_config.pack(expand=1,fill='both',side=tk.RIGHT)
+    frame_log.pack(expand=1,fill='both')
+
+    # The main frame has tabs for switching between taking data and polling
+    # thermistor temperatures and TEC resistances.
+    tab = ttk.Notebook(frame_main)
+    tab1 = ttk.Frame(tab)
+    tab2 = ttk.Frame(tab)
+    tab.add(tab1,text="Data")
+    tab.add(tab2,text="Polling")
+    tab.pack(expand=1,fill='both')
+
+    # The following are frames in the config frame
+    frame_menu = tk.Frame(frame_config)
+    frame_barcodes = tk.Frame(frame_config)
+
+    # The following are frames in the main frame
+    frame_settings = tk.Frame(tab1)
+    frame_buttons = tk.Frame(tab1)
+    frame_thermistor = tk.Frame(tab2)
+    frame_adv_buttons = tk.Frame(tab2)
+
+    # Settings Frame
+    assembly_center = tk.StringVar(frame_menu)
+    assembly_center.set(ASSEMBLY_CENTERS[0])
+
+    barcode_labels = []
+    barcodes = []
+    barcode_entries = []
+    module_available = []
+    module_checkbox = []
+    for i in range(12):
+        barcode_labels.append(tk.Label(frame_barcodes,text="Barcode %i: " % i))
+        barcode_labels[-1].grid(row=i,column=0)
+        barcodes.append(tk.StringVar(frame_menu))
+        barcode_entries.append(tk.Entry(frame_barcodes,textvariable=barcodes[-1]))
+        barcode_entries[-1].grid(row=i,column=1)
+        module_available.append(tk.IntVar(frame_barcodes, value=1))
+        checkbox = tk.Checkbutton(frame_barcodes, text='Present', variable=module_available[-1], onvalue=1, offvalue=0)
+        module_checkbox.append(checkbox)
+        checkbox.grid(row=i,column=2)
+
+    for i in range(11):
+        barcode_entries[i].bind('<Return>', lambda x, i=i: barcode_entries[i+1].focus())
+
+    assembly_center_label = tk.Label(frame_menu,text="Assembly Center: ")
+    assembly_center_label.grid(row=0,column=0)
+
+    assembly_center_menu = tk.OptionMenu(frame_menu, assembly_center, *ASSEMBLY_CENTERS)
+    assembly_center_menu.grid(row=0,column=1)
+
+    n_boards_label = tk.Label(frame_menu,text="Number of Boards: ")
+    n_boards_label.grid(row=2,column=0)
+
+    n_boards_var = tk.StringVar(frame_menu)
+    n_boards_var.set(NUMBER_OF_BOARDS[3])
+
+    n_boards_menu = tk.OptionMenu(frame_menu, n_boards_var, *NUMBER_OF_BOARDS, command=n_boards_changed)
+    n_boards_menu.grid(row=2,column=1)
+
+    n_boards_changed()
+
+    hv_menu_label = tk.Label(frame_menu, text="HV (V): ")
+    hv_menu_label.grid(row=3,column=0)
+    hv = tk.StringVar(frame_menu)
+    hv_menu_entry = tk.Entry(frame_menu, textvariable=hv)
+    hv_menu_entry.grid(row=3,column=1)
+
+    ip_address_menu_label = tk.Label(frame_menu, text="IP Address: ")
+    ip_address_menu_label.grid(row=4,column=0)
+    ip_address = tk.StringVar(frame_menu)
+    ip_address.set('192.168.1.177')
+    ip_address_menu_entry = tk.Entry(frame_menu, textvariable=ip_address)
+    ip_address_menu_entry.grid(row=4,column=1)
+
+    frame_menu.pack()
+    frame_barcodes.pack()
+
+    # Main Frame - Polling
+    tk.Label(frame_thermistor,text="Thermistor A (C)").grid(row=0,column=1)
+    tk.Label(frame_thermistor,text="Thermistor B (C)").grid(row=0,column=2)
+    tk.Label(frame_thermistor,text="TEC A (Ohms)").grid(row=0,column=3)
+    tk.Label(frame_thermistor,text="TEC B (Ohms)").grid(row=0,column=4)
+    thermistor_labels = {}
+    thermistor_text = {}
+    for i in range(12):
+        thermistor_labels[i] = tk.Label(frame_thermistor,text="Barcode %i: " % i)
+        thermistor_labels[i].grid(row=i+1,column=0)
+        thermistor_text[(i,'a')] = tk.Label(frame_thermistor,text="")
+        thermistor_text[(i,'a')].grid(row=i+1,column=1)
+        thermistor_text[(i,'b')] = tk.Label(frame_thermistor,text="")
+        thermistor_text[(i,'b')].grid(row=i+1,column=2)
+        thermistor_text[(i,'tec_a')] = tk.Label(frame_thermistor,text="")
+        thermistor_text[(i,'tec_a')].grid(row=i+1,column=3)
+        thermistor_text[(i,'tec_b')] = tk.Label(frame_thermistor,text="")
+        thermistor_text[(i,'tec_b')].grid(row=i+1,column=4)
+
+    button_poll = tk.Button(master=frame_adv_buttons,text="Poll", width=25, height=5, command=poll)
+    button_poll.pack()
+
+    frame_thermistor.grid(row=0,column=0)
+    frame_adv_buttons.grid(row=1,column=0)
+
+    # Main Frame - Take Data
+    entry = tk.Text(master=frame_log)
+    entry.pack(expand=1,fill='both')
+
+    entry.tag_config("error",foreground='red')
+
+    button_home = tk.Button(master=frame_buttons,text="Stepper Home", width=25, height=5, command=step_home)
+    button_home.pack()
+
+    button = tk.Button(master=frame_buttons,text="Take Data", width=25, height=5, command=take_data)
+    button.pack()
+
+    stepper_enable = tk.IntVar(frame_settings, value=1)
+    stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
+    stepper_enable_checkbox.pack()
+
+    frame_settings.grid(row=0,column=1)
+    frame_buttons.grid(row=1,column=1)
+
+    # Load saved GUI state
+    load()
+
+    root.mainloop()

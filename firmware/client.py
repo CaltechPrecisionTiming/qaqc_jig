@@ -1,3 +1,9 @@
+"""
+Client for talking to the Teensy on the Caltech BTL QA/QC jig.
+
+Author: Anthony LaTorre
+Last Updated: Jan 24, 2023
+"""
 import socket
 
 DEFAULT_IP = '192.168.1.177'

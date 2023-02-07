@@ -704,7 +704,7 @@ int do_command(char *cmd, float *value)
         gpio_read(bus_index,thermistors[address],value);
         return 2;
     } else if (!strcmp(tokens[0], "tec_check")) {
-        if (ntok != 2) {
+        if (ntok != 3) {
             sprintf(err, "tec_check command expects 2 argument: tec_check [bus] [address]");
             return -1;
         }

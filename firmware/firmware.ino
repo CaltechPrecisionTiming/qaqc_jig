@@ -319,6 +319,7 @@ void setup()
     Serial.begin(9600);
     Wire.begin();
 
+#ifdef ETHERNET
     // start the Ethernet
     Ethernet.begin(mac, ip);
 
@@ -336,6 +337,7 @@ void setup()
 
     // start UDP
     Udp.begin(localPort);
+#endif
 
     /* Pins to set the step and microstep size. */
     pinMode(PIN_STP_M0,OUTPUT);
@@ -941,6 +943,7 @@ void loop()
         }
     }
 
+#ifdef ETHERNET
     // if there's data available, read a packet
     int packetSize = Udp.parsePacket();
     if (packetSize) {
@@ -975,6 +978,7 @@ void loop()
         Udp.write(msg);
         Udp.endPacket();
     }
+#endif
 
     for (i = 0; i < LEN(bus); i++) {
         if (active[i] && poll[i]) {

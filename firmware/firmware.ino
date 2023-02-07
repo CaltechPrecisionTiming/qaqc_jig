@@ -635,13 +635,13 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index > LEN(bus)) {
+        if (bus_index < 0 || bus_index >= LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
             sprintf(err, "bus index %i is not active", bus_index);
             return -1;
-        } else if (address < 0 || address > LEN(tec_relays)) {
+        } else if (address < 0 || address >= LEN(tec_relays)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
         }
@@ -663,13 +663,13 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index > LEN(bus)) {
+        if (bus_index < 0 || bus_index >= LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
             sprintf(err, "bus index %i is not active", bus_index);
             return -1;
-        } else if (address < 0 || address > LEN(hv_relays)) {
+        } else if (address < 0 || address >= LEN(hv_relays)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
         }
@@ -688,13 +688,13 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index > LEN(bus)) {
+        if (bus_index < 0 || bus_index >= LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
             sprintf(err, "bus index %i is not active", bus_index);
             return -1;
-        } else if (address < 0 || address > LEN(thermistors)) {
+        } else if (address < 0 || address >= LEN(thermistors)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
         } else if (value == NULL) {
@@ -717,13 +717,13 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index > LEN(bus)) {
+        if (bus_index < 0 || bus_index >= LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
             sprintf(err, "bus index %i is not active", bus_index);
             return -1;
-        } else if (address < 0 || address > LEN(tec_relays)) {
+        } else if (address < 0 || address >= LEN(tec_relays)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
         } else if (value == NULL) {
@@ -743,7 +743,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index > LEN(bus)) {
+        if (bus_index < 0 || bus_index >= LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
@@ -776,7 +776,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index > LEN(bus)) {
+        if (bus_index < 0 || bus_index >= LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {

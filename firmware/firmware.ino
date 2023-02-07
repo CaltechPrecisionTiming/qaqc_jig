@@ -493,7 +493,7 @@ int tec_check(int bus_address, int address, float *value)
     delay(100);
 
     /* Now, we close the relay */
-    gpio_write(bus_address,tec_relays[address],false);
+    gpio_write(bus_address,tec_relays[address],true);
 
     /* Datasheet says it takes about 3 ms to open, but I've tested it and it
      * seems even without a delay here the relay is already open. We wait 1 ms

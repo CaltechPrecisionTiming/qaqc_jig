@@ -45,15 +45,21 @@ def print_warning(msg):
     stop = entry.index(tk.INSERT)
     entry.tag_add("error",start,stop)
 
-def run_command(cmd):
+def run_command(cmd, progress_bar=None):
     entry.insert(tk.END, " ".join(map(str,cmd)) + '\n')
     if DEBUG:
         return 0
-    p = Popen(cmd)
-    stdout, stderr = p.communicate()
-    entry.insert(tk.END,stdout)
+    p = Popen(['stdbuf','-o0'] + cmd, stdout=PIPE, stderr=PIPE)
+    for line in iter(p.stdout.readline, b''):
+        if progress_bar:
+            try:
+                i, length = map(float,line.split("/"))
+                progress_bars[progress_bar]['value'] = i*100/length
+            except:
+                pass
+        entry.insert(tk.END,line)
     if p.returncode != 0:
-        print_warning(stderr)
+        print_warning(p.stderr.read())
     return p.returncode
 
 def save(filename=None):
@@ -381,6 +387,7 @@ if __name__ == '__main__':
 
     barcode_labels = []
     barcodes = []
+    progress_bars = []
     barcode_entries = []
     module_available = []
     module_checkbox = []
@@ -394,6 +401,9 @@ if __name__ == '__main__':
         checkbox = tk.Checkbutton(frame_barcodes, text='Present', variable=module_available[-1], onvalue=1, offvalue=0)
         module_checkbox.append(checkbox)
         checkbox.grid(row=i,column=2)
+        progress_bar = ttk.Progressbar(frame_barcodes, orient='horizontal', mode='determinate', length=100)
+        progress_bars.append(progress_bar)
+        progress_bar.grid(row=i,column=3)
 
     for i in range(11):
         barcode_entries[i].bind('<Return>', lambda x, i=i: barcode_entries[i+1].focus())

@@ -513,8 +513,10 @@ int tec_check(int bus_address, int address, float *value)
     /* Now, we open the relay */
     gpio_write(bus_address,tec_relays[address],false);
 
-    /* Compute the voltage across the sense resistor by averaging the readings. */
-    float vsense = sum/naverage;
+    /* Compute the voltage across the sense resistor by averaging the readings.
+     * Divide by 20 due to the gain of the INA180 current-sense amplifier (see
+     * https://www.ti.com/lit/ds/symlink/ina180.pdf). */
+    float vsense = (sum/naverage)/20;
     /* Compute the current through the 25 mOhm sense resistor. */
     float isense = vsense/25e-3;
     /* The supply voltage we are sending across the TECs.

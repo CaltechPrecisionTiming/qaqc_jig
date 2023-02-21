@@ -484,7 +484,7 @@ int tec_check(int bus_address, int address, float *value)
 {
     int i;
     float sum, sense;
-    int naverage = 10;
+    int naverage = 1;
 
     /* First, make sure all the TEC relays are open. */
     for (i = 0; i < LEN(tec_relays); i++)
@@ -519,9 +519,9 @@ int tec_check(int bus_address, int address, float *value)
     float isense = vsense/25e-3;
     /* The supply voltage we are sending across the TECs.
      *
-     * Note: This isn't guaranteed to be 3.3 V by the board design. It requires
-     * that the user hooks up the 3.3 V rail to the TEC voltage. */
-    float supply_voltage = 3.3;
+     * Note: This isn't guaranteed to be 5.0 V by the board design. It requires
+     * that the user hooks up the 5.0 V rail to the TEC voltage. */
+    float supply_voltage = 5.0;
 
     *value = supply_voltage/isense;
     return 0;

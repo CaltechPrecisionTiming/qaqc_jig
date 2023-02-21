@@ -218,7 +218,7 @@ def take_data():
             else:
                 starting_channel = 16
 
-            if run_command(['wavedump','-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--starting-channel',starting_channel,'-n',100000,filename]):
+            if run_command(['wavedump','-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--starting-channel',starting_channel,'-n',100000,'-o',filename]):
                  return
 
             # Turn the attenuation on to take sodium data
@@ -228,7 +228,7 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            if run_command(['wavedump','-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--starting-channel',starting_channel,'-n',100000,filename]):
+            if run_command(['wavedump','-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--starting-channel',starting_channel,'-n',100000,'-o',filename]):
                 return
 
             # Loop over left and right sides

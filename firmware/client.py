@@ -27,7 +27,7 @@ class Client(object):
         self.sock.sendto(msg,(self.ip,self.port))
 
     def recv(self):
-        reply = self.sock.recvfrom(1024)
+        reply = self.sock.recvfrom(1024)[0].decode()
         if reply[0] == ':':
             return int(reply[1:])
         elif reply[0] == ',':
@@ -36,6 +36,8 @@ class Client(object):
             return reply[1:]
         elif reply[0] == '-':
             raise Exception(reply[1:])
+        else:
+            raise Exception("got unknown response: %s" % str(reply))
 
 if __name__ == '__main__':
     import argparse
@@ -47,5 +49,5 @@ if __name__ == '__main__':
 
     client = Client(args.ip_address, args.port)
     while True:
-        msg = raw_input(">>> ")
+        msg = input(">>> ")
         print(client.query(msg))

@@ -854,7 +854,7 @@ int do_command(char *cmd, float *value)
                     "hv_write [card] [relay] [on/off]\n"
                     "thermistor_read [bus] [address]\n"
                     "tec_sense_read [bus]\n"
-                    "tec_check [bus]\n"
+                    "tec_check [bus] [address]\n"
                     "reset\n"
                     "poll [bus] [on/off]\n"
                     "set_active_bitmask [bitmask]\n"

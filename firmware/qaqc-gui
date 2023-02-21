@@ -53,7 +53,7 @@ def run_command(cmd, progress_bar=None):
     entry.insert(tk.END, " ".join(map(str,cmd)) + '\n')
     p = Popen(['stdbuf','-o0'] + list(map(str,cmd)), stdout=PIPE, stderr=PIPE)
     for line in iter(p.stdout.readline, b''):
-        print(line)
+        print(line.decode())
         if progress_bar is not None:
             try:
                 i, length = map(float,line.decode().split("/"))
@@ -80,6 +80,7 @@ def save(filename=None):
     data['module_available'] = [available.get() for available in module_available]
     data['hv'] = hv.get()
     data['ip_address'] = ip_address.get()
+    data['stepper_enable'] = stepper_enable.get()
     print("Saving GUI state from '%s'" % filename)
     with open(filename,'w') as f:
         json.dump(data,f)
@@ -108,6 +109,8 @@ def load(filename=None):
             hv.set(data['hv'])
         if 'ip_address' in data:
             ip_address.set(data['ip_address'])
+        if 'stepper_enable' in data:
+            stepper_enable.set(data['stepper_enable'])
         n_boards_changed()
 
 def on_closing():

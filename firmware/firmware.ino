@@ -474,6 +474,31 @@ int mystrtoi(const char *str, int *value)
     return 0;
 }
 
+/* Returns the temperature in Celsius of the thermistor `address` on card
+ * `bus_address`. */
+int thermistor_read(int bus_address, int address, float *value)
+{
+    /* This is the gain of the op amp. Can be calculated as:
+     *
+     *     G = 2*R2/R1
+     *
+     * See the docs for which resistor is which. */
+    float gain = 40;
+    float iref = 100e-6;
+    float r0 = 1000;
+    float vout;
+    gpio_read(bus_address,thermistors[address],&vout);
+    float r3 = 778.1;
+    float r = vout/(gain*iref) + r3;
+
+    /* Now, we use the simplified Callendar-Van Dusen coefficients from
+     * https://www.ti.com/seclit/eb/slyw038c/slyw038c.pdf. */
+    float A0 = 3.9083e-3;
+
+    *value = (r/r0 - 1)/A0;
+    return 0;
+}
+
 /* Returns the total resistance of the TEC `address` on card `bus_address`.
  * Here, we try to do this very accurately by taking the reading very quick.
  * Arjan mentioned that the resistance of the TEC will change rapidly when you
@@ -711,7 +736,7 @@ int do_command(char *cmd, float *value)
             sprintf(err, "value must not be set to NULL");
             return -1;
         }
-        gpio_read(bus_index,thermistors[address],value);
+        if (thermistor_read(bus_index,thermistors[address],value)) return -1;
         return 2;
     } else if (!strcmp(tokens[0], "tec_check")) {
         if (ntok != 3) {

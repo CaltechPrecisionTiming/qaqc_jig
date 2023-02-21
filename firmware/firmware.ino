@@ -67,8 +67,8 @@ bool debug = false;
 /* Teensy outputs. */
 #define PIN_MR1       (36)
 #define PIN_MR2       (32)
-#define PIN_ATT       (38)
-#define PIN_THRU      (37)
+#define PIN_ATT       (37)
+#define PIN_THRU      (38)
 /* Pins to set the step and microstep size. */
 #define PIN_STP_FAULT (0)
 #define PIN_STP_SLEEP (1)

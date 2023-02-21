@@ -555,6 +555,14 @@ int do_command(char *cmd, float *value)
     int bus_index, address;
     int bitmask;
 
+    if (cmd[strlen(cmd)-1] == '\n')
+        cmd[strlen(cmd)-1] = '\0';
+
+    if (debug) {
+        sprintf(msg, "received command: %s\n", cmd);
+        Serial.print(msg);
+    }
+
     tok = strtok(cmd, " ");
     while (tok != NULL && ntok <= LEN(tokens) - 1) {
         tokens[ntok++] = tok;
@@ -931,9 +939,6 @@ void loop()
         cmd[k++] = Serial.read();
         if (cmd[k-1] == '\n') {
             cmd[k-1] = '\0';
-
-            sprintf(msg, "received command: %s\n", cmd);
-            Serial.print(msg);
 
             temp = 0;
             int rv = do_command(cmd, &temp);

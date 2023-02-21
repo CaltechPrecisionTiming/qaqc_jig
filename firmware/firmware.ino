@@ -178,7 +178,7 @@ int reset()
     set_attenuation(false);
 
     /* Loop over each of the 3 module boards. */
-    for (i = 0; i < LEN(bus); i++) {
+    for (i = 0; i < (int) LEN(bus); i++) {
         if (!active[i]) {
             sprintf(err, "Skipping board %i because it's not active\n", i);
             Serial.print(err);
@@ -186,7 +186,7 @@ int reset()
         }
 
         /* Loop over the six HV relays. */
-        for (j = 0; j < LEN(hv_relays); j++) {
+        for (j = 0; j < (int) LEN(hv_relays); j++) {
             /* Set the pin to be an output.
              *
              * Note: I have the code here set up to be able to detect an error,
@@ -228,7 +228,7 @@ int reset()
     }
 
     /* Loop over each of the 3 module boards. */
-    for (i = 0; i < LEN(bus); i++) {
+    for (i = 0; i < (int) LEN(bus); i++) {
         if (!active[i]) {
             sprintf(err, "Skipping board %i because it's not active\n", i);
             Serial.print(err);
@@ -512,7 +512,7 @@ int tec_check(int bus_address, int address, float *value)
     int naverage = 1;
 
     /* First, make sure all the TEC relays are open. */
-    for (i = 0; i < LEN(tec_relays); i++)
+    for (i = 0; i < (int) LEN(tec_relays); i++)
         gpio_write(bus_address,tec_relays[i],false);
 
     delay(DELAY);
@@ -591,7 +591,7 @@ int do_command(char *cmd, float *value)
     }
 
     tok = strtok(cmd, " ");
-    while (tok != NULL && ntok <= LEN(tokens) - 1) {
+    while (tok != NULL && ntok < (int) LEN(tokens)) {
         tokens[ntok++] = tok;
         tok = strtok(NULL, " ");
     }
@@ -670,13 +670,13 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index >= LEN(bus)) {
+        if (bus_index < 0 || bus_index >= (int) LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
             sprintf(err, "bus index %i is not active", bus_index);
             return -1;
-        } else if (address < 0 || address >= LEN(tec_relays)) {
+        } else if (address < 0 || address >= (int) LEN(tec_relays)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
         }
@@ -698,13 +698,13 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index >= LEN(bus)) {
+        if (bus_index < 0 || bus_index >= (int) LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
             sprintf(err, "bus index %i is not active", bus_index);
             return -1;
-        } else if (address < 0 || address >= LEN(hv_relays)) {
+        } else if (address < 0 || address >= (int) LEN(hv_relays)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
         }
@@ -723,13 +723,13 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index >= LEN(bus)) {
+        if (bus_index < 0 || bus_index >= (int) LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
             sprintf(err, "bus index %i is not active", bus_index);
             return -1;
-        } else if (address < 0 || address >= LEN(thermistors)) {
+        } else if (address < 0 || address >= (int) LEN(thermistors)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
         } else if (value == NULL) {
@@ -752,13 +752,13 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index >= LEN(bus)) {
+        if (bus_index < 0 || bus_index >= (int) LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
             sprintf(err, "bus index %i is not active", bus_index);
             return -1;
-        } else if (address < 0 || address >= LEN(tec_relays)) {
+        } else if (address < 0 || address >= (int) LEN(tec_relays)) {
             sprintf(err, "address %i is not valid", address);
             return -1;
         } else if (value == NULL) {
@@ -778,7 +778,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index >= LEN(bus)) {
+        if (bus_index < 0 || bus_index >= (int) LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
@@ -811,7 +811,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bus_index < 0 || bus_index >= LEN(bus)) {
+        if (bus_index < 0 || bus_index >= (int) LEN(bus)) {
             sprintf(err, "bus index %i is not valid", bus_index);
             return -1;
         } else if (!active[bus_index]) {
@@ -831,7 +831,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        for (i = 0; i < LEN(bus); i++) {
+        for (i = 0; i < (int) LEN(bus); i++) {
             if (bitmask & (1 << i))
                 active[i] = 1;
             else
@@ -959,7 +959,7 @@ void loop()
     float temp = 0;
 
     while (Serial.available() > 0) {
-        if (k >= LEN(cmd) - 1) {
+        if (k >= (int) LEN(cmd) - 1) {
             Serial.print("Error: too many characters in command!\n");
             k = 0;
         }
@@ -1012,7 +1012,7 @@ void loop()
     }
 #endif
 
-    for (i = 0; i < LEN(bus); i++) {
+    for (i = 0; i < (int) LEN(bus); i++) {
         if (active[i] && poll[i]) {
             gpio_read(i, THERMISTOR1, &temp);
             sprintf(msg, "%i Thermistor 1: %.2f\n", i, temp);

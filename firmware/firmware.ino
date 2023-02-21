@@ -37,7 +37,7 @@ char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
 EthernetUDP Udp;
 
 /* Generic delay after setting pins high/low. */
-#define DELAY 100
+#define DELAY 10
 
 char cmd[MAX_MSG_LENGTH];
 char err[MAX_MSG_LENGTH];
@@ -289,7 +289,7 @@ int set_attenuation(bool ison)
     digitalWrite(PIN_MR1,HIGH);
     digitalWrite(PIN_MR2,HIGH);
 
-    delay(100);
+    delay(DELAY);
 
     /* Bring the master reset low to enable us to clock in the coils. */
     digitalWrite(PIN_MR1,LOW);
@@ -297,14 +297,14 @@ int set_attenuation(bool ison)
 
     digitalWrite(ison ? PIN_ATT : PIN_THRU,LOW);
 
-    delay(100);
+    delay(DELAY);
 
     for (i = 0; i < 100; i++) {
         /* Clock in either the attenuated or unattenuated relays. */
         digitalWrite(ison ? PIN_ATT : PIN_THRU,HIGH);
-        delay(100);
+        delay(DELAY);
         digitalWrite(ison ? PIN_ATT : PIN_THRU,LOW);
-        delay(100);
+        delay(DELAY);
     }
 
     /* Bring the master reset high to zero all the outputs. */
@@ -490,7 +490,7 @@ int tec_check(int bus_address, int address, float *value)
     for (i = 0; i < LEN(tec_relays); i++)
         gpio_write(bus_address,tec_relays[i],false);
 
-    delay(100);
+    delay(DELAY);
 
     /* Now, we close the relay */
     gpio_write(bus_address,tec_relays[address],true);
@@ -862,9 +862,9 @@ int step(int steps)
             return -1;
         }
         digitalWrite(PIN_STP_STEP,true);
-        delay(100);
+        delay(DELAY);
         digitalWrite(PIN_STP_STEP,false);
-        delay(100);
+        delay(DELAY);
     }
 
     /* Put the stepper back in sleep mode. */
@@ -892,9 +892,9 @@ int step_home(void)
             return -1;
         }
         digitalWrite(PIN_STP_STEP,true);
-        delay(100);
+        delay(DELAY);
         digitalWrite(PIN_STP_STEP,false);
-        delay(100);
+        delay(DELAY);
     }
 
     /* Put the stepper back in sleep mode. */

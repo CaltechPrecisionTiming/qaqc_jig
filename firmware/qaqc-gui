@@ -11,6 +11,10 @@ from tkinter import ttk
 import random
 from os.path import join, expanduser, exists, splitext
 import json
+from subprocess import Popen, PIPE
+
+WAVEDUMP_PROGRAM = 'wavedump'
+ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
 
 # Debug mode. Right now this just controls whether we draw random numbers for
 # polling.
@@ -47,19 +51,20 @@ def print_warning(msg):
 
 def run_command(cmd, progress_bar=None):
     entry.insert(tk.END, " ".join(map(str,cmd)) + '\n')
-    if DEBUG:
-        return 0
-    p = Popen(['stdbuf','-o0'] + cmd, stdout=PIPE, stderr=PIPE)
+    p = Popen(['stdbuf','-o0'] + list(map(str,cmd)), stdout=PIPE, stderr=PIPE)
     for line in iter(p.stdout.readline, b''):
-        if progress_bar:
+        print(line)
+        if progress_bar is not None:
             try:
-                i, length = map(float,line.split("/"))
+                i, length = map(float,line.decode().split("/"))
                 progress_bars[progress_bar]['value'] = i*100/length
-            except:
+            except Exception as e:
                 pass
         entry.insert(tk.END,line)
+        root.update()
+    p.wait()
     if p.returncode != 0:
-        print_warning(p.stderr.read())
+        print_warning(p.stderr.read().decode())
     return p.returncode
 
 def save(filename=None):
@@ -218,7 +223,7 @@ def take_data():
             else:
                 starting_channel = 16
 
-            if run_command(['wavedump','-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--starting-channel',starting_channel,'-n',100000,'-o',filename]):
+            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--starting-channel',starting_channel,'-n',100000,'-o',filename], progress_bar=i):
                  return
 
             # Turn the attenuation on to take sodium data
@@ -228,7 +233,7 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            if run_command(['wavedump','-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--starting-channel',starting_channel,'-n',100000,'-o',filename]):
+            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--starting-channel',starting_channel,'-n',100000,'-o',filename], progress_bar=i):
                 return
 
             # Loop over left and right sides
@@ -339,6 +344,17 @@ def n_boards_changed(*args):
             module_available[i*3+2].set(0)
 
 if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser("BTL QA/QC GUI")
+    parser.add_argument("--debug", action='store_true', help='debug')
+    args = parser.parse_args()
+
+    if args.debug:
+        DEBUG = True
+        WAVEDUMP_PROGRAM = './wavedump-test'
+        ANALYZE_WAVEFORMS_PROGRAM = './wavedump-test'
+
     # Create the root window
     root = tk.Tk()
 

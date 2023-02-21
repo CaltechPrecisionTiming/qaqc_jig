@@ -185,7 +185,7 @@ def take_data():
 
             # Loop over left and right sides
             for k in range(2):
-                bus = i//2 + k
+                bus = (i//3)*2 + k
                 relay = (i % 3)*2 + j
 
                 try:
@@ -227,7 +227,7 @@ def take_data():
 
             # Loop over left and right sides
             for k in range(2):
-                bus = i//2 + k
+                bus = (i//3)*2 + k
                 relay = (i % 3)*2 + j
 
                 try:
@@ -257,7 +257,7 @@ def poll():
         if not module_available[i].get():
             print("Skipping module %i" % i)
             for k in range(2):
-                bus = i//2 + k
+                bus = (i//3)*2 + k
                 thermistor = i % 3
                 if k % 2 == 0:
                     thermistor_text[(i,'a')].config(text="")
@@ -281,7 +281,7 @@ def poll():
             #      0      2         2    1      2
             #      0      1         1    1      1
             #      0      0         0    1      0
-            bus = i//2 + k
+            bus = (i//3)*2 + k
             thermistor = i % 3
 
             try:

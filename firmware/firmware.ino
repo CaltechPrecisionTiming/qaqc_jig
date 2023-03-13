@@ -85,8 +85,9 @@ bool debug = false;
 #define PIN_MOSI      (11)
 /* Analog pins. */
 /* HV voltage and current. */
-#define PIN_BIAS_IREAD PIN_A0
-#define PIN_BIAS_VREAD PIN_A1
+#define PIN_BIAS_IREAD (14)
+#define PIN_BIAS_VREAD (15)
+#define PIN_EXTMON_UC (24)
 #define PIN_STP_HOME   (17)
 /* Stepper enable. Goes through two limit switches first. */
 #define PIN_STP_EN_UC  (23)
@@ -328,6 +329,38 @@ uint16_t DAC_POWER_DOWN_GND_100K = 0x800;
 uint16_t DAC_POWER_DOWN_GND_1K = 0xc00;
 float DAC_VREF = 2.048;
 
+/* FIXME: What are these values? */
+double HV_R1 = 100;
+double HV_R2 = 100;
+
+/* Set the DC DC boost converter output voltage to a given value.
+ * Returns 0 on success, -1 on error. */
+int set_hv(float value)
+{
+    /* According to the docs here: https://www.analog.com/media/en/technical-documentation/data-sheets/3482fa.pdf, we should set the control voltage according to:
+     *
+     * R1 = R2(Vout2/Vref - 1)
+     * R1/R2 = Vout2/Vref - 1
+     * R1/R2 + 1 = Vout2/Vref
+     * Vref = Vout2/(R1/R2 + 1) */
+    float vref = value/(R1/R2 + 1);
+    return set_dac(value)
+}
+
+/* Set the DC DC boost converter output voltage to a given value.
+ * Returns 0 on success, -1 on error. */
+int disable_hv(float value)
+{
+    uint16_t code = DAC_POWER_DOWN | DAC_POWER_DOWN_GND_100K;
+    /* Set the HV dac pin select on (low). */
+    digitalWrite(PIN_CS,LOW)
+    SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE1));
+    SPI.transfer16(DAC_WRITE_THROUGH | code);
+    delay(DELAY);
+    SPI.endTransaction();
+    digitalWrite(PIN_CS,HIGH)
+}
+
 /* Set the DAC for the HV bias control to a given voltage `value`. This output
  * voltage controls the HV bias level by setting the voltage at the DC DC boost
  * converter.
@@ -398,6 +431,7 @@ void setup()
     pinMode(PIN_STP_EN_UC,OUTPUT);
     pinMode(PIN_BIAS_IREAD,INPUT);
     pinMode(PIN_BIAS_VREAD,INPUT);
+    pinMode(PIN_EXTMON_UC,INPUT);
 
     /* Start off with the stepper in sleep mode. */
     digitalWrite(PIN_STP_SLEEP,false);
@@ -411,18 +445,6 @@ void setup()
     digitalWrite(PIN_STP_EN_UC,false);
 
     reset();
-}
-
-int bias_iread(int *value)
-{
-    *value = analogRead(PIN_BIAS_IREAD);
-    return 0;
-}
-
-int bias_vread(int *value)
-{
-    *value = analogRead(PIN_BIAS_VREAD);
-    return 0;
 }
 
 /* Read an ADC value on the AD5593R.
@@ -609,6 +631,33 @@ double mystrtod(const char *nptr, double *value)
     return 0;
 }
 
+/* FIXME: What is this? */
+double BIAS_RESISTOR 100e3;
+
+/* Returns the current provided by the DC DC boost converter. From the manual,
+ * it says:
+ *
+ * > Current Monitor Output Pin. It sources a
+ * > current equal to 20% of the APD current and converts to
+ * > a reference voltage through an external resistor. */
+int get_bias_iread(double *value)
+{
+    *value = 5*analogRead(PIN_BIAS_IREAD)/BIAS_RESISTOR;
+    return 0;
+}
+
+int get_bias_vread(double *value)
+{
+    *value = analogRead(PIN_BIAS_VREAD);
+    return 0;
+}
+
+int get_extmon_vread(double *value)
+{
+    *value = analogRead(PIN_EXTMON_UC);
+    return 0;
+}
+
 /* Performs a user command based on a string. Examples of commands:
  *
  * "tec_write 1 0 on" - turn TEC 0 on on board 1
@@ -658,22 +707,28 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bias_vread(&bus_index)) return -1;
+        if (get_bias_vread(&temp)) {
+            sprintf(err, "error reading the bias voltage");
+            return -1;
+        }
 
-        *value = bus_index;
+        *value = temp;
 
-        return 0;
+        return 2;
     } else if (!strcmp(tokens[0], "bias_iread")) {
         if (ntok != 1) {
             sprintf(err, "bias_iread command expects 0 arguments");
             return -1;
         }
 
-        if (bias_iread(&bus_index)) return -1;
+        if (get_bias_iread(&temp)) {
+            sprintf(err, "error reading the bias current");
+            return -1;
+        }
 
-        *value = bus_index;
+        *value = temp;
 
-        return 1;
+        return 2;
     } else if (!strcmp(tokens[0], "step")) {
         if (ntok != 2) {
             sprintf(err, "step command expects 1 argument: step [steps]");
@@ -915,6 +970,42 @@ int do_command(char *cmd, float *value)
             return -1;
 
         set_dac(temp);
+    } else if (!strcmp(tokens[0], "get_extmon_uc")) {
+        if (ntok != 1) {
+            sprintf(err, "get_extmon_uc command expects no arguments");
+            return -1;
+        }
+
+        if (get_extmon_uc(&temp)) {
+            sprintf(err, "error reading the bias voltage");
+            return -1;
+        }
+
+        *value = (float) temp;
+        return 2;
+    } else if (!strcmp(tokens[0], "set_hv")) {
+        if (ntok != 2) {
+            sprintf(err, "set_hv command expects 1 argument: set_hv [voltage]");
+            return -1;
+        }
+
+        if (mystrtod(tokens[1], &temp))
+            return -1;
+
+        if (set_hv(temp)) {
+            sprintf(err, "error setting the high voltage");
+            return -1;
+        }
+    } else if (!strcmp(tokens[0], "disable_hv")) {
+        if (ntok != 1) {
+            sprintf(err, "disable_hv command expects no arguments");
+            return -1;
+        }
+
+        if (disable_hv()) {
+            sprintf(err, "error setting the high voltage");
+            return -1;
+        }
     } else if (!strcmp(tokens[0], "help")) {
         sprintf(err,"tec_write [card] [tec] [on/off]\n"
                     "hv_write [card] [relay] [on/off]\n"
@@ -929,7 +1020,10 @@ int do_command(char *cmd, float *value)
                     "step_home\n"
                     "step [steps]\n"
                     "bias_iread\n"
-                    "bias_vread\n");
+                    "bias_vread\n"
+                    "get_extmon_uc\n"
+                    "set_hv\n"
+                    "disable_hv");
         return -1;
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);

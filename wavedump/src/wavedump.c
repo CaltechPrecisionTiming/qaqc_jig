@@ -1310,11 +1310,11 @@ int write_data_to_output_file(hid_t group_id, int channel, float data[WF_SIZE][3
  * can be re-enabled. */
 int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, unsigned long chmask, int nsamples, WaveDumpConfig_t *WDcfg, int gzip_compression_level, int channel_map)
 {
-    hid_t file, space, dset, dcpl, mem_space, file_space, group_id, baseline_group_id;
+    hid_t file, space, dset, mem_space, file_space, group_id, baseline_group_id;
     herr_t status;
     htri_t avail;
     int ndims;
-    hsize_t dims[2], chunk[2], extdims[2], maxdims[2];
+    hsize_t dims[2], extdims[2], maxdims[2];
     char dset_name[256];
     hsize_t start[2], count[2];
     int i, j, k;
@@ -1322,8 +1322,6 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
     hid_t aid, atype, attr;
     char baseline_group_name[256];
 
-    chunk[0] = 1024;
-    chunk[1] = 1024;
     /* Check if file exists. */
     if (access(filename, F_OK) != 0) {
         /* File doesn't exist. Create it. */

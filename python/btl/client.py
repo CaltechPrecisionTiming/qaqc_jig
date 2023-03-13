@@ -10,11 +10,11 @@ DEFAULT_IP = '192.168.1.177'
 DEFAULT_PORT = 8888
 
 class Client(object):
-    def __init__(self, ip=DEFAULT_IP, port=DEFAULT_PORT):
+    def __init__(self, ip=DEFAULT_IP, port=DEFAULT_PORT, timeout=10):
         self.sock = socket.socket(family=socket.AF_INET,type=socket.SOCK_DGRAM)
         self.ip = ip
         self.port = port
-        self.sock.settimeout(2)
+        self.sock.settimeout(timeout)
 
     def query(self, msg):
         self.send(msg)

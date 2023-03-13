@@ -335,6 +335,7 @@ if __name__ == '__main__':
     parser.add_argument('-u','--upload', default=False, action='store_true', help='upload results to the database')
     parser.add_argument('-i','--institution', default=None, type=Institution, choices=list(Institution), help='name of institution')
     parser.add_argument('--lyso', action='store_true', help='fit LYSO spectrum')
+    parser.add_argument('--channel-mask', type=lambda x: int(x,0), default=0xffffffff, help='channel mask')
     args = parser.parse_args()
 
     if not args.plot:
@@ -402,6 +403,11 @@ if __name__ == '__main__':
                 # All relevant channels from the scope and digitizer should
                 # be in this format: 'ch<channel number>'.
                 if not channel.startswith('ch'):
+                    continue
+
+                ch = int(channel[2:])
+
+                if not args.channel_mask & (1 << ch):
                     continue
                 
                 # Only active channel is analyzed, unless it's `None`, in

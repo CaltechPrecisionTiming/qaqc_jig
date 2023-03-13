@@ -123,5 +123,5 @@ def fit_lyso(h):
     f.SetParameter(3,0)
     f.SetParameter(4,xmax/300)
     f.SetParameter(5,1)
-    h.Fit(f,"S+","",100,500)
+    h.Fit(f,"S+","",100,xmax+50)
     return f.GetParameter(4), f.GetParError(4)

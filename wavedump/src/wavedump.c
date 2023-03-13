@@ -1227,6 +1227,63 @@ void get_baselines(float data[][32][1024], float *baselines, int n, unsigned lon
     }
 }
 
+int write_data_to_output_file(hid_t group_id, int channel, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, unsigned long chmask, int nsamples, int gzip_compression_level, int starting_channel)
+{
+    hid_t space, dset, dcpl;
+    hsize_t dims[2], chunk[2], maxdims[2];
+    herr_t status;
+    char dset_name[256];
+    int j, k;
+
+    chunk[0] = 1024;
+    chunk[1] = 1024;
+
+    maxdims[0] = H5S_UNLIMITED;
+    maxdims[1] = H5S_UNLIMITED;
+    dims[0] = n;
+    dims[1] = nsamples;
+    space = H5Screate_simple(2, dims, maxdims);
+
+    /* Create the dataset creation property list, add the gzip
+     * compression filter and set the chunk size. */
+    dcpl = H5Pcreate(H5P_DATASET_CREATE);
+
+    /* Set gzip level. Right now we set it to 0 (no compression),
+     * since it's *much* faster to write. In the future if we can
+     * make it faster and/or need smaller files you can increase
+     * this to 9. */
+    status = H5Pset_deflate(dcpl, gzip_compression_level);
+    status = H5Pset_chunk(dcpl, 2, chunk);
+
+    sprintf(dset_name, "ch%i", channel);
+
+    float *wdata = malloc(n*nsamples*sizeof(float));
+
+    for (j = 0; j < n; j++)
+        for (k = 0; k < nsamples; k++)
+            wdata[j*nsamples + k] = data[j][channel][k];
+
+    /* Create the compressed unlimited dataset. */
+    dset = H5Dcreate(group_id, dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, dcpl, H5P_DEFAULT);
+
+    /* Write the data to the dataset. */
+    status = H5Dwrite(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, wdata);
+
+    free(wdata);
+
+    /* Close and release resources. */
+    status = H5Pclose(dcpl);
+    status = H5Dclose(dset);
+    status = H5Sclose(space);
+
+    if (status) {
+        fprintf(stderr, "error closing hdf5 resources.\n");
+        return 1;
+    }
+
+    return 0;
+}
+
 /* Write events to an HDF5 output file. If the file doesn't exist, it will
  * be created and attributes such as the record_length, post_trigger,
  * barcode, and voltage will be written.
@@ -1459,49 +1516,8 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
         /* Writing the actual data to the file */
         for (i = 0; i < 32; i++) {
             if (!(chmask & (1 << i))) continue;
-            /* Create dataspace with unlimited dimensions. */
-            maxdims[0] = H5S_UNLIMITED;
-            maxdims[1] = H5S_UNLIMITED;
-            dims[0] = n;
-            dims[1] = nsamples;
-            space = H5Screate_simple(2, dims, maxdims);
-
-            /* Create the dataset creation property list, add the gzip
-             * compression filter and set the chunk size. */
-            dcpl = H5Pcreate(H5P_DATASET_CREATE);
-
-            /* Set gzip level. Right now we set it to 0 (no compression),
-             * since it's *much* faster to write. In the future if we can
-             * make it faster and/or need smaller files you can increase
-             * this to 9. */
-            status = H5Pset_deflate(dcpl, gzip_compression_level);
-            status = H5Pset_chunk(dcpl, 2, chunk);
-
-            sprintf(dset_name, "ch%i", i+starting_channel);
-
-            float *wdata = malloc(n*nsamples*sizeof(float));
-
-            for (j = 0; j < n; j++)
-                for (k = 0; k < nsamples; k++)
-                    wdata[j*nsamples + k] = data[j][i][k];
-
-            /* Create the compressed unlimited dataset. */
-            dset = H5Dcreate(group_id, dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, dcpl, H5P_DEFAULT);
-
-            /* Write the data to the dataset. */
-            status = H5Dwrite(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, wdata);
-
-            free(wdata);
-
-            /* Close and release resources. */
-            status = H5Pclose(dcpl);
-            status = H5Dclose(dset);
-            status = H5Sclose(space);
-
-            if (status) {
-                fprintf(stderr, "error closing hdf5 resources.\n");
+            if (write_data_to_output_file(group_id, i, data, baseline_data, n, chmask, nsamples, gzip_compression_level, starting_channel))
                 return 1;
-            }
         }
         status = H5Gclose(group_id);
         status = H5Fclose(file);
@@ -1525,7 +1541,10 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
 
         sprintf(dset_name, "ch%i", i);
         if ((dset = H5Dopen(group_id, dset_name, H5P_DEFAULT)) < 0) {
-            fprintf(stderr, "couldn't find dataset for %s. skipping...\n", dset_name);
+            /* Dataset doesn't exist, so we create it and write to it. */
+            if (write_data_to_output_file(group_id, i, data, baseline_data, n, chmask, nsamples, gzip_compression_level, starting_channel))
+                return 1;
+            continue;
         }
 
         /* Get dataspace and allocate memory for read buffer. This is a two
@@ -1818,6 +1837,7 @@ int main(int argc, char *argv[])
     int gzip_compression_level = 0;
     int starting_channel = 0;
     unsigned long channel_mask = 0xffff;
+    int channel_map = 0;
 
     FILE *f_ini;
     CAEN_DGTZ_DRS4Correction_t X742Tables[MAX_X742_GROUP_SIZE];
@@ -1854,6 +1874,8 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "unable to convert channel mask '%s' to integer\n", argv[i]);
                 exit(1);
             }
+        } else if (!strcmp(argv[i],"--channel-map")) {
+            channel_map = 1;
         } else {
             config_filename = argv[i];
         }

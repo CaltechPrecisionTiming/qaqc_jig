@@ -329,7 +329,7 @@ uint16_t DAC_POWER_DOWN_GND_100K = 0x800;
 uint16_t DAC_POWER_DOWN_GND_1K = 0xc00;
 float DAC_VREF = 2.048;
 
-double HV_R1 = 100e9;
+double HV_R1 = 1e9;
 double HV_R2 = 14e3;
 
 /* Set the DC DC boost converter output voltage to a given value.
@@ -630,8 +630,17 @@ double mystrtod(const char *nptr, double *value)
     return 0;
 }
 
-/* FIXME: What is this? */
-double BIAS_RESISTOR 100e3;
+/* The current monitor output is sent through a transimpedance amplifier with
+ * gain equal to R4. */
+double HV_R4 = 1e9
+
+/* The voltage monitor is read out from a voltage divider with R5 and R6. I
+ * can't read the notes exactly to see what R6 is, it might be 2.44 MOhms? */
+double HV_R5 = 100e9
+double HV_R6 = 2.94e9
+
+double HV_R7 = 150e3
+double HV_R8 = 10e3
 
 /* Returns the current provided by the DC DC boost converter. From the manual,
  * it says:
@@ -641,19 +650,50 @@ double BIAS_RESISTOR 100e3;
  * > a reference voltage through an external resistor. */
 int get_bias_iread(double *value)
 {
-    *value = 5*analogRead(PIN_BIAS_IREAD)/BIAS_RESISTOR;
+    *value = 5*analogRead(PIN_BIAS_IREAD)/HV_R4;
     return 0;
 }
 
+/* Returns the output voltage from the DC DC boost converter.
+ *
+ * The voltage monitor output is read out from a voltage divider with R5 and
+ * R6. The total current is:
+ * 
+ *     I = V/(R5+R6)
+ *
+ * The voltage across R6 which is what we read is:
+ *
+ *     V6 = I*R6 = V*R6/(R5+R6)
+ *
+ * So we can calculate the output voltage as:
+ *
+ *     V = V6*(R5+R6)/R6
+ */
 int get_bias_vread(double *value)
 {
-    *value = analogRead(PIN_BIAS_VREAD);
+    *value = analogRead(PIN_BIAS_VREAD)*(R5+R6)/R6;
     return 0;
 }
 
+/* Returns the bias voltage independent of whether it's coming from the DC DC
+ * boost converter or an external supply.
+ *
+ * The voltage monitor output is read out from a voltage divider with R7 and
+ * R8. The total current is:
+ * 
+ *     I = V/(R7+R8)
+ *
+ * The voltage across R8 which is what we read is:
+ *
+ *     V6 = I*R8 = V*R8/(R7+R8)
+ *
+ * So we can calculate the output voltage as:
+ *
+ *     V = V6*(R7+R8)/R8
+ */
 int get_extmon_vread(double *value)
 {
-    *value = analogRead(PIN_EXTMON_UC);
+    *value = analogRead(PIN_EXTMON_UC)*(R7+R8)/R8;
     return 0;
 }
 

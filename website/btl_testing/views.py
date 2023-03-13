@@ -13,6 +13,7 @@ import random
 from .moduledb import get_channels, get_channel_info, ModuleUploadForm, upload_new_module, get_modules, get_module_info
 from datetime import datetime
 import pytz
+from btl import fit_lyso_funcs, fit_spe_funcs
 
 @app.template_filter('timefmt')
 def timefmt(timestamp):
@@ -103,7 +104,14 @@ def module_status():
 def channel_status():
     key = request.args.get("key", 0, type=int)
     info = get_channel_info(key=key)
-    info['spe_charge_fit'] = fit_lyso_funcs.get_lyso(info['spe_charge_histogram_x'], info['spe_fit_pars'])
+    if info['lyso_fit_pars'] is not None:
+        info['lyso_charge_fit'] = list(fit_lyso_funcs.get_lyso(info['sodium_charge_histogram_x'], info['lyso_fit_pars']))
+    else:
+        info['lyso_charge_fit'] = list(np.zeros_like(info['sodium_charge_histogram_x']))
+    if info['spe_fit_pars'] is not None:
+        info['spe_charge_fit'] = list(fit_spe_funcs.get_spe(info['spe_charge_histogram_x'], info['spe_fit_pars']))
+    else:
+        info['spe_charge_fit'] = list(np.zeros_like(info['spe_charge_histogram_x']))
     if info is None:
         flash('No channel found in database with that barcode. Did you forget to upload it?','danger')
         return redirect(url_for('channel_database'))

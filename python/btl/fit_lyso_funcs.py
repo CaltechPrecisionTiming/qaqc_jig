@@ -152,7 +152,22 @@ def fit_lyso(h):
     f.SetParLimits(4,0.1,10)
     f.SetParameter(5,1)
     f.SetParLimits(5,0.1,10)
-    fr = h.Fit(f,"S+","",xmax-50,xmax+50)
+
+    # Right now we don't fit for these higher energy components. In the future
+    # if we decrease the negative voltage rail we might be able to see these
+    # without the waveform getting saturated at the negative rail.
+    f.FixParameter(2,0)
+    f.FixParameter(3,0)
+
+    # Run the first fit only floating the normalization constants
+    f.FixParameter(4,xmax/300)
+    f.FixParameter(5,1)
+    fr = h.Fit(f,"S+","",xmax-100,xmax+100)
+
+    # Now we float all the parameters
+    f.ReleaseParameter(4)
+    f.ReleaseParameter(5)
+    fr = h.Fit(f,"S+","",xmax-100,xmax+100)
     if not fr.Get().IsValid():
         return None
     return [f.GetParameter(i) for i in range(6)]

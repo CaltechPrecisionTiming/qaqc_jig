@@ -354,6 +354,10 @@ if __name__ == '__main__':
             print("need to set BTL_DB_PASS environment variable!",file=sys.stderr)
             sys.exit(1)
 
+        if args.institution is None:
+            print("must specify institution with -i argument!",file=sys.stderr)
+            sys.exit(1)
+
         print("Uploading results to the database...")
         conn = psycopg2.connect(dbname='btl_qa',
                                 user='btl',
@@ -496,7 +500,7 @@ if __name__ == '__main__':
                     ch_data[channel]['sodium_fall_time'] = float(np.median(ch_data[channel]['sodium_rise_time']))
                     ch_data[channel]['avg_pulse_x'] = list(map(float,ch_data[channel]['avg_pulse_x']))
                     ch_data[channel]['avg_pulse_y'] = list(map(float,ch_data[channel]['avg_pulse_y']))
-                    bincenters = (bins[:1] + bins[:-1])/2
+                    bincenters = (bins[1:] + bins[:-1])/2
                     if group == 'sodium':
                         ch_data[channel]['sodium_charge_histogram_y'] = list(map(float,np.histogram(charge,bins=bins)[0]))
                         ch_data[channel]['sodium_charge_histogram_x'] = list(map(float,bincenters))
@@ -542,7 +546,7 @@ if __name__ == '__main__':
         elif ch_data[channel]['spe'] is None:
             print(f'Failed to fit {channel} spe histogram!')
         else:
-            print(f'{channel}: {ch_data[channel]["pc_per_kev"][0] / ch_data[channel]["spe"][0] / 0.511}')
+            print(f'{channel}: {ch_data[channel]["pc_per_kev"]*4 / ch_data[channel]["spe"]}')
             
             ##################
             # Uploading Data

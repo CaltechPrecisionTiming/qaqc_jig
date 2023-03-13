@@ -103,10 +103,15 @@
         var sodium_charge_histogram_x = {{ info['sodium_charge_histogram_x'] | tojson }};
         var sodium_charge_histogram_y = {{ info['sodium_charge_histogram_y'] | tojson }};
 
+        var lyso_charge_fit = {{ info['lyso_charge_fit'] | tojson }};
+
         var sodium_charge_histogram_data = new Array();
+        var sodium_charge_histogram_fit = new Array();
         for (var i=0; i < sodium_charge_histogram_x.length; i++) {
-            if (sodium_charge_histogram_y[i] !== null)
+            if (sodium_charge_histogram_y[i] !== null) {
                 sodium_charge_histogram_data.push({'x': sodium_charge_histogram_x[i], 'y': sodium_charge_histogram_y[i]});
+                sodium_charge_histogram_fit.push({'x': sodium_charge_histogram_x[i], 'y': lyso_charge_fit[i]});
+            }
         }
 
         var spe_charge_histogram_x = {{ info['spe_charge_histogram_x'] | tojson }};
@@ -115,22 +120,25 @@
         var spe_charge_fit = {{ info['spe_charge_fit'] | tojson }};
 
         var spe_charge_histogram_data = new Array();
+        var spe_charge_histogram_fit = new Array();
         for (var i=0; i < spe_charge_histogram_x.length; i++) {
-            if (spe_charge_histogram_y[i] !== null)
-                spe_charge_histogram_data.push({'x': spe_charge_histogram_x[i], 'y': spe_charge_histogram_y[i]}, 'y_fit': spe_charge_fit[i]);
+            if (spe_charge_histogram_y[i] !== null) {
+                spe_charge_histogram_data.push({'x': spe_charge_histogram_x[i], 'y': spe_charge_histogram_y[i]});
+                spe_charge_histogram_fit.push({'x': spe_charge_histogram_x[i], 'y': spe_charge_fit[i]});
+            }
         }
 
         MG.data_graphic({
             title: "SPE Charge Histogram",
             description: "SPE Charge Histogram",
-            data: spe_charge_histogram_data,
+            data: [spe_charge_histogram_data,spe_charge_histogram_fit],
             chart_type: 'line',
             width: $('#spe_charge-histogram').width(),
             height: 250,
             left: 100,
             target: '#spe_charge-histogram',
             x_accessor: 'x',
-            y_accessor: ['y','y_fit'],
+            y_accessor: 'y',
             legend: ['Data','Fit'],
             x_label: 'Charge (pC)',
             y_label: 'Entries'
@@ -139,7 +147,7 @@
         MG.data_graphic({
             title: "Sodium Charge Histogram",
             description: "Sodium Charge Histogram",
-            data: sodium_charge_histogram_data,
+            data: [sodium_charge_histogram_data,sodium_charge_histogram_fit],
             chart_type: 'line',
             width: $('#sodium_charge-histogram').width(),
             height: 250,
@@ -147,6 +155,7 @@
             target: '#sodium_charge-histogram',
             x_accessor: 'x',
             y_accessor: 'y',
+            legend: ['Data','Fit'],
             x_label: 'Charge (pC)',
             y_label: 'Entries'
         });

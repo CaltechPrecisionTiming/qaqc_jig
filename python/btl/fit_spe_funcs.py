@@ -181,6 +181,13 @@ def plot_dists():
     input()
     exit()
 
+def get_spe(x, p):
+    model = vinogradov_model()
+    f = ROOT.TF1("fspe",model,0,1000,7)
+    for i in range(7):
+        f.SetParameter(i,p[i])
+    return np.array([f.Eval(e) for e in x])
+
 def fit_spe(h, model, f_h=None, root_func=False):
     """ 
     SPE Fitting Strategy

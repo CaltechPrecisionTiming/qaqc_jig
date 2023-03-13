@@ -1227,7 +1227,7 @@ void get_baselines(float data[][32][1024], float *baselines, int n, unsigned lon
     }
 }
 
-int write_data_to_output_file(hid_t group_id, int channel, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, unsigned long chmask, int nsamples, int gzip_compression_level, int starting_channel)
+int write_data_to_output_file(hid_t group_id, int channel, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, unsigned long chmask, int nsamples, int gzip_compression_level, int channel_map)
 {
     hid_t space, dset, dcpl;
     hsize_t dims[2], chunk[2], maxdims[2];
@@ -1255,7 +1255,22 @@ int write_data_to_output_file(hid_t group_id, int channel, float data[WF_SIZE][3
     status = H5Pset_deflate(dcpl, gzip_compression_level);
     status = H5Pset_chunk(dcpl, 2, chunk);
 
-    sprintf(dset_name, "ch%i", channel);
+    if (channel_map == -1) {
+        /* Default behavior */
+        sprintf(dset_name, "ch%i", channel);
+    } else if (channel_map == 0) {
+        /* We're reading out the first half of the module. */
+        if (channel <= 7)
+            sprintf(dset_name, "ch%i", channel);
+        else
+            sprintf(dset_name, "ch%i", channel+8);
+    } else if (channel_map == 1) {
+        /* We're reading out the second half of the module. */
+        if (channel <= 7)
+            sprintf(dset_name, "ch%i", channel+8);
+        else
+            sprintf(dset_name, "ch%i", channel+16);
+    }
 
     float *wdata = malloc(n*nsamples*sizeof(float));
 
@@ -1293,7 +1308,7 @@ int write_data_to_output_file(hid_t group_id, int channel, float data[WF_SIZE][3
  * it was too slow and so the data taking time was dominated by the
  * compression. There is probably some way to speed this up, and if so, it
  * can be re-enabled. */
-int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, unsigned long chmask, int nsamples, WaveDumpConfig_t *WDcfg, int gzip_compression_level, int starting_channel)
+int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, unsigned long chmask, int nsamples, WaveDumpConfig_t *WDcfg, int gzip_compression_level, int channel_map)
 {
     hid_t file, space, dset, dcpl, mem_space, file_space, group_id, baseline_group_id;
     herr_t status;
@@ -1491,8 +1506,23 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
                 for (k = 0; k < nsamples; k++)
                     wdata[j][k] = baseline_data[j][i][k];
 
-            sprintf(dset_name, "base_ch%i", i+starting_channel);
-            
+            if (channel_map == -1) {
+                /* Default behavior */
+                sprintf(dset_name, "base_ch%i", i);
+            } else if (channel_map == 0) {
+                /* We're reading out the first half of the module. */
+                if (i <= 7)
+                    sprintf(dset_name, "base_ch%i", i);
+                else
+                    sprintf(dset_name, "base_ch%i", i+8);
+            } else if (channel_map == 1) {
+                /* We're reading out the second half of the module. */
+                if (i <= 7)
+                    sprintf(dset_name, "base_ch%i", i+8);
+                else
+                    sprintf(dset_name, "base_ch%i", i+16);
+            }
+
             dset = H5Dcreate(baseline_group_id, dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
             /* Write the data to the dataset. */
@@ -1516,7 +1546,7 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
         /* Writing the actual data to the file */
         for (i = 0; i < 32; i++) {
             if (!(chmask & (1 << i))) continue;
-            if (write_data_to_output_file(group_id, i, data, baseline_data, n, chmask, nsamples, gzip_compression_level, starting_channel))
+            if (write_data_to_output_file(group_id, i, data, baseline_data, n, chmask, nsamples, gzip_compression_level, channel_map))
                 return 1;
         }
         status = H5Gclose(group_id);
@@ -1539,10 +1569,26 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
     for (i = 0; i < 32; i++) {
         if (!(chmask & (1 << i))) continue;
 
-        sprintf(dset_name, "ch%i", i);
+        if (channel_map == -1) {
+            /* Default behavior */
+            sprintf(dset_name, "ch%i", i);
+        } else if (channel_map == 0) {
+            /* We're reading out the first half of the module. */
+            if (i <= 7)
+                sprintf(dset_name, "ch%i", i);
+            else
+                sprintf(dset_name, "ch%i", i+8);
+        } else if (channel_map == 1) {
+            /* We're reading out the second half of the module. */
+            if (i <= 7)
+                sprintf(dset_name, "ch%i", i+8);
+            else
+                sprintf(dset_name, "ch%i", i+16);
+        }
+
         if ((dset = H5Dopen(group_id, dset_name, H5P_DEFAULT)) < 0) {
             /* Dataset doesn't exist, so we create it and write to it. */
-            if (write_data_to_output_file(group_id, i, data, baseline_data, n, chmask, nsamples, gzip_compression_level, starting_channel))
+            if (write_data_to_output_file(group_id, i, data, baseline_data, n, chmask, nsamples, gzip_compression_level, channel_map))
                 return 1;
             continue;
         }
@@ -1632,8 +1678,8 @@ void print_help()
     "  --threshold   Trigger threshold (volts) (default: -0.1)\n"
     "  --gzip-compression-level\n"
     "                gzip compression level (default: 0)\n"
-    "  --starting-channel\n"
-    "                number of first channel (default: 0)\n"
+    "  --channel-map\n"
+    "                which half of the module is being recorded (default: -1)\n"
     "  --help        Output this help and exit.\n"
     "\n");
     exit(1);
@@ -1835,9 +1881,8 @@ int main(int argc, char *argv[])
     CAEN_DGTZ_X742_EVENT_t *Event742 = NULL;
     double threshold = -0.1;
     int gzip_compression_level = 0;
-    int starting_channel = 0;
     unsigned long channel_mask = 0xffff;
-    int channel_map = 0;
+    int channel_map = -1;
 
     FILE *f_ini;
     CAEN_DGTZ_DRS4Correction_t X742Tables[MAX_X742_GROUP_SIZE];
@@ -1865,8 +1910,6 @@ int main(int argc, char *argv[])
             threshold = atof(argv[++i]);
         } else if ((!strcmp(argv[i],"--gzip-compression-level")) && i < argc - 1) {
             gzip_compression_level = atoi(argv[++i]);
-        } else if ((!strcmp(argv[i],"--starting-channel")) && i < argc - 1) {
-            starting_channel = atoi(argv[++i]);
         } else if ((!strcmp(argv[i],"--channel-mask")) && i < argc - 1) {
             channel_mask = strtoul(argv[++i],NULL,0);
 
@@ -1874,8 +1917,8 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "unable to convert channel mask '%s' to integer\n", argv[i]);
                 exit(1);
             }
-        } else if (!strcmp(argv[i],"--channel-map")) {
-            channel_map = 1;
+        } else if ((!strcmp(argv[i],"--channel-map")) && i < argc - 1) {
+            channel_map = atoi(argv[++i]);
         } else {
             config_filename = argv[i];
         }
@@ -2437,7 +2480,7 @@ int main(int argc, char *argv[])
 	
         if (nread > 0) {
             printf("writing %i events to file\n", nread);
-            if (add_to_output_file(output_filename, label, wfdata, bdata, nread, channel_mask, nsamples, &WDcfg, gzip_compression_level, starting_channel)) {
+            if (add_to_output_file(output_filename, label, wfdata, bdata, nread, channel_mask, nsamples, &WDcfg, gzip_compression_level, channel_map)) {
                 fprintf(stderr, "failed to write events to file! quitting...\n");
                 exit(1);
             }
@@ -2452,7 +2495,7 @@ int main(int argc, char *argv[])
     if (stop)
         fprintf(stderr, "ctrl-c caught. writing out %i events\n", nread);
 
-    if (nread > 0 && add_to_output_file(output_filename, label, wfdata, bdata, nread, channel_mask, nsamples, &WDcfg, gzip_compression_level, starting_channel)) {
+    if (nread > 0 && add_to_output_file(output_filename, label, wfdata, bdata, nread, channel_mask, nsamples, &WDcfg, gzip_compression_level, channel_map)) {
         fprintf(stderr, "failed to write events to file!\n");
     }
 

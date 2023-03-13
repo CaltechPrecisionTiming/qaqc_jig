@@ -8,5 +8,6 @@ default: all
 
 install:
 	cd src && "$(MAKE)" $@
+	cd ..
 
 .PHONY: install

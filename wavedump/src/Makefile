@@ -24,7 +24,6 @@ wavedump: wavedump.o fft.o flash.o  keyb.o  spi.o WDconfig.o  WDplot.o  X742Corr
 install: all
 	@mkdir -p $(INSTALL_BIN)
 	$(INSTALL) wavedump $(INSTALL_BIN)
-	$(INSTALL) analyze-waveforms $(INSTALL_BIN)
 
 clean:
 	rm -f wavedump *.o

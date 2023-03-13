@@ -336,14 +336,16 @@ double HV_R2 = 14e3;
  * Returns 0 on success, -1 on error. */
 int set_hv(float value)
 {
-    /* According to the docs here: https://www.analog.com/media/en/technical-documentation/data-sheets/3482fa.pdf, we should set the control voltage according to:
+    /* According to the docs here:
+     * https://www.analog.com/media/en/technical-documentation/data-sheets/3482fa.pdf,
+     * we should set the control voltage according to:
      *
      * R1 = R2(Vout2/Vref - 1)
      * R1/R2 = Vout2/Vref - 1
      * R1/R2 + 1 = Vout2/Vref
      * Vref = Vout2/(R1/R2 + 1) */
     float vref = value/(HV_R1/HV_R2 + 1);
-    return set_dac(value);
+    return set_dac(vref);
 }
 
 /* Set the DC DC boost converter output voltage to a given value.
@@ -358,6 +360,7 @@ int disable_hv(void)
     delay(DELAY);
     SPI.endTransaction();
     digitalWrite(PIN_CS,HIGH);
+    return 0;
 }
 
 /* Set the DAC for the HV bias control to a given voltage `value`. This output
@@ -380,6 +383,7 @@ int set_dac(float value)
     delay(DELAY);
     SPI.endTransaction();
     digitalWrite(PIN_CS,HIGH);
+    return 0;
 }
 
 void setup()

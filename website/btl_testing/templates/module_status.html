@@ -85,7 +85,7 @@
                     {% for i in range(info['channels']|length) %}
 		        <tr onclick="window.document.location = '{{ url_for('channel_status',key=info['keys'][i]) }}';">
                             <td class="text-center">{{ info['channels'][i] }}</td>
-                            <td class="text-center">{{ "%.0f" % (info['pc_per_kev'][i]/(info['spe'][i]/4.0)) }}</td>
+                            <td class="text-center">{{ "%.0f" % (info['pc_per_kev'][i]*1000/(info['spe'][i]/4.0)) }}</td>
                         </tr>
                     {% endfor %}
                 </table>

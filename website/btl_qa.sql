@@ -43,6 +43,8 @@ CREATE TABLE data (
     avg_pulse_x         real[],
     avg_pulse_y         real[],
     run                 bigint NOT NULL references runs(run),
+    spe_fit_pars        real[],
+    lyso_fit_pars       real[],
     UNIQUE (channel,run)
 );
 

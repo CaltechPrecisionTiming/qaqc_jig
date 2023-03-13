@@ -94,6 +94,8 @@ def save(filename=None):
     data['hv'] = hv.get()
     data['ip_address'] = ip_address.get()
     data['stepper_enable'] = stepper_enable.get()
+    data['n_spe_events'] = n_spe_events.get()
+    data['n_lyso_events'] = n_lyso_events.get()
     print("Saving GUI state from '%s'" % filename)
     with open(filename,'w') as f:
         json.dump(data,f)
@@ -124,6 +126,10 @@ def load(filename=None):
             ip_address.set(data['ip_address'])
         if 'stepper_enable' in data:
             stepper_enable.set(data['stepper_enable'])
+        if 'n_spe_events' in data:
+            n_spe_events.set(data['n_spe_events'])
+        if 'n_lyso_events' in data:
+            n_lyso_events.set(data['n_lyso_events'])
         n_boards_changed()
 
 def on_closing():
@@ -256,7 +262,7 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--channel-map',j % 2,'-n',100000,'-o',filename], progress_bar=i):
+            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--channel-map',j % 2,'-n',n_spe_events.get(),'-o',filename], progress_bar=i):
                 hv_off(client)
                 return
 
@@ -267,7 +273,7 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--channel-map',j % 2,'-n',100000,'-o',filename], progress_bar=i):
+            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--channel-map',j % 2,'-n',n_lyso_events.get(),'-o',filename], progress_bar=i):
                 hv_off(client)
                 return
 
@@ -499,6 +505,20 @@ if __name__ == '__main__':
     ip_address.set('192.168.1.177')
     ip_address_menu_entry = tk.Entry(frame_menu, textvariable=ip_address)
     ip_address_menu_entry.grid(row=4,column=1)
+
+    n_spe_events_menu_label = tk.Label(frame_menu, text="Number of SPE Events: ")
+    n_spe_events_menu_label.grid(row=5,column=0)
+    n_spe_events = tk.IntVar(frame_menu)
+    n_spe_events.set(100000)
+    n_spe_events_menu_entry = tk.Entry(frame_menu, textvariable=n_spe_events)
+    n_spe_events_menu_entry.grid(row=5,column=1)
+
+    n_lyso_events_menu_label = tk.Label(frame_menu, text="Number of LYSO Events: ")
+    n_lyso_events_menu_label.grid(row=6,column=0)
+    n_lyso_events = tk.IntVar(frame_menu)
+    n_lyso_events.set(100000)
+    n_lyso_events_menu_entry = tk.Entry(frame_menu, textvariable=n_lyso_events)
+    n_lyso_events_menu_entry.grid(row=6,column=1)
 
     frame_menu.pack()
     frame_barcodes.pack()

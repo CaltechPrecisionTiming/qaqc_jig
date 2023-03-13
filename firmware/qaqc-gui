@@ -18,7 +18,7 @@ ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
 
 # Debug mode. Right now this just controls whether we draw random numbers for
 # polling.
-DEBUG = True
+DEBUG = False
 
 # Assembly centers. This should be synchronized with the SQL file at
 # ../website/btl_qa.sql.
@@ -131,6 +131,18 @@ def query(client, cmd):
     if not DEBUG:
         return client.query(cmd)
 
+def hv_off(client):
+    n_boards = int(n_boards_var.get())
+
+    # First, make sure all the HV relays are off
+    for i in range(n_boards):
+        for bus in BOARD_ADDRESSES[i]:
+            for k in RELAYS:
+                try:
+                    query(client, "hv_write %i %i off" % (bus, k))
+                except Exception as e:
+                    print_warning(str(e))
+
 def take_data():
     """
     Function to take single PE and 511 keV data for all the modules marked
@@ -171,13 +183,7 @@ def take_data():
         return
 
     # First, make sure all the HV relays are off
-    for i in range(n_boards):
-        for bus in BOARD_ADDRESSES[i]:
-            for k in RELAYS:
-                try:
-                    query(client, "hv_write %i %i off" % (bus, k))
-                except Exception as e:
-                    print_warning(str(e))
+    hv_off(client)
 
     filenames = []
     # Now, we turn them on one by one and take data
@@ -235,7 +241,8 @@ def take_data():
                 return
 
             if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--channel-map',j % 2,'-n',100000,'-o',filename], progress_bar=i):
-                 return
+                hv_off()
+                return
 
             # Turn the attenuation on to take sodium data
             try:
@@ -245,6 +252,7 @@ def take_data():
                 return
 
             if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--channel-map',j % 2,'-n',100000,'-o',filename], progress_bar=i):
+                hv_off()
                 return
 
             # Loop over left and right sides
@@ -268,7 +276,7 @@ def take_data():
     for filename in filenames:
         root, ext = splitext(filename)
         root_filename = "%s.root" % root
-        if run_command(['analyze-waveforms',filename,'-o', root_filename, '-u', '-i', assembly_center.get()]):
+        if run_command([ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename, '-u', '-i', assembly_center.get()]):
             return
 
 def poll():
@@ -278,7 +286,7 @@ def poll():
     # Clear error messages
     entry.delete(1.0,tk.END)
 
-    client = Client()
+    client = Client(ip_address.get())
 
     for i in range(12):
         if not module_available[i].get():
@@ -343,7 +351,7 @@ def step_home():
     # Clear error messages
     entry.delete(1.0,tk.END)
 
-    client = Client()
+    client = Client(ip_address.get())
     try:
         query(client, "step_home")
     except Exception as e:

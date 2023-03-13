@@ -46,6 +46,8 @@ def print_warning(msg):
     if not msg.endswith('\n'):
         msg += '\n'
     entry.insert(tk.END,msg)
+    entry.yview(tk.END)
+    entry.update()
     stop = entry.index(tk.INSERT)
     entry.tag_add("error",start,stop)
 
@@ -61,7 +63,8 @@ def run_command(cmd, progress_bar=None):
             except Exception as e:
                 pass
         entry.insert(tk.END,line)
-        root.update()
+        entry.yview(tk.END)
+        entry.update()
     p.wait()
     if p.returncode != 0:
         print_warning(p.stderr.read().decode())
@@ -124,6 +127,7 @@ def on_closing():
 def query(client, cmd):
     entry.insert(tk.END, "%s\n" % cmd)
     entry.yview(tk.END)
+    entry.update()
     if not DEBUG:
         return client.query(cmd)
 
@@ -182,6 +186,17 @@ def take_data():
             entry.insert(tk.END, "Skipping module %i\n" % i)
             continue
 
+        barcode = barcodes[i].get()
+        if barcode == '':
+            print_warning('Need to enter a barcode for module %i\n' % i)
+            return
+            
+        filename = 'module_%i.hdf5' % int(barcode)
+
+        if exists(filename):
+            print("deleting %s" % filename)
+            os.unlink(filename)
+
         # Loop over first 8 channels and second eight channels
         for j in range(2):
             # Diagram to help figure out what's going on. It's drawn as if you
@@ -218,13 +233,6 @@ def take_data():
             except Exception as e:
                 print_warning(str(e))
                 return
-
-            barcode = barcodes[i].get()
-            if barcode == '':
-                print_warning('Need to enter a barcode for module %i\n' % i)
-                return
-                
-            filename = 'module_%i.hdf5' % int(barcode)
 
             if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--channel-map',j % 2,'-n',100000,'-o',filename], progress_bar=i):
                  return

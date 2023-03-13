@@ -20,6 +20,9 @@ ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
 # polling.
 DEBUG = True
 
+if DEBUG:
+    WAVEDUMP_PROGRAM = './wavedump-test'
+
 # Assembly centers. This should be synchronized with the SQL file at
 # ../website/btl_qa.sql.
 ASSEMBLY_CENTERS = [
@@ -52,6 +55,10 @@ def print_warning(msg):
     entry.tag_add("error",start,stop)
 
 def run_command(cmd, progress_bar=None):
+    global stop
+    stop = False
+    stop_button['state'] = tk.NORMAL
+    stop_button.update()
     entry.insert(tk.END, " ".join(map(str,cmd)) + '\n')
     p = Popen(['stdbuf','-o0'] + list(map(str,cmd)), stdout=PIPE, stderr=PIPE)
     for line in iter(p.stdout.readline, b''):
@@ -65,9 +72,14 @@ def run_command(cmd, progress_bar=None):
         entry.insert(tk.END,line)
         entry.yview(tk.END)
         entry.update()
+
+        if stop:
+            p.terminate()
+            stop = False
     p.wait()
     if p.returncode != 0:
         print_warning(p.stderr.read().decode())
+    stop_button['state'] = tk.DISABLED
     return p.returncode
 
 def save(filename=None):
@@ -142,6 +154,12 @@ def hv_off(client):
                     query(client, "hv_write %i %i off" % (bus, k))
                 except Exception as e:
                     print_warning(str(e))
+
+STOP = False
+
+def stop():
+    global stop
+    stop = True
 
 def take_data():
     """
@@ -522,6 +540,10 @@ if __name__ == '__main__':
 
     button = tk.Button(master=frame_buttons,text="Take Data", width=25, height=5, command=take_data)
     button.pack()
+
+    stop_button = tk.Button(master=frame_buttons,text="Stop", width=25, height=5, command=stop)
+    stop_button['state'] = tk.DISABLED
+    stop_button.pack()
 
     stepper_enable = tk.IntVar(frame_settings, value=1)
     stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)

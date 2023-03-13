@@ -112,7 +112,11 @@
         var spe_charge_histogram_x = {{ info['spe_charge_histogram_x'] | tojson }};
         var spe_charge_histogram_y = {{ info['spe_charge_histogram_y'] | tojson }};
 
+        var spe_fit_pars = {{ info['spe_fit_pars'] | tojson }};
+        var lyso_fit_pars = {{ info['lyso_fit_pars'] | tojson }};
+
         var spe_charge_histogram_data = new Array();
+        var spe_charge_fit_data = new Array();
         for (var i=0; i < spe_charge_histogram_x.length; i++) {
             if (spe_charge_histogram_y[i] !== null)
                 spe_charge_histogram_data.push({'x': spe_charge_histogram_x[i], 'y': spe_charge_histogram_y[i]});

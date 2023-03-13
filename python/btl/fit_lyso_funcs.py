@@ -105,6 +105,12 @@ def lyso_spectrum(x,p):
 
     return np.interp(x[0]/p[4],es,total_spectrum)
 
+def get_lyso(x, p):
+    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
+    for i in range(6):
+        f.SetParameter(i,p[i])
+    return np.array([f.Eval(e) for e in x])
+
 def fit_lyso(h):
     f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
     xmax = 0
@@ -129,7 +135,7 @@ def fit_lyso(h):
     f.SetParameter(5,1)
     f.SetParLimits(5,0.1,10)
     h.Fit(f,"S+","",xmax-50,xmax+50)
-    return f.GetParameter(4), f.GetParError(4)
+    return [f.GetParameter(i) for i in range(6)]
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt

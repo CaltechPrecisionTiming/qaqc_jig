@@ -1,0 +1,2 @@
+install:
+	./setup.py install

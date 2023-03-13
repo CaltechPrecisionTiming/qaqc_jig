@@ -63,9 +63,9 @@ def lyso_spectrum(x,p):
     Q = 593
     A = 176 #Not sure if this is right?
 
-    es = np.linspace(0,10000,10000)
+    es = np.linspace(0,1000,1000)
 
-    key = tuple(p[:6])
+    key = tuple([p[i] for i in range(6))
     if key in CACHE:
         total_spectrum = CACHE[key]
         return np.interp(x[0]/p[4],es,total_spectrum)
@@ -107,21 +107,27 @@ def lyso_spectrum(x,p):
     return np.interp(x[0]/p[4],es,total_spectrum)
 
 def fit_lyso(h):
-    f = ROOT.TF1("flyso",lyso_spectrum,0,10000)
+    f = ROOT.TF1("flyso",lyso_spectrum,0,1000)
     xmax = 0
     ymax = 0
-    for i in range(h.GetNbinsX()):
+    for i in range(1,h.GetNbinsX()-1):
         x = h.GetBinCenter(i)
         value = h.GetBinContent(i)
         if x > 100 and value > ymax:
             xmax = x
             ymax = value
     # Assume peak is somewhere around 300 keV
-    f.SetParameter(0,1)
-    f.SetParameter(1,1)
+    f.SetParameter(0,h.GetEntries())
+    f.SetParLimits(0,0,1e9)
+    f.SetParameter(1,h.GetEntries())
+    f.SetParLimits(1,0,1e9)
     f.SetParameter(2,0)
+    f.SetParLimits(2,0,1e9)
     f.SetParameter(3,0)
+    f.SetParLimits(3,0,1e9)
     f.SetParameter(4,xmax/300)
+    f.SetParLimits(4,0.1,10)
     f.SetParameter(5,1)
-    h.Fit(f,"S+","",100,xmax+50)
+    f.SetParLimits(5,0.1,10)
+    h.Fit(f,"S+","",xmax-50,xmax+50)
     return f.GetParameter(4), f.GetParError(4)

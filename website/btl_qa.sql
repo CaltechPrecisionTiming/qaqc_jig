@@ -19,7 +19,11 @@ CREATE TABLE runs (
     institution         inst DEFAULT 'Caltech'::inst NOT NULL,
     git_sha1            text,
     git_dirty           text,
-    filename            text
+    filename            text,
+    tec_resistance_a    real,
+    tec_resistance_b    real,
+    temp_a              real,
+    temp_b              real
 );
 
 -- Table to keep track of the light yield of the BTL modules.
@@ -28,7 +32,7 @@ CREATE TABLE data (
     channel             smallint,
     timestamp           timestamp with time zone default now(),
     barcode             bigint NOT NULL,
-    sodium_peak         real NOT NULL,
+    pc_per_kev          real NOT NULL,
     spe                 real NOT NULL,
     sodium_fall_time    real,
     sodium_rise_time    real,

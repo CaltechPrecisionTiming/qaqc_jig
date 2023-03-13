@@ -507,9 +507,9 @@ if __name__ == '__main__':
                 print(f'Fitting {group} {channel}!')
                 if group == 'sodium':
                     if args.lyso:
-                        ch_data[channel]['sodium_peak'] = fit_lyso_funcs.fit_lyso(h)
+                        ch_data[channel]['pc_per_kev'] = fit_lyso_funcs.fit_lyso(h)
                     else:
-                        ch_data[channel]['sodium_peak'] = fit_511_funcs.fit_511(h)
+                        ch_data[channel]['pc_per_kev'] = fit_511_funcs.fit_511(h)
                 else:
                     model = fit_spe_funcs.vinogradov_model()
                     ch_data[channel]['spe'] = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
@@ -520,27 +520,27 @@ if __name__ == '__main__':
     # Reviewing Data
     ##################
     for channel in ch_data:
-        if 'sodium_peak' not in ch_data[channel]:
+        if 'pc_per_kev' not in ch_data[channel]:
             print(f'Mising sodium data for {channel}!')
         elif 'spe' not in ch_data[channel]:
             print(f'Missing SPE data for {channel}!')
-        elif ch_data[channel]['sodium_peak'] is None:
+        elif ch_data[channel]['pc_per_kev'] is None:
             print(f'Failed to fit {channel} sodium histogram!')
         elif ch_data[channel]['spe'] is None:
             print(f'Failed to fit {channel} spe histogram!')
         else:
-            print(f'{channel}: {ch_data[channel]["sodium_peak"][0] / ch_data[channel]["spe"][0] / 0.511}')
+            print(f'{channel}: {ch_data[channel]["pc_per_kev"][0] / ch_data[channel]["spe"][0] / 0.511}')
             
             ##################
             # Uploading Data
             ##################
             if args.upload:
-                # ch_data[channel]['sodium_peak'][0] is the charge value
-                # ch_data[channel]['sodium_peak'][1] is the charge error
-                ch_data[channel]['sodium_peak'] = ch_data[channel]['sodium_peak'][0] 
+                # ch_data[channel]['pc_per_kev'][0] is the charge value
+                # ch_data[channel]['pc_per_kev'][1] is the charge error
+                ch_data[channel]['pc_per_kev'] = ch_data[channel]['pc_per_kev'][0] 
                 ch_data[channel]['spe'] = ch_data[channel]['spe'][0] 
                 
-                result = cursor.execute("INSERT INTO data (channel, barcode, sodium_peak, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run) VALUES (%(channel)s, %(barcode)s, %(sodium_peak)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s)", ch_data[channel])
+                result = cursor.execute("INSERT INTO data (channel, barcode, pc_per_kev, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run) VALUES (%(channel)s, %(barcode)s, %(pc_per_kev)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s)", ch_data[channel])
 
     root_f.Close()
 

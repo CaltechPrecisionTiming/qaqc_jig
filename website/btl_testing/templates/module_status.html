@@ -85,7 +85,7 @@
                     {% for i in range(info['channels']|length) %}
 		        <tr onclick="window.document.location = '{{ url_for('channel_status',key=info['keys'][i]) }}';">
                             <td class="text-center">{{ info['channels'][i] }}</td>
-                            <td class="text-center">{{ "%.0f" % (info['sodium_peak'][i]/(0.511*info['spe'][i])) }}</td>
+                            <td class="text-center">{{ "%.0f" % (info['pc_per_kev'][i]/(info['spe'][i]/4.0)) }}</td>
                         </tr>
                     {% endfor %}
                 </table>
@@ -103,13 +103,13 @@
 
     <script>
         var x = {{ info['channels'] | tojson }};
-        var sodium_peak = {{ info['sodium_peak'] | tojson }};
+        var pc_per_kev = {{ info['pc_per_kev'] | tojson }};
         var spe = {{ info['spe'] | tojson }};
 
         var light_output = new Array();
         for (var i=0; i < x.length; i++) {
-            if (sodium_peak[i] !== null)
-                light_output.push({'x': x[i], 'y': sodium_peak[i]/(0.511*spe[i])});
+            if (pc_per_kev[i] !== null)
+                light_output.push({'x': x[i], 'y': pc_per_kev[i]/(0.511*spe[i])});
         }
 
         MG.data_graphic({

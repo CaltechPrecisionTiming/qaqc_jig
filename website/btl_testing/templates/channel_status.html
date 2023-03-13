@@ -104,14 +104,25 @@
         var sodium_charge_histogram_y = {{ info['sodium_charge_histogram_y'] | tojson }};
 
         var lyso_charge_fit = {{ info['lyso_charge_fit'] | tojson }};
+        var lyso_fit_pars = {{ info['lyso_fit_pars'] | tojson }};
 
         var sodium_charge_histogram_data = new Array();
         var sodium_charge_histogram_fit = new Array();
+        var xmax = 0;
+        var ymax = 0;
         for (var i=0; i < sodium_charge_histogram_x.length; i++) {
             if (sodium_charge_histogram_y[i] !== null) {
                 sodium_charge_histogram_data.push({'x': sodium_charge_histogram_x[i], 'y': sodium_charge_histogram_y[i]});
-                sodium_charge_histogram_fit.push({'x': sodium_charge_histogram_x[i], 'y': lyso_charge_fit[i]});
+                if (sodium_charge_histogram_y[i] > ymax) {
+                    ymax = sodium_charge_histogram_y[i];
+                    xmax = sodium_charge_histogram_x[i];
+                }
             }
+        }
+
+        for (var i=0; i < sodium_charge_histogram_x.length; i++) {
+            if ((sodium_charge_histogram_x[i] > xmax - 100) && (sodium_charge_histogram_x[i] < xmax + 100))
+                sodium_charge_histogram_fit.push({'x': sodium_charge_histogram_x[i], 'y': lyso_charge_fit[i]});
         }
 
         var spe_charge_histogram_x = {{ info['spe_charge_histogram_x'] | tojson }};

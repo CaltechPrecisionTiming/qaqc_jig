@@ -2,6 +2,7 @@ from __future__ import division
 import math
 import numpy as np, scipy.constants as sciconst, scipy.special as ss,  matplotlib.pyplot as plt, sys,re
 from scipy.integrate import simps
+from scipy.stats import norm
 
 def dn(E,Q,Z,A,forb=None):
     """
@@ -42,15 +43,33 @@ def dn(E,Q,Z,A,forb=None):
     # Branch Spectrum
     return forbiddenness*F*(np.sqrt(np.power(e,2)+2*e*511)*np.power(Q-e,2)*(e+511))
 
+# Photons per keV
+LIGHT_YIELD = 1500/1000.0
+
+CACHE = {}
+
 def lyso_spectrum(x,p):
     """
     ROOT function to return the LYSO spectrum at x[0] in keV.
+
+    p[0] - Constant for 80 keV spectrum
+    p[1] - Constant for 290 keV spectrum
+    p[2] - Constant for 395 keV spectrum
+    p[3] - Constant for 597 keV spectrum
+    p[4] - Light yield (pC/keV)
+    p[5] - Multiplier for light yield when calculating sigma
     """
     Z = 72
     Q = 593
     A = 176 #Not sure if this is right?
 
     es = np.linspace(0,10000,10000)
+
+    key = tuple(p[:6])
+    if key in CACHE:
+        total_spectrum = CACHE[key]
+        return np.interp(x[0]/p[4],es,total_spectrum)
+
     spectrum_80 = np.array([dn(e-80, Q, Z, A) for e in es])
     spectrum_290 = np.array([dn(e-290, Q, Z, A) for e in es])
     spectrum_395 = np.array([dn(e-395, Q, Z, A) for e in es])
@@ -61,6 +80,39 @@ def lyso_spectrum(x,p):
     spectrum_395 /= np.trapz(spectrum_395,x=es)
     spectrum_597 /= np.trapz(spectrum_597,x=es)
 
+    width_80 = np.sqrt(80*LIGHT_YIELD*p[5])*p[4]/(LIGHT_YIELD*p[5])
+    gauss_x = np.arange(-100,100,es[1]-es[0])
+    gauss_y = norm.pdf(gauss_x,scale=width_80)
+    spectrum_80 = np.convolve(spectrum_80,gauss_y,'same')
+
+    width_290 = np.sqrt(290*LIGHT_YIELD*p[5])*p[4]/(LIGHT_YIELD*p[5])
+    gauss_x = np.arange(-100,100,es[1]-es[0])
+    gauss_y = norm.pdf(gauss_x,scale=width_290)
+    spectrum_290 = np.convolve(spectrum_290,gauss_y,'same')
+
+    width_395 = np.sqrt(395*LIGHT_YIELD*p[5])*p[4]/(LIGHT_YIELD*p[5])
+    gauss_x = np.arange(-100,100,es[1]-es[0])
+    gauss_y = norm.pdf(gauss_x,scale=width_395)
+    spectrum_395 = np.convolve(spectrum_395,gauss_y,'same')
+
+    width_597 = np.sqrt(597*LIGHT_YIELD*p[5])*p[4]/(LIGHT_YIELD*p[5])
+    gauss_x = np.arange(-100,100,es[1]-es[0])
+    gauss_y = norm.pdf(gauss_x,scale=width_597)
+    spectrum_597 = np.convolve(spectrum_597,gauss_y,'same')
+
     total_spectrum = p[0]*spectrum_80 + p[1]*spectrum_290 + p[2]*spectrum_395 + p[3]*spectrum_597
 
-    return np.interp(x[0],es,total_spectrum)
+    CACHE[key] = total_spectrum
+
+    return np.interp(x[0]/p[4],es,total_spectrum)
+
+def fit_lyso(h):
+    f = ROOT.TF1("flyso",lyso_spectrum,0,10000)
+    f.SetParameter(0,1)
+    f.SetParameter(1,1)
+    f.SetParameter(2,0)
+    f.SetParameter(3,0)
+    f.SetParameter(4,1)
+    f.SetParameter(5,1)
+    h.Fit(f,"SRB+")
+    return f.GetParameter(4), f.GetParError(4)

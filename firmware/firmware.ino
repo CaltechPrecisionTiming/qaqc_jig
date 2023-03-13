@@ -85,8 +85,9 @@ bool debug = false;
 #define PIN_MOSI      (11)
 /* Analog pins. */
 /* HV voltage and current. */
-#define PIN_BIAS_IREAD PIN_A0
-#define PIN_BIAS_VREAD PIN_A1
+#define PIN_BIAS_IREAD (14)
+#define PIN_BIAS_VREAD (15)
+#define PIN_EXTMON_UC (24)
 #define PIN_STP_HOME   (17)
 /* Stepper enable. Goes through two limit switches first. */
 #define PIN_STP_EN_UC  (23)
@@ -328,6 +329,40 @@ uint16_t DAC_POWER_DOWN_GND_100K = 0x800;
 uint16_t DAC_POWER_DOWN_GND_1K = 0xc00;
 float DAC_VREF = 2.048;
 
+double HV_R1 = 1e9;
+double HV_R2 = 14e3;
+
+/* Set the DC DC boost converter output voltage to a given value.
+ * Returns 0 on success, -1 on error. */
+int set_hv(float value)
+{
+    /* According to the docs here:
+     * https://www.analog.com/media/en/technical-documentation/data-sheets/3482fa.pdf,
+     * we should set the control voltage according to:
+     *
+     * R1 = R2(Vout2/Vref - 1)
+     * R1/R2 = Vout2/Vref - 1
+     * R1/R2 + 1 = Vout2/Vref
+     * Vref = Vout2/(R1/R2 + 1) */
+    float vref = value/(HV_R1/HV_R2 + 1);
+    return set_dac(vref);
+}
+
+/* Set the DC DC boost converter output voltage to a given value.
+ * Returns 0 on success, -1 on error. */
+int disable_hv(void)
+{
+    uint16_t code = DAC_POWER_DOWN | DAC_POWER_DOWN_GND_100K;
+    /* Set the HV dac pin select on (low). */
+    digitalWrite(PIN_CS,LOW);
+    SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE1));
+    SPI.transfer16(DAC_WRITE_THROUGH | code);
+    delay(DELAY);
+    SPI.endTransaction();
+    digitalWrite(PIN_CS,HIGH);
+    return 0;
+}
+
 /* Set the DAC for the HV bias control to a given voltage `value`. This output
  * voltage controls the HV bias level by setting the voltage at the DC DC boost
  * converter.
@@ -342,12 +377,13 @@ int set_dac(float value)
 {
     uint16_t code = value*0x10000000000000/DAC_VREF;
     /* Set the HV dac pin select on (low). */
-    digitalWrite(PIN_CS,LOW)
+    digitalWrite(PIN_CS,LOW);
     SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE1));
     SPI.transfer16(DAC_WRITE_THROUGH | code);
     delay(DELAY);
     SPI.endTransaction();
-    digitalWrite(PIN_CS,HIGH)
+    digitalWrite(PIN_CS,HIGH);
+    return 0;
 }
 
 void setup()
@@ -398,6 +434,7 @@ void setup()
     pinMode(PIN_STP_EN_UC,OUTPUT);
     pinMode(PIN_BIAS_IREAD,INPUT);
     pinMode(PIN_BIAS_VREAD,INPUT);
+    pinMode(PIN_EXTMON_UC,INPUT);
 
     /* Start off with the stepper in sleep mode. */
     digitalWrite(PIN_STP_SLEEP,false);
@@ -411,18 +448,6 @@ void setup()
     digitalWrite(PIN_STP_EN_UC,false);
 
     reset();
-}
-
-int bias_iread(int *value)
-{
-    *value = analogRead(PIN_BIAS_IREAD);
-    return 0;
-}
-
-int bias_vread(int *value)
-{
-    *value = analogRead(PIN_BIAS_VREAD);
-    return 0;
 }
 
 /* Read an ADC value on the AD5593R.
@@ -596,7 +621,7 @@ double mystrtod(const char *nptr, double *value)
 {
     char *endptr;
     errno = 0;
-    *value = strtod(nptr,endptr);
+    *value = strtod(nptr,&endptr);
 
     if (endptr == nptr) {
         sprintf(err, "error converting '%s' to a double", nptr);
@@ -606,6 +631,73 @@ double mystrtod(const char *nptr, double *value)
         return -1;
     }
 
+    return 0;
+}
+
+/* The current monitor output is sent through a transimpedance amplifier with
+ * gain equal to R4. */
+double HV_R4 = 1e9;
+
+/* The voltage monitor is read out from a voltage divider with R5 and R6. I
+ * can't read the notes exactly to see what R6 is, it might be 2.44 MOhms? */
+double HV_R5 = 100e9;
+double HV_R6 = 2.94e9;
+
+double HV_R7 = 150e3;
+double HV_R8 = 10e3;
+
+/* Returns the current provided by the DC DC boost converter. From the manual,
+ * it says:
+ *
+ * > Current Monitor Output Pin. It sources a
+ * > current equal to 20% of the APD current and converts to
+ * > a reference voltage through an external resistor. */
+int get_bias_iread(double *value)
+{
+    *value = 5*analogRead(PIN_BIAS_IREAD)/HV_R4;
+    return 0;
+}
+
+/* Returns the output voltage from the DC DC boost converter.
+ *
+ * The voltage monitor output is read out from a voltage divider with R5 and
+ * R6. The total current is:
+ * 
+ *     I = V/(R5+R6)
+ *
+ * The voltage across R6 which is what we read is:
+ *
+ *     V6 = I*R6 = V*R6/(R5+R6)
+ *
+ * So we can calculate the output voltage as:
+ *
+ *     V = V6*(R5+R6)/R6
+ */
+int get_bias_vread(double *value)
+{
+    *value = analogRead(PIN_BIAS_VREAD)*(HV_R5+HV_R6)/HV_R6;
+    return 0;
+}
+
+/* Returns the bias voltage independent of whether it's coming from the DC DC
+ * boost converter or an external supply.
+ *
+ * The voltage monitor output is read out from a voltage divider with R7 and
+ * R8. The total current is:
+ * 
+ *     I = V/(R7+R8)
+ *
+ * The voltage across R8 which is what we read is:
+ *
+ *     V6 = I*R8 = V*R8/(R7+R8)
+ *
+ * So we can calculate the output voltage as:
+ *
+ *     V = V6*(R7+R8)/R8
+ */
+int extmon_vread(double *value)
+{
+    *value = analogRead(PIN_EXTMON_UC)*(HV_R7+HV_R8)/HV_R8;
     return 0;
 }
 
@@ -621,6 +713,11 @@ double mystrtod(const char *nptr, double *value)
  * "set_active_bitmask [bitmask]" - set which boards are currently plugged in
  * "debug [on/off]" - turn debugging on or off
  * "set_attenuation [on/off]" - turn attenuation on or off
+ * "bias_iread" - read out the current supplied by the DC DC boost converter
+ * "bias_vread" - read out the voltage supplied by the DC DC boost converter
+ * "extmon_vread" - read out the bias voltage
+ * "set_hv [voltage]" - set the high voltage on the DC DC boost converter
+ * "disable_hv" - disable DC DC boost converter
  *
  * Returns 0, 1, or 2 on success, -1 on error. Returns 0 if there is no return
  * value, 1 if there is an integer return value, and 2 if there is a floating
@@ -658,22 +755,28 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (bias_vread(&bus_index)) return -1;
+        if (get_bias_vread(&temp)) {
+            sprintf(err, "error reading the bias voltage");
+            return -1;
+        }
 
-        *value = bus_index;
+        *value = temp;
 
-        return 0;
+        return 2;
     } else if (!strcmp(tokens[0], "bias_iread")) {
         if (ntok != 1) {
             sprintf(err, "bias_iread command expects 0 arguments");
             return -1;
         }
 
-        if (bias_iread(&bus_index)) return -1;
+        if (get_bias_iread(&temp)) {
+            sprintf(err, "error reading the bias current");
+            return -1;
+        }
 
-        *value = bus_index;
+        *value = temp;
 
-        return 1;
+        return 2;
     } else if (!strcmp(tokens[0], "step")) {
         if (ntok != 2) {
             sprintf(err, "step command expects 1 argument: step [steps]");
@@ -915,6 +1018,42 @@ int do_command(char *cmd, float *value)
             return -1;
 
         set_dac(temp);
+    } else if (!strcmp(tokens[0], "extmon_vread")) {
+        if (ntok != 1) {
+            sprintf(err, "extmon_vread command expects no arguments");
+            return -1;
+        }
+
+        if (extmon_vread(&temp)) {
+            sprintf(err, "error reading the bias voltage");
+            return -1;
+        }
+
+        *value = (float) temp;
+        return 2;
+    } else if (!strcmp(tokens[0], "set_hv")) {
+        if (ntok != 2) {
+            sprintf(err, "set_hv command expects 1 argument: set_hv [voltage]");
+            return -1;
+        }
+
+        if (mystrtod(tokens[1], &temp))
+            return -1;
+
+        if (set_hv(temp)) {
+            sprintf(err, "error setting the high voltage");
+            return -1;
+        }
+    } else if (!strcmp(tokens[0], "disable_hv")) {
+        if (ntok != 1) {
+            sprintf(err, "disable_hv command expects no arguments");
+            return -1;
+        }
+
+        if (disable_hv()) {
+            sprintf(err, "error setting the high voltage");
+            return -1;
+        }
     } else if (!strcmp(tokens[0], "help")) {
         sprintf(err,"tec_write [card] [tec] [on/off]\n"
                     "hv_write [card] [relay] [on/off]\n"
@@ -929,7 +1068,10 @@ int do_command(char *cmd, float *value)
                     "step_home\n"
                     "step [steps]\n"
                     "bias_iread\n"
-                    "bias_vread\n");
+                    "bias_vread\n"
+                    "extmon_vread\n"
+                    "set_hv\n"
+                    "disable_hv");
         return -1;
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);

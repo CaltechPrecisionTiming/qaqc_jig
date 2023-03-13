@@ -112,6 +112,24 @@ def get_lyso(x, p):
     return np.array([f.Eval(e) for e in x])
 
 def fit_lyso(h):
+    """
+    Fit the internal LYSO radiation spectrum to the histogram `h`. LYSO has
+    intrinsic radiation from the beta decay of 176Lu (see
+    https://www.nature.com/articles/s41598-018-35684-x). Here we fit the
+    histogram to a sum of beta decay spectrums offset by 88, 202+80, 307+80,
+    etc. where the offsets come from the gammas emitted when the daughter
+    nucleus 176Hf relaxes.
+
+    If the fit is successful, returns a list of the fit parameters:
+        p[0] - Constant for 80 keV spectrum
+        p[1] - Constant for 290 keV spectrum
+        p[2] - Constant for 395 keV spectrum
+        p[3] - Constant for 597 keV spectrum
+        p[4] - Light yield (pC/keV)
+        p[5] - Multiplier for light yield when calculating sigma
+
+    Otherwise, returns None.
+    """
     f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
     xmax = 0
     ymax = 0
@@ -134,7 +152,9 @@ def fit_lyso(h):
     f.SetParLimits(4,0.1,10)
     f.SetParameter(5,1)
     f.SetParLimits(5,0.1,10)
-    h.Fit(f,"S+","",xmax-50,xmax+50)
+    fr = h.Fit(f,"S+","",xmax-50,xmax+50)
+    if not fr.Get().IsValid():
+        return None
     return [f.GetParameter(i) for i in range(6)]
 
 if __name__ == '__main__':

@@ -510,14 +510,22 @@ if __name__ == '__main__':
                 print(f'Fitting {group} {channel}!')
                 if group == 'sodium':
                     if args.lyso:
-                        ch_data[channel]['lyso_fit_pars'] = fit_lyso_funcs.fit_lyso(h)
-                        ch_data[channel]['pc_per_kev'] = ch_data[channel]['lyso_fit_pars'][4]
+                        lyso_fit_pars = fit_lyso_funcs.fit_lyso(h)
+                        ch_data[channel]['lyso_fit_pars'] = lyso_fit_pars
+                        if lyso_fit_pars is not None:
+                            ch_data[channel]['pc_per_kev'] = lyso_fit_pars[4]
+                        else:
+                            ch_data[channel]['pc_per_kev'] = None
                     else:
                         ch_data[channel]['pc_per_kev'] = fit_511_funcs.fit_511(h)
                 else:
                     model = fit_spe_funcs.vinogradov_model()
-                    ch_data[channel]['spe_fit_pars'] = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
-                    ch_data[channel]['spe'] = ch_data[channel]['spe_fit_pars'][3]
+                    spe_fit_pars = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
+                    ch_data[channel]['spe_fit_pars'] = spe_fit_pars
+                    if spe_fit_pars is not None:
+                        ch_data[channel]['spe'] = spe_fit_pars[3]
+                    else:
+                        ch_data[channel]['spe'] = None
                 
                 plot_hist(h, pdf=args.print_pdfs, filename=args.filename)
                 
@@ -540,11 +548,6 @@ if __name__ == '__main__':
             # Uploading Data
             ##################
             if args.upload:
-                # ch_data[channel]['pc_per_kev'][0] is the charge value
-                # ch_data[channel]['pc_per_kev'][1] is the charge error
-                ch_data[channel]['pc_per_kev'] = ch_data[channel]['pc_per_kev'][0] 
-                ch_data[channel]['spe'] = ch_data[channel]['spe'][0] 
-                
                 result = cursor.execute("INSERT INTO data (channel, barcode, pc_per_kev, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run, spe_fit_pars, lyso_fit_pars) VALUES (%(channel)s, %(barcode)s, %(pc_per_kev)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s, %(spe_fit_pars)s, %(lyso_fit_pars)s)", ch_data[channel])
 
     root_f.Close()

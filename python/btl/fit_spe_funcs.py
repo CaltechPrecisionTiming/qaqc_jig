@@ -215,6 +215,10 @@ def fit_spe(h, model, f_h=None, root_func=False):
        fit of everything. Exactly which parameters get fixed or
        relased is still under active development as of the time of
        this comment: Aug. 5, 2022.
+
+    If the fit is successful, returns the list of fit parameters, otherwise
+    returns None.
+
     Older than June 2022:
         *** we could set a threshold/break to find when the Y axis /charge goes above a certain values from the smallest X to set the first value (-0.4 as of the time of this comment)
     """
@@ -296,6 +300,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
     if not r.IsValid():
         # Maybe we want to return `None` here?
         print("Fit error!")
+        return None
     
     h.SetAxisRange(-4, 6, "X")
     h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")

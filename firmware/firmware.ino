@@ -647,8 +647,8 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (strtobool(tokens[3],&ison)) {
-            sprintf(err, "expected argument 3 to be yes/no but got '%s'", tokens[3]);
+        if (strtobool(tokens[1],&ison)) {
+            sprintf(err, "expected argument 3 to be yes/no but got '%s'", tokens[1]);
             return -1;
         }
 

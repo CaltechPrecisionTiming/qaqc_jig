@@ -1672,7 +1672,7 @@ void print_help()
     "  -b, --barcode Barcode of the module being tested\n"
     "  -v, --voltage Voltage (V)\n"
     "  -t, --trigger Type of trigger: \"software\", \"external\", or \"self\".\n"
-    "  -l, --label   Name of hdf5 group to write data to (sodium, spe)\n"
+    "  -l, --label   Name of hdf5 group to write data to (lyso, spe)\n"
     "  --threshold   Trigger threshold (volts) (default: -0.1)\n"
     "  --gzip-compression-level\n"
     "                gzip compression level (default: 0)\n"
@@ -1793,7 +1793,7 @@ WaveDumpConfig_t get_default_settings() {
  * FIXME: Right now we set this to 28,500 which is in between the centered
  * range and the range in which we only get -Vpp to 0. Maybe this needs to be
  * set closer to 22,000? */
-WaveDumpConfig_t get_511_settings()
+WaveDumpConfig_t get_lyso_settings()
 {
     int i, j;
 
@@ -1825,7 +1825,7 @@ WaveDumpConfig_t get_511_settings()
 
 WaveDumpConfig_t get_spe_settings()
 {
-    /* See `set_511_settings`. */
+    /* See `set_lyso_settings`. */
     return get_default_settings();
 }
 
@@ -1967,10 +1967,8 @@ int main(int argc, char *argv[])
 	exit(1);
     }
 
-    /* TODO: Make separate methods for the settings needed for
-     * 511 and SPE. */
-    if (!strcmp(label,"sodium"))
-        WDcfg = get_511_settings(trig_type);
+    if (!strcmp(label,"lyso"))
+        WDcfg = get_lyso_settings(trig_type);
     else
         WDcfg = get_default_settings(trig_type);
     
@@ -2267,7 +2265,7 @@ int main(int argc, char *argv[])
 
     /* Do we still want to get baselines like this when there will
      * be a source in the dark box? It might average some SPEs or
-     * a 511 signal */
+     * a LYSO signal */
     get_baselines(bdata, baselines, NumEvents, channel_mask, nsamples);
 
     printf("Baselines for channels:\n");

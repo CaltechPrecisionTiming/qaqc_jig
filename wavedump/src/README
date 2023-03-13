@@ -30,7 +30,7 @@ a config file given in the command line, or written into `wavedump.c`.
 Example:
 
 ```console
-$ ./wavedump -o output.hdf5 --label sodium --threshold -0.05
+$ ./wavedump -o output.hdf5 --label lyso --threshold -0.05
 ```
 
 ## acquire-waveforms
@@ -40,7 +40,7 @@ outdated (it does not store datasets in labeled groups).
 
 ## analyze-waveforms
 Interprets the hdf5 files generated from `wavedump`, makes charge
-histograms, finds the sodium and SPE charges, and calculates the light
+histograms, finds the LYSO and SPE charges, and calculates the light
 output. Has the ability to upload all relevant information to the database.
 `analyze-waveforms` could be easily updated to also interpret the files from
 `acquire-waveforms`, but `acquired-waveforms` needs to be updated first. 
@@ -53,7 +53,7 @@ $ ./analyze-waveforms output.hdf5 -o output.root
 
 ## fit-histograms (outdated)
 Reads the root files generated from `analyze-waveforms`, and calculates the
-charge of either the 511 or SPE signal. Can optionally store the data to a
+charge of either the LYSO or SPE signal. Can optionally store the data to a
 temporary csv file. In the future, this data will be uploaded to the website
 instead.
 

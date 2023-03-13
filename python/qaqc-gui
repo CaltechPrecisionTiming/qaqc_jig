@@ -348,7 +348,8 @@ def poll():
                 return
 
             try:
-                tec_value = query(client, "tec_check %i %i" % (bus, thermistor))
+                # TECs are numbered backwards from thermistors
+                tec_value = query(client, "tec_check %i %i" % (bus, 2-thermistor))
                 if DEBUG:
                     tec_value = random.uniform(7,10)
             except Exception as e:

@@ -220,13 +220,8 @@ def take_data():
                 return
                 
             filename = 'module_%i.hdf5' % int(barcode)
-            # Now, we take data
-            if j % 2 == 0:
-                starting_channel = 0
-            else:
-                starting_channel = 16
 
-            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--starting-channel',starting_channel,'-n',100000,'-o',filename], progress_bar=i):
+            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--channel-map',j % 2,'-n',100000,'-o',filename], progress_bar=i):
                  return
 
             # Turn the attenuation on to take sodium data
@@ -236,7 +231,7 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--starting-channel',starting_channel,'-n',100000,'-o',filename], progress_bar=i):
+            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--channel-map',j % 2,'-n',100000,'-o',filename], progress_bar=i):
                 return
 
             # Loop over left and right sides

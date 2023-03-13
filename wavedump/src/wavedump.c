@@ -1959,12 +1959,12 @@ int main(int argc, char *argv[])
         if (channel_mask & (1 << i))
             nchannels += 1;
 
-    double space_needed = nevents*nchannels*1024*sizeof(float)/pow(2,30);
+    double space_needed = ((double) nevents)*nchannels*1024*sizeof(float)/pow(2,30);
     
     double free_space = get_free_space()/pow(2, 30);
     printf("Required disk space:  %.0fG\n", space_needed);
     printf("Free Space remaining: %.0fG\n", free_space);
-    if (free_space < space_needed*2) {
+    if (free_space < space_needed) {
 	fprintf(stderr, "Too little space available! Try deleting some hdf5 files. Quitting...\n");
 	exit(1);
     }

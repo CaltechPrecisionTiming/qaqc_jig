@@ -462,7 +462,10 @@ if __name__ == '__main__':
                 ##################
                 # Creating Histogram
                 ##################
-                bins = get_bins(charge, cutoff=200)
+                if group == 'sodium':
+                    bins = get_bins(charge, cutoff=100)
+                else:
+                    bins = get_bins(charge)
                 h = ROOT.TH1D(f"{group}_{channel}", f"{group} Charge Integral for {channel}", len(bins), bins[0], bins[-1])
                 for x in charge:
                     h.Fill(x)

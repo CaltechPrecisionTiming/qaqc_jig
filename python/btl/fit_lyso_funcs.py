@@ -131,7 +131,7 @@ def fit_lyso(h):
     Otherwise, returns None.
     """
     f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
-    xmax = 0
+    xmax = None
     ymax = 0
     for i in range(1,h.GetNbinsX()-1):
         x = h.GetBinCenter(i)
@@ -139,6 +139,10 @@ def fit_lyso(h):
         if x > 100 and value > ymax:
             xmax = x
             ymax = value
+
+    if xmax is None:
+        return None
+
     # Assume peak is somewhere around 300 keV
     f.SetParameter(0,h.GetEntries())
     f.SetParLimits(0,0,1e9)

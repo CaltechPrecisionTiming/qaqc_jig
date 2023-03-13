@@ -342,8 +342,8 @@ int set_hv(float value)
      * R1/R2 = Vout2/Vref - 1
      * R1/R2 + 1 = Vout2/Vref
      * Vref = Vout2/(R1/R2 + 1) */
-    float vref = value/(R1/R2 + 1);
-    return set_dac(value)
+    float vref = value/(HV_R1/HV_R2 + 1);
+    return set_dac(value);
 }
 
 /* Set the DC DC boost converter output voltage to a given value.
@@ -352,12 +352,12 @@ int disable_hv(float value)
 {
     uint16_t code = DAC_POWER_DOWN | DAC_POWER_DOWN_GND_100K;
     /* Set the HV dac pin select on (low). */
-    digitalWrite(PIN_CS,LOW)
+    digitalWrite(PIN_CS,LOW);
     SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE1));
     SPI.transfer16(DAC_WRITE_THROUGH | code);
     delay(DELAY);
     SPI.endTransaction();
-    digitalWrite(PIN_CS,HIGH)
+    digitalWrite(PIN_CS,HIGH);
 }
 
 /* Set the DAC for the HV bias control to a given voltage `value`. This output
@@ -374,12 +374,12 @@ int set_dac(float value)
 {
     uint16_t code = value*0x10000000000000/DAC_VREF;
     /* Set the HV dac pin select on (low). */
-    digitalWrite(PIN_CS,LOW)
+    digitalWrite(PIN_CS,LOW);
     SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE1));
     SPI.transfer16(DAC_WRITE_THROUGH | code);
     delay(DELAY);
     SPI.endTransaction();
-    digitalWrite(PIN_CS,HIGH)
+    digitalWrite(PIN_CS,HIGH);
 }
 
 void setup()
@@ -617,7 +617,7 @@ double mystrtod(const char *nptr, double *value)
 {
     char *endptr;
     errno = 0;
-    *value = strtod(nptr,endptr);
+    *value = strtod(nptr,&endptr);
 
     if (endptr == nptr) {
         sprintf(err, "error converting '%s' to a double", nptr);
@@ -632,15 +632,15 @@ double mystrtod(const char *nptr, double *value)
 
 /* The current monitor output is sent through a transimpedance amplifier with
  * gain equal to R4. */
-double HV_R4 = 1e9
+double HV_R4 = 1e9;
 
 /* The voltage monitor is read out from a voltage divider with R5 and R6. I
  * can't read the notes exactly to see what R6 is, it might be 2.44 MOhms? */
-double HV_R5 = 100e9
-double HV_R6 = 2.94e9
+double HV_R5 = 100e9;
+double HV_R6 = 2.94e9;
 
-double HV_R7 = 150e3
-double HV_R8 = 10e3
+double HV_R7 = 150e3;
+double HV_R8 = 10e3;
 
 /* Returns the current provided by the DC DC boost converter. From the manual,
  * it says:
@@ -671,7 +671,7 @@ int get_bias_iread(double *value)
  */
 int get_bias_vread(double *value)
 {
-    *value = analogRead(PIN_BIAS_VREAD)*(R5+R6)/R6;
+    *value = analogRead(PIN_BIAS_VREAD)*(HV_R5+HV_R6)/HV_R6;
     return 0;
 }
 
@@ -693,7 +693,7 @@ int get_bias_vread(double *value)
  */
 int get_extmon_vread(double *value)
 {
-    *value = analogRead(PIN_EXTMON_UC)*(R7+R8)/R8;
+    *value = analogRead(PIN_EXTMON_UC)*(HV_R7+HV_R8)/HV_R8;
     return 0;
 }
 
@@ -709,6 +709,11 @@ int get_extmon_vread(double *value)
  * "set_active_bitmask [bitmask]" - set which boards are currently plugged in
  * "debug [on/off]" - turn debugging on or off
  * "set_attenuation [on/off]" - turn attenuation on or off
+ * "bias_iread" - read out the current supplied by the DC DC boost converter
+ * "bias_vread" - read out the voltage supplied by the DC DC boost converter
+ * "get_extmon_uc" - read out the bias voltage
+ * "set_hv [voltage]" - set the high voltage on the DC DC boost converter
+ * "disable_hv" - disable DC DC boost converter
  *
  * Returns 0, 1, or 2 on success, -1 on error. Returns 0 if there is no return
  * value, 1 if there is an integer return value, and 2 if there is a floating

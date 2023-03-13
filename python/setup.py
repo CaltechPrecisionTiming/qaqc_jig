@@ -8,5 +8,5 @@ setup(name='btl',
       author='Anthony LaTorre',
       author_email='alatorre@caltech.edu',
       packages=['btl'],
-      scripts=['analyze-waveforms','qaqc-gui']
+      scripts=['analyze-waveforms','qaqc-gui','qaqc-client']
      )

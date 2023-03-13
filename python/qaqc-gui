@@ -18,10 +18,7 @@ ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
 
 # Debug mode. Right now this just controls whether we draw random numbers for
 # polling.
-DEBUG = True
-
-if DEBUG:
-    WAVEDUMP_PROGRAM = './wavedump-test'
+DEBUG = False
 
 # Assembly centers. This should be synchronized with the SQL file at
 # ../website/btl_qa.sql.

@@ -8,7 +8,7 @@ Last Updated: March 13, 2023
 import socket
 from btl import Client
 
-DEFAULT_IP = '192.168.1.177'
+DEFAULT_IP = '192.168.0.177'
 DEFAULT_PORT = 8888
 
 if __name__ == '__main__':

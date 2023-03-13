@@ -6,7 +6,7 @@ Last Updated: Jan 24, 2023
 """
 import socket
 
-DEFAULT_IP = '192.168.1.177'
+DEFAULT_IP = '192.168.0.177'
 DEFAULT_PORT = 8888
 
 class Client(object):

@@ -134,6 +134,9 @@ def get_bins(x, cutoff=None):
 
     if cutoff is not None:
         x = x[x > cutoff]
+
+    if len(x) == 0:
+        return np.arange(0,100,1)
     
     bin_width = 0.5*iqr(x)/(len(x)**(1/3.0))
 
@@ -318,16 +321,16 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import psycopg2
     import psycopg2.extensions
-    import fit_511_funcs
-    import fit_spe_funcs
-    import fit_lyso_funcs
+    from btl import fit_511_funcs
+    from btl import fit_spe_funcs
+    from btl import fit_lyso_funcs
 
     parser = ArgumentParser(description='Analyze SPE and 511 charges')
     parser.add_argument('filename',help='input filename (hdf5 format)')
     parser.add_argument('-o','--output', default='delete_me.root', help='output file name')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
     parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
-    parser.add_argument('-t', '--integration-time', default=300, type=float, help='SPE integration length in nanoseconds.')
+    parser.add_argument('-t', '--integration-time', default=150, type=float, help='SPE integration length in nanoseconds.')
     parser.add_argument('-s', '--start-time',  default=50, type=float, help='start time of the SPE integration in nanoseconds.')
     parser.add_argument('--active', default=None, help='Only take data from a single channel. If not specified, all channels are analyzed.')
     parser.add_argument('--integration-method', type=int, default=1, help='Select a method of integration. Methods described in __main__')
@@ -508,13 +511,13 @@ if __name__ == '__main__':
                 if group == 'sodium':
                     if args.lyso:
                         ch_data[channel]['lyso_fit_pars'] = fit_lyso_funcs.fit_lyso(h)
-                        ch_data[channel]['pc_per_kev'] = lyso_fit_pars[4]
+                        ch_data[channel]['pc_per_kev'] = ch_data[channel]['lyso_fit_pars'][4]
                     else:
                         ch_data[channel]['pc_per_kev'] = fit_511_funcs.fit_511(h)
                 else:
                     model = fit_spe_funcs.vinogradov_model()
                     ch_data[channel]['spe_fit_pars'] = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
-                    ch_data[channel]['spe'] = spe_fit_pars[3]
+                    ch_data[channel]['spe'] = ch_data[channel]['spe_fit_pars'][3]
                 
                 plot_hist(h, pdf=args.print_pdfs, filename=args.filename)
                 

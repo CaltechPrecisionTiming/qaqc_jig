@@ -12,6 +12,7 @@ import random
 from os.path import join, expanduser, exists, splitext
 import json
 from subprocess import Popen, PIPE
+import os
 
 WAVEDUMP_PROGRAM = 'wavedump'
 ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'

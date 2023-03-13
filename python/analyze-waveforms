@@ -515,7 +515,8 @@ if __name__ == '__main__':
                 if group == 'sodium':
                     if args.lyso:
                         lyso_fit_pars = fit_lyso_funcs.fit_lyso(h)
-                        ch_data[channel]['lyso_fit_pars'] = lyso_fit_pars
+                        ch_data[channel]['lyso_fit_pars'] = lyso_fit_pars[0]
+                        ch_data[channel]['lyso_fit_par_errors'] = lyso_fit_pars[1]
                         if lyso_fit_pars is not None:
                             ch_data[channel]['pc_per_kev'] = lyso_fit_pars[4]
                         else:
@@ -525,7 +526,8 @@ if __name__ == '__main__':
                 else:
                     model = fit_spe_funcs.vinogradov_model()
                     spe_fit_pars = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
-                    ch_data[channel]['spe_fit_pars'] = spe_fit_pars
+                    ch_data[channel]['spe_fit_pars'] = spe_fit_pars[0]
+                    ch_data[channel]['spe_fit_par_errors'] = spe_fit_pars[0]
                     if spe_fit_pars is not None:
                         ch_data[channel]['spe'] = spe_fit_pars[3]
                     else:
@@ -552,7 +554,7 @@ if __name__ == '__main__':
             # Uploading Data
             ##################
             if args.upload:
-                result = cursor.execute("INSERT INTO data (channel, barcode, pc_per_kev, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run, spe_fit_pars, lyso_fit_pars) VALUES (%(channel)s, %(barcode)s, %(pc_per_kev)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s, %(spe_fit_pars)s, %(lyso_fit_pars)s)", ch_data[channel])
+                result = cursor.execute("INSERT INTO data (channel, barcode, pc_per_kev, spe, sodium_rise_time, sodium_fall_time, sodium_charge_histogram_x, sodium_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run, spe_fit_pars, lyso_fit_pars, spe_fit_par_errors, lyso_fit_par_errors) VALUES (%(channel)s, %(barcode)s, %(pc_per_kev)s, %(spe)s, %(sodium_rise_time)s, %(sodium_fall_time)s, %(sodium_charge_histogram_x)s, %(sodium_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s, %(spe_fit_pars)s, %(lyso_fit_pars)s, %(spe_fit_par_errors)s, %(lyso_fit_par_errors)s)", ch_data[channel])
 
     root_f.Close()
 

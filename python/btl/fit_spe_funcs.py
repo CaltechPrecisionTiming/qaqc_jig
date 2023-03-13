@@ -313,4 +313,4 @@ def fit_spe(h, model, f_h=None, root_func=False):
     h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
     h.Write()
 
-    return [f1.GetParameter(i) for i in range(7)]
+    return [f1.GetParameter(i) for i in range(7)], [f1.GetParError(i) for i in range(7)]

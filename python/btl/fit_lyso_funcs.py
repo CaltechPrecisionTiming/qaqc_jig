@@ -174,7 +174,7 @@ def fit_lyso(h):
     fr = h.Fit(f,"S+","",xmax-100,xmax+100)
     if not fr.Get().IsValid():
         return None
-    return [f.GetParameter(i) for i in range(6)]
+    return [f.GetParameter(i) for i in range(6)], [f.GetParError(i) for i in range(6)]
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt

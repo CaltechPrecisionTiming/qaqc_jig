@@ -103,6 +103,7 @@ def module_status():
 @app.route('/channel-status')
 def channel_status():
     key = request.args.get("key", 0, type=int)
+    log = request.args.get("log", False, type=lambda x: x.lower() == "true")
     info = get_channel_info(key=key)
     if info['lyso_fit_pars'] is not None:
         info['lyso_charge_fit'] = list(fit_lyso_funcs.get_lyso(info['sodium_charge_histogram_x'], info['lyso_fit_pars']))
@@ -115,7 +116,7 @@ def channel_status():
     if info is None:
         flash('No channel found in database with that barcode. Did you forget to upload it?','danger')
         return redirect(url_for('channel_database'))
-    return render_template('channel_status.html', info=info)
+    return render_template('channel_status.html', info=info, log=log)
 
 @app.route('/')
 def index():

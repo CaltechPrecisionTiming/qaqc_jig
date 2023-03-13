@@ -17,7 +17,7 @@
 	</div>
 	{% else %}
 	<div class="row">
-	    <div class="col-md-2">
+	    <div class="col-md-4">
                 <h3>Test Info</h3>
                 <table class="table table-bordered">
                     <tr>
@@ -43,6 +43,18 @@
                     <tr>
                         <th>Institution</th>
                         <td>{{ info['runs_institution'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>SPE Charge (pC)</th>
+                        <td>{{ "%.2f" % info['spe'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>pC per keV</th>
+                        <td>{{ "%.2f" % info['pc_per_kev'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Light Yield (PE/MeV)</th>
+                        <td>{{ "%.0f" % (info['pc_per_kev']*1000/(info['spe']/4)) }}</td>
                     </tr>
                 </table>
 	    </div>
@@ -73,6 +85,16 @@
                 </div>
                 {% endif %}
 	    </div>
+            <div class="col-md-4">
+            </div>
+            <div class="col-md-2 text-right">
+                Log Scale
+                <select id="log">
+                    {% for i in ["False","True"] %}
+                        <option {% if log == i %}selected="selected" {% endif %}value="{{ i }}">{{ i }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
 	<div class="row">
 	    <div class="col-md-12" id='avg-pulse'></div>
@@ -139,6 +161,8 @@
             }
         }
 
+        console.log("{{ log }}");
+
         MG.data_graphic({
             title: "SPE Charge Histogram",
             description: "SPE Charge Histogram",
@@ -152,7 +176,11 @@
             y_accessor: 'y',
             legend: ['Data','Fit'],
             x_label: 'Charge (pC)',
-            y_label: 'Entries'
+            y_label: 'Entries',
+            {% if log %}
+            y_scale_type: 'log'
+            {% else %}
+            {% endif %}
         });
 
         MG.data_graphic({
@@ -185,6 +213,24 @@
             y_accessor: 'y',
             x_label: 'Time (ns)',
             y_label: 'Voltage (millivolts)'
+        });
+        var setting = 0;
+        for (var key in url_params) {
+            if (url_params.hasOwnProperty(key)) {
+                if (key == 'log') {
+                    document.getElementById("log").value = url_params.log;
+                }
+            }
+        }
+        $("#log").on("change", function() {
+            var params = url_params;
+            params["log"] = document.getElementById("log").value;
+
+            if (Object.keys(params).length > 0) {
+                window.location.replace($SCRIPT_ROOT + "/channel-status?" + $.param(params));
+            } else {
+                window.location.replace($SCRIPT_ROOT + "/channel-status");
+            }
         });
     </script>
 {% endblock %}

@@ -18,7 +18,7 @@ ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
 
 # Debug mode. Right now this just controls whether we draw random numbers for
 # polling.
-DEBUG = False
+DEBUG = True
 
 # Assembly centers. This should be synchronized with the SQL file at
 # ../website/btl_qa.sql.
@@ -241,7 +241,7 @@ def take_data():
                 return
 
             if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--channel-map',j % 2,'-n',100000,'-o',filename], progress_bar=i):
-                hv_off()
+                hv_off(client)
                 return
 
             # Turn the attenuation on to take sodium data
@@ -252,7 +252,7 @@ def take_data():
                 return
 
             if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','self','-l','sodium','--channel-map',j % 2,'-n',100000,'-o',filename], progress_bar=i):
-                hv_off()
+                hv_off(client)
                 return
 
             # Loop over left and right sides

@@ -320,6 +320,7 @@ if __name__ == '__main__':
     import psycopg2.extensions
     import fit_511_funcs
     import fit_spe_funcs
+    import fit_lyso_funcs
 
     parser = ArgumentParser(description='Analyze SPE and 511 charges')
     parser.add_argument('filename',help='input filename (hdf5 format)')
@@ -333,6 +334,7 @@ if __name__ == '__main__':
     parser.add_argument("--print-pdfs", default=None, type=str, help="Folder to save pdfs in.")
     parser.add_argument('-u','--upload', default=False, action='store_true', help='upload results to the database')
     parser.add_argument('-i','--institution', default=None, type=Institution, choices=list(Institution), help='name of institution')
+    parser.add_argument('--lyso', action='store_true', help='fit LYSO spectrum')
     args = parser.parse_args()
 
     if not args.plot:
@@ -495,7 +497,10 @@ if __name__ == '__main__':
                 ##################
                 print(f'Fitting {group} {channel}!')
                 if group == 'sodium':
-                    ch_data[channel]['sodium_peak'] = fit_511_funcs.fit_511(h)
+                    if args.lyso:
+                        ch_data[channel]['sodium_peak'] = fit_lyso_funcs.fit_lyso(h)
+                    else:
+                        ch_data[channel]['sodium_peak'] = fit_511_funcs.fit_511(h)
                 else:
                     model = fit_spe_funcs.vinogradov_model()
                     ch_data[channel]['spe'] = fit_spe_funcs.fit_spe(h, model, f_h=f_h)

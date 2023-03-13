@@ -1,8 +1,7 @@
 from __future__ import division
-import math
-import numpy as np, scipy.constants as sciconst, scipy.special as ss,  matplotlib.pyplot as plt, sys,re
-from scipy.integrate import simps
+import numpy as np
 from scipy.stats import norm
+import ROOT
 
 def dn(E,Q,Z,A,forb=None):
     """
@@ -65,7 +64,7 @@ def lyso_spectrum(x,p):
 
     es = np.linspace(0,1000,1000)
 
-    key = tuple([p[i] for i in range(6))
+    key = tuple(p[i] for i in range(6))
     if key in CACHE:
         total_spectrum = CACHE[key]
         return np.interp(x[0]/p[4],es,total_spectrum)
@@ -107,7 +106,7 @@ def lyso_spectrum(x,p):
     return np.interp(x[0]/p[4],es,total_spectrum)
 
 def fit_lyso(h):
-    f = ROOT.TF1("flyso",lyso_spectrum,0,1000)
+    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
     xmax = 0
     ymax = 0
     for i in range(1,h.GetNbinsX()-1):
@@ -131,3 +130,19 @@ def fit_lyso(h):
     f.SetParLimits(5,0.1,10)
     h.Fit(f,"S+","",xmax-50,xmax+50)
     return f.GetParameter(4), f.GetParError(4)
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+
+    x = np.linspace(0,1000,1000)
+    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
+    f.SetParameter(0,1)
+    f.SetParameter(1,1)
+    f.SetParameter(2,0)
+    f.SetParameter(3,0)
+    f.SetParameter(4,1)
+    f.SetParameter(5,1)
+    y = [f.Eval(e) for e in x]
+
+    plt.plot(x,y)
+    plt.show()

@@ -189,18 +189,23 @@ def take_data():
             #
             #     Bus HV1 HV2 Module Bus HV1 HV2
             #     --- --- --- ------ --- --- ---
-            #      2   4   5     5    3   4   5
+            #      2   0   1     5    3   4   5
             #      2   2   3     4    3   2   3
-            #      2   0   1     3    3   0   1
+            #      2   4   5     3    3   0   1
             #
-            #      0   4   5     2    1   4   5
+            #      0   0   1     2    1   4   5
             #      0   2   3     1    1   2   3
-            #      0   0   1     0    1   0   1
+            #      0   4   5     0    1   0   1
 
             # Loop over left and right sides
             for k in range(2):
                 bus = (i//3)*2 + k
                 relay = (i % 3)*2 + j
+
+                if k == 0:
+                    # Ordering for the board on left side is backwards from the
+                    # board on the right side
+                    relay = 5 - relay
 
                 try:
                     query(client, "hv_write %i %i on" % (bus, relay))
@@ -238,6 +243,11 @@ def take_data():
             for k in range(2):
                 bus = (i//3)*2 + k
                 relay = (i % 3)*2 + j
+
+                if k == 0:
+                    # Ordering for the board on left side is backwards from the
+                    # board on the right side
+                    relay = 5 - relay
 
                 try:
                     query(client, "hv_write %i %i off" % (bus, relay))
@@ -283,15 +293,20 @@ def poll():
             #
             #     Bus Thermistor Module Bus Thermistor
             #     --- ---------- ------ --- ----------
-            #      2      2         5    3      2
+            #      2      0         5    3      2
             #      2      1         4    3      1
-            #      2      0         3    3      0
+            #      2      2         3    3      0
             #
-            #      0      2         2    1      2
+            #      0      0         2    1      2
             #      0      1         1    1      1
-            #      0      0         0    1      0
+            #      0      2         0    1      0
             bus = (i//3)*2 + k
             thermistor = i % 3
+
+            if k == 0:
+                # Ordering for the board on left side is backwards from the
+                # board on the right side
+                thermistor = 2 - thermistor
 
             try:
                 thermistor_value = query(client, "thermistor_read %i %i" % (bus, thermistor))

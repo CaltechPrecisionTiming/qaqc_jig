@@ -1879,7 +1879,7 @@ int main(int argc, char *argv[])
     char *trig_type = "self";
     char *label = NULL;
     CAEN_DGTZ_X742_EVENT_t *Event742 = NULL;
-    double threshold = -0.1;
+    double threshold = -0.05;
     int gzip_compression_level = 0;
     unsigned long channel_mask = 0xffff;
     int channel_map = -1;

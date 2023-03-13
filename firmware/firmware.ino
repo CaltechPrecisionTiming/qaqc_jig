@@ -9,6 +9,7 @@
 #include <NativeEthernet.h>
 #include <NativeEthernetUdp.h>
 #include <limits.h>
+#include <SPI.h>
 
 #define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
@@ -275,6 +276,10 @@ int reset()
         }
     }
 
+    /* Set the HV dac pin select off (high). */
+    pinMode(PIN_CS,OUTPUT);
+    digitalWrite(PIN_CS,HIGH);
+
     return rv;
 }
 
@@ -314,10 +319,43 @@ int set_attenuation(bool ison)
     return 0;
 }
 
+uint16_t DAC_WRITE_THROUGH = 0x4000;
+uint16_t DAC_POWER_DOWN = 0x8000;
+uint16_t DAC_NO_OP = 0x0000;
+uint16_t DAC_POWER_DOWN_NORMAL = 0x0000;
+uint16_t DAC_POWER_DOWN_HIGH = 0x400;
+uint16_t DAC_POWER_DOWN_GND_100K = 0x800;
+uint16_t DAC_POWER_DOWN_GND_1K = 0xc00;
+float DAC_VREF = 2.048;
+
+/* Set the DAC for the HV bias control to a given voltage `value`. This output
+ * voltage controls the HV bias level by setting the voltage at the DC DC boost
+ * converter.
+ *
+ * Based on the docs at
+ * https://www.analog.com/media/en/technical-documentation/data-sheets/max5214-max5216.pdf,
+ * I tried to guess the correct SPI settings. It's definitely MSB first, but
+ * the exact SPI mode is a little more tricky to tell. From Figure 2 it looks
+ * like the clock polarity is low at idle and that the data is clocked in on
+ * the falling edge, but I can't be sure. */
+int set_dac(float value)
+{
+    uint16_t code = value*0x10000000000000/DAC_VREF;
+    /* Set the HV dac pin select on (low). */
+    digitalWrite(PIN_CS,LOW)
+    SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE1));
+    SPI.transfer16(DAC_WRITE_THROUGH | code);
+    delay(DELAY);
+    SPI.endTransaction();
+    digitalWrite(PIN_CS,HIGH)
+}
+
 void setup()
 {
     Serial.begin(9600);
     Wire.begin();
+
+    SPI.begin();
 
 #ifdef ETHERNET
     // start the Ethernet
@@ -554,6 +592,23 @@ int tec_check(int bus_address, int address, float *value)
     return 0;
 }
 
+double mystrtod(const char *nptr, double *value)
+{
+    char *endptr;
+    errno = 0;
+    *value = strtod(nptr,endptr);
+
+    if (endptr == nptr) {
+        sprintf(err, "error converting '%s' to a double", nptr);
+        return -1;
+    } else if (errno != 0) {
+        sprintf(err, "error converting '%s' to a double", nptr);
+        return -1;
+    }
+
+    return 0;
+}
+
 /* Performs a user command based on a string. Examples of commands:
  *
  * "tec_write 1 0 on" - turn TEC 0 on on board 1
@@ -581,6 +636,7 @@ int do_command(char *cmd, float *value)
     bool ison;
     int bus_index, address;
     int bitmask;
+    double temp;
 
     if (cmd[strlen(cmd)-1] == '\n')
         cmd[strlen(cmd)-1] = '\0';
@@ -838,7 +894,7 @@ int do_command(char *cmd, float *value)
                 active[i] = 0;
         }
     } else if (!strcmp(tokens[0], "debug")) {
-        if (ntok != 1) {
+        if (ntok != 2) {
             sprintf(err, "debug command expects 1 argument: debug [on/off]");
             return -1;
         }
@@ -849,6 +905,16 @@ int do_command(char *cmd, float *value)
         }
 
         debug = ison;
+    } else if (!strcmp(tokens[0], "set_dac")) {
+        if (ntok != 2) {
+            sprintf(err, "set_dac command expects 1 argument: set_dac [value]");
+            return -1;
+        }
+
+        if (mystrtod(tokens[1],&temp))
+            return -1;
+
+        set_dac(temp);
     } else if (!strcmp(tokens[0], "help")) {
         sprintf(err,"tec_write [card] [tec] [on/off]\n"
                     "hv_write [card] [relay] [on/off]\n"

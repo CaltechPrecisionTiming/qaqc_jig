@@ -1,19 +1,13 @@
 Installation
 ------------
 
-These installation instructions have only been tested on Fedora 34, but they
-should work on any recent Fedora, RHEL, CentOS, or Rocky Linux version.
+These installation instructions have only been tested on Fedora 36 and Rocky
+Linux 8.
 
-First, you should install hdf5, numpy, psycopg2, root, and pyroot with either:
-
-```
-$ sudo dnf install hdf5 hdf5-devel python3-numpy python3-psycopg2 root python3-root python3-h5py python3-matplotlib
-```
-
-or
+First, you should install hdf5, numpy, scipy, psycopg2, root, and pyroot with either:
 
 ```
-$ sudo yum install hdf5 hdf5-devel python3-numpy python3-psycopg2 root python3-root
+$ sudo dnf install hdf5 hdf5-devel python3-numpy python3-scipy python3-psycopg2 root python3-root python3-h5py python3-matplotlib
 ```
 
 Then, install the dependencies
@@ -22,7 +16,7 @@ Then, install the dependencies
 $ sudo make install-deps
 ```
 
-Finally, you can build the wavedump program:
+Finally, you can build and install the wavedump program and the GUI:
 
 ```
 $ make
@@ -35,7 +29,7 @@ Running
 You can run the wavedump software by running:
 
 ```
-$ wavedump -b [barcode] -v [voltage] test.hdf5 -n 1000
+$ wavedump -b [barcode] -v [voltage] -o test.hdf5 -n 1000
 ```
 
 Analyzing Results

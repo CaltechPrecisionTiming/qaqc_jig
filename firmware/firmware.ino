@@ -348,7 +348,7 @@ int set_hv(float value)
 
 /* Set the DC DC boost converter output voltage to a given value.
  * Returns 0 on success, -1 on error. */
-int disable_hv(float value)
+int disable_hv(void)
 {
     uint16_t code = DAC_POWER_DOWN | DAC_POWER_DOWN_GND_100K;
     /* Set the HV dac pin select on (low). */
@@ -691,7 +691,7 @@ int get_bias_vread(double *value)
  *
  *     V = V6*(R7+R8)/R8
  */
-int get_extmon_vread(double *value)
+int extmon_vread(double *value)
 {
     *value = analogRead(PIN_EXTMON_UC)*(HV_R7+HV_R8)/HV_R8;
     return 0;
@@ -711,7 +711,7 @@ int get_extmon_vread(double *value)
  * "set_attenuation [on/off]" - turn attenuation on or off
  * "bias_iread" - read out the current supplied by the DC DC boost converter
  * "bias_vread" - read out the voltage supplied by the DC DC boost converter
- * "get_extmon_uc" - read out the bias voltage
+ * "extmon_vread" - read out the bias voltage
  * "set_hv [voltage]" - set the high voltage on the DC DC boost converter
  * "disable_hv" - disable DC DC boost converter
  *
@@ -1014,13 +1014,13 @@ int do_command(char *cmd, float *value)
             return -1;
 
         set_dac(temp);
-    } else if (!strcmp(tokens[0], "get_extmon_uc")) {
+    } else if (!strcmp(tokens[0], "extmon_vread")) {
         if (ntok != 1) {
-            sprintf(err, "get_extmon_uc command expects no arguments");
+            sprintf(err, "extmon_vread command expects no arguments");
             return -1;
         }
 
-        if (get_extmon_uc(&temp)) {
+        if (extmon_vread(&temp)) {
             sprintf(err, "error reading the bias voltage");
             return -1;
         }
@@ -1065,7 +1065,7 @@ int do_command(char *cmd, float *value)
                     "step [steps]\n"
                     "bias_iread\n"
                     "bias_vread\n"
-                    "get_extmon_uc\n"
+                    "extmon_vread\n"
                     "set_hv\n"
                     "disable_hv");
         return -1;

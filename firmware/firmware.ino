@@ -329,9 +329,8 @@ uint16_t DAC_POWER_DOWN_GND_100K = 0x800;
 uint16_t DAC_POWER_DOWN_GND_1K = 0xc00;
 float DAC_VREF = 2.048;
 
-/* FIXME: What are these values? */
-double HV_R1 = 100;
-double HV_R2 = 100;
+double HV_R1 = 100e9;
+double HV_R2 = 14e3;
 
 /* Set the DC DC boost converter output voltage to a given value.
  * Returns 0 on success, -1 on error. */

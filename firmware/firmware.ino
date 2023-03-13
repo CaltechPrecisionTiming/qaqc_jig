@@ -979,6 +979,9 @@ void loop()
     // if there's data available, read a packet
     int packetSize = Udp.parsePacket();
     if (packetSize) {
+        if (packetBuffer[packetSize-1] == '\n')
+            packetBuffer[packetSize-1] = '\0';
+
         if (debug) {
             Serial.print("Received packet of size ");
             Serial.println(packetSize);

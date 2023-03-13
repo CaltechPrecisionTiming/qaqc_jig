@@ -1672,7 +1672,7 @@ WaveDumpConfig_t get_default_settings() {
              * to Vpp. The range shifts lineraly by setting the DC offset
              * between 22000 and 48000. For example, at 35000, the range is
              * -Vpp/2 to +Vpp/2.*/
-            WDcfg.DCoffsetGrpCh[i][j] = 0x55F0;
+            WDcfg.DCoffsetGrpCh[i][j] = 35000;
         }
     }
 
@@ -1723,13 +1723,41 @@ WaveDumpConfig_t get_default_settings() {
     return WDcfg;
 }
 
+/* Returns the settings for the sodium or LYSO data. The only difference with
+ * the SPE settings is that we set the offset such that we get more negative
+ * range.
+ *
+ * FIXME: Right now we set this to 28,500 which is in between the centered
+ * range and the range in which we only get -Vpp to 0. Maybe this needs to be
+ * set closer to 22,000? */
 WaveDumpConfig_t get_511_settings()
 {
-    /* In the future we may want to have one function that programs all the
-     * setttings. I'm not sure if this is possible due to the order we need
-     * to do things in. For example, before we can set the trigger
-     * threshold, we have to take baseline data. */
-    return get_default_settings();
+    int i, j;
+
+    WaveDumpConfig_t WDcfg = get_default_settings();
+
+    /* Set the DC offset of the channels.  WDcfg.DCoffset[i] sets a common
+     * offset to group `i`.  WDcfg.DCoffsetGrpCh[i][j] sets the offset of group
+     * `i`, channel `j` WDcfg.DCoffsetGrpCh[i][j] takes priority. */
+    for (i = 0; i < MAX_SET; i++) {
+        for (j = 0; j < MAX_SET; j++) {
+            /* NOTICE: Though the DC offset is set with 16 bits, NOT EVERY
+             * value will put the signal in a useable range.
+             *
+             *********************************************************** 
+             * ONLY set the DC offset between 22000 (0x55F0) and 48000 *
+             * (0xBB80).                                               *
+             ***********************************************************
+             * 
+             * At 22000, the useable range is -Vpp to 0, and at 48000, it's 0
+             * to Vpp. The range shifts lineraly by setting the DC offset
+             * between 22000 and 48000. For example, at 35000, the range is
+             * -Vpp/2 to +Vpp/2.*/
+            WDcfg.DCoffsetGrpCh[i][j] = 28500;
+        }
+    }
+
+    return WDcfg;
 }
 
 WaveDumpConfig_t get_spe_settings()
@@ -1878,7 +1906,10 @@ int main(int argc, char *argv[])
 
     /* TODO: Make separate methods for the settings needed for
      * 511 and SPE. */
-    WDcfg = get_default_settings(trig_type);
+    if (!strcmp(label,"sodium"))
+        WDcfg = get_511_settings(trig_type);
+    else
+        WDcfg = get_default_settings(trig_type);
     
     WDcfg.voltage = voltage;
     WDcfg.barcode = barcode;

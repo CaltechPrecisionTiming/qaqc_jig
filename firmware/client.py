@@ -41,13 +41,43 @@ class Client(object):
 
 if __name__ == '__main__':
     import argparse
+    import atexit
+    import os
+    import readline
 
     parser = argparse.ArgumentParser("Communicate with the Teensy 4.1 board")
     parser.add_argument("--ip-address", type=str, default=DEFAULT_IP, help="ip address")
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="ip address")
     args = parser.parse_args()
 
+    histfile = os.path.join(os.path.expanduser("~"), ".client_history")
+
+    try:
+        readline.read_history_file(histfile)
+        h_len = readline.get_current_history_length()
+    except FileNotFoundError:
+        open(histfile, 'wb').close()
+        h_len = 0
+
+    def save(prev_h_len, histfile):
+        new_h_len = readline.get_current_history_length()
+        readline.set_history_length(1000)
+        readline.append_history_file(new_h_len - prev_h_len, histfile)
+    atexit.register(save, h_len, histfile)
+
     client = Client(args.ip_address, args.port)
     while True:
-        msg = input(">>> ")
-        print(client.query(msg))
+        try:
+            msg = input(">>> ")
+        except EOFError:
+            print()
+            break
+        try:
+            response = client.query(msg)
+        except Exception as e:
+            print(e)
+        else:
+            if isinstance(response,str):
+                print(response.strip())
+            else:
+                print(response)

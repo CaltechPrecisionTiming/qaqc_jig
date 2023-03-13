@@ -3,6 +3,7 @@ from .views import app
 import psycopg2
 import psycopg2.extensions
 from wtforms import Form, validators, IntegerField, SelectField, PasswordField, TextAreaField
+from btl import fit_lyso_funcs
 
 class ModuleUploadForm(Form):
     """

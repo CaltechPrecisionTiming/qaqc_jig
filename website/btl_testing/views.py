@@ -103,6 +103,7 @@ def module_status():
 def channel_status():
     key = request.args.get("key", 0, type=int)
     info = get_channel_info(key=key)
+    info['spe_charge_fit'] = fit_lyso_funcs.get_lyso(info['spe_charge_histogram_x'], info['spe_fit_pars'])
     if info is None:
         flash('No channel found in database with that barcode. Did you forget to upload it?','danger')
         return redirect(url_for('channel_database'))

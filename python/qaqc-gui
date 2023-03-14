@@ -207,7 +207,6 @@ def take_data():
     # First, make sure all the HV relays are off
     hv_off(client)
 
-    filenames = []
     # Now, we turn them on one by one and take data
     for i in range(12):
         if not module_available[i].get():
@@ -292,14 +291,65 @@ def take_data():
                 except Exception as e:
                     print_warning(str(e))
 
-            filenames.append(filename)
+        info = poll_single_module(client,i)
 
-    # Now, we analyze the files
-    for filename in filenames:
         root, ext = splitext(filename)
         root_filename = "%s.root" % root
+        cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename, '-u', '-i', assembly_center.get()]
+        for key, value in info.items():
+            cmd += ['--' + key.replace('_','-'), str(value)]
         if run_command([ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename, '-u', '-i', assembly_center.get()]):
             return
+
+def poll_single_module(client, module):
+    values = {}
+    # Loop over left and right sides
+    for k in range(2):
+        # Diagram to help figure out what's going on. It's drawn as if you
+        # are looking top down at the modules plugged in:
+        #
+        #     Bus Thermistor Module Bus Thermistor
+        #     --- ---------- ------ --- ----------
+        #      2      0         5    3      2
+        #      2      1         4    3      1
+        #      2      2         3    3      0
+        #
+        #      0      0         2    1      2
+        #      0      1         1    1      1
+        #      0      2         0    1      0
+        bus = (i//3)*2 + k
+        thermistor = i % 3
+
+        if k == 0:
+            # Ordering for the board on left side is backwards from the
+            # board on the right side
+            thermistor = 2 - thermistor
+
+        key = '_a' if k == 0 else '_b'
+
+        try:
+            thermistor_value = query(client, "thermistor_read %i %i" % (bus, thermistor))
+            if DEBUG:
+                thermistor_value = random.uniform(20,30)
+        except Exception as e:
+            print_warning(str(e))
+            return
+
+        try:
+            # TECs are numbered backwards from thermistors
+            tec_value = query(client, "tec_check %i %i" % (bus, 2-thermistor))
+            if DEBUG:
+                tec_value = random.uniform(7,10)
+        except Exception as e:
+            print_warning(str(e))
+            return
+
+        print("blah")
+
+        values['thermistor%s' % key] = thermistor_value
+        values['tec%s' % key] = tec_value
+
+    return values
 
 def poll():
     """
@@ -317,58 +367,20 @@ def poll():
                 bus = (i//3)*2 + k
                 thermistor = i % 3
                 if k % 2 == 0:
-                    thermistor_text[(i,'a')].config(text="")
+                    thermistor_text[(i,'thermistor_a')].config(text="")
                     thermistor_text[(i,'tec_a')].config(text="")
                 else:
-                    thermistor_text[(i,'b')].config(text="")
+                    thermistor_text[(i,'thermistor_b')].config(text="")
                     thermistor_text[(i,'tec_b')].config(text="")
             continue
 
-        # Loop over left and right sides
-        for k in range(2):
-            # Diagram to help figure out what's going on. It's drawn as if you
-            # are looking top down at the modules plugged in:
-            #
-            #     Bus Thermistor Module Bus Thermistor
-            #     --- ---------- ------ --- ----------
-            #      2      0         5    3      2
-            #      2      1         4    3      1
-            #      2      2         3    3      0
-            #
-            #      0      0         2    1      2
-            #      0      1         1    1      1
-            #      0      2         0    1      0
-            bus = (i//3)*2 + k
-            thermistor = i % 3
+        values = poll_single_module(client, i)
 
-            if k == 0:
-                # Ordering for the board on left side is backwards from the
-                # board on the right side
-                thermistor = 2 - thermistor
+        if values is None:
+            return
 
-            try:
-                thermistor_value = query(client, "thermistor_read %i %i" % (bus, thermistor))
-                if DEBUG:
-                    thermistor_value = random.uniform(20,30)
-            except Exception as e:
-                print_warning(str(e))
-                return
-
-            try:
-                # TECs are numbered backwards from thermistors
-                tec_value = query(client, "tec_check %i %i" % (bus, 2-thermistor))
-                if DEBUG:
-                    tec_value = random.uniform(7,10)
-            except Exception as e:
-                print_warning(str(e))
-                return
-
-            if k % 2 == 0:
-                thermistor_text[(i,'a')].config(text="%.2f" % thermistor_value)
-                thermistor_text[(i,'tec_a')].config(text="%.2f" % tec_value)
-            else:
-                thermistor_text[(i,'b')].config(text="%.2f" % thermistor_value)
-                thermistor_text[(i,'tec_b')].config(text="%.2f" % tec_value)
+        for key, value in values.items():
+            thermistor_text[(i,key)].config(text="%.2f" % value)
 
 def step_home():
     # Clear error messages
@@ -533,10 +545,10 @@ if __name__ == '__main__':
     for i in range(12):
         thermistor_labels[i] = tk.Label(frame_thermistor,text="Barcode %i: " % i)
         thermistor_labels[i].grid(row=i+1,column=0)
-        thermistor_text[(i,'a')] = tk.Label(frame_thermistor,text="")
-        thermistor_text[(i,'a')].grid(row=i+1,column=1)
-        thermistor_text[(i,'b')] = tk.Label(frame_thermistor,text="")
-        thermistor_text[(i,'b')].grid(row=i+1,column=2)
+        thermistor_text[(i,'thermistor_a')] = tk.Label(frame_thermistor,text="")
+        thermistor_text[(i,'thermistor_a')].grid(row=i+1,column=1)
+        thermistor_text[(i,'thermistor_b')] = tk.Label(frame_thermistor,text="")
+        thermistor_text[(i,'thermistor_b')].grid(row=i+1,column=2)
         thermistor_text[(i,'tec_a')] = tk.Label(frame_thermistor,text="")
         thermistor_text[(i,'tec_a')].grid(row=i+1,column=3)
         thermistor_text[(i,'tec_b')] = tk.Label(frame_thermistor,text="")

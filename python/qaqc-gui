@@ -298,7 +298,7 @@ def take_data():
         cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename, '-u', '-i', assembly_center.get()]
         for key, value in info.items():
             cmd += ['--' + key.replace('_','-'), str(value)]
-        if run_command([ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename, '-u', '-i', assembly_center.get()]):
+        if run_command(cmd):
             return
 
 def poll_single_module(client, module):

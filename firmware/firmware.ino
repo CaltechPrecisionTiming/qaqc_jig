@@ -656,7 +656,7 @@ double HV_R8 = 10e3;
  * > a reference voltage through an external resistor. */
 int get_bias_iread(double *value)
 {
-    *value = 5*analogRead(PIN_BIAS_IREAD)/HV_R4;
+    *value = 5*analogRead(PIN_BIAS_IREAD)*(5/1023.0)/HV_R4;
     return 0;
 }
 
@@ -677,7 +677,7 @@ int get_bias_iread(double *value)
  */
 int get_bias_vread(double *value)
 {
-    *value = analogRead(PIN_BIAS_VREAD)*(HV_R5+HV_R6)/HV_R6;
+    *value = analogRead(PIN_BIAS_VREAD)*(5/1023.0)*(HV_R5+HV_R6)/HV_R6;
     return 0;
 }
 
@@ -699,7 +699,7 @@ int get_bias_vread(double *value)
  */
 int extmon_vread(double *value)
 {
-    *value = analogRead(PIN_EXTMON_UC)*(HV_R7+HV_R8)/HV_R8;
+    *value = analogRead(PIN_EXTMON_UC)*(5/1023.0)*(HV_R7+HV_R8)/HV_R8;
     return 0;
 }
 

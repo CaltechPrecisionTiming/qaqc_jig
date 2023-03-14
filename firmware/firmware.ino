@@ -11,6 +11,8 @@
 #include <limits.h>
 #include <SPI.h>
 
+#define ETHERNET
+
 #define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
 //#define PCA9557_DEBUG
@@ -395,7 +397,7 @@ void setup()
 
 #ifdef ETHERNET
     // start the Ethernet
-    Ethernet.begin(mac, ip);
+    Ethernet.begin(mac);
 
     // Check for Ethernet hardware present
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {

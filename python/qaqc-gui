@@ -60,7 +60,7 @@ def run_command(cmd, progress_bar=None):
     entry.insert(tk.END, " ".join(map(str,cmd)) + '\n')
     p = Popen(['stdbuf','-o0'] + list(map(str,cmd)), stdout=PIPE, stderr=PIPE)
     for line in iter(p.stdout.readline, b''):
-        print(line.decode())
+        print(line.decode().rstrip('\n'))
         if progress_bar is not None:
             try:
                 i, length = map(float,line.decode().split("/"))

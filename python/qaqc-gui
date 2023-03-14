@@ -317,8 +317,8 @@ def poll_single_module(client, module):
         #      0      0         2    1      2
         #      0      1         1    1      1
         #      0      2         0    1      0
-        bus = (i//3)*2 + k
-        thermistor = i % 3
+        bus = (module//3)*2 + k
+        thermistor = module % 3
 
         if k == 0:
             # Ordering for the board on left side is backwards from the
@@ -343,8 +343,6 @@ def poll_single_module(client, module):
         except Exception as e:
             print_warning(str(e))
             return
-
-        print("blah")
 
         values['thermistor%s' % key] = thermistor_value
         values['tec%s' % key] = tec_value

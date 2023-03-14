@@ -116,7 +116,7 @@
 	    <div class="col-md-12" id='avg-pulse'></div>
         </div>
 	<div class="row">
-	    <div class="col-md-12" id='sodium_charge-histogram'></div>
+	    <div class="col-md-12" id='lyso_charge-histogram'></div>
         </div>
 	<div class="row">
 	    <div class="col-md-12" id='spe_charge-histogram'></div>
@@ -138,29 +138,29 @@
                 avg_pulse_data.push({'x': avg_pulse_x[i], 'y': avg_pulse_y[i]*1000});
         }
 
-        var sodium_charge_histogram_x = {{ info['sodium_charge_histogram_x'] | tojson }};
-        var sodium_charge_histogram_y = {{ info['sodium_charge_histogram_y'] | tojson }};
+        var lyso_charge_histogram_x = {{ info['lyso_charge_histogram_x'] | tojson }};
+        var lyso_charge_histogram_y = {{ info['lyso_charge_histogram_y'] | tojson }};
 
         var lyso_charge_fit = {{ info['lyso_charge_fit'] | tojson }};
         var lyso_fit_pars = {{ info['lyso_fit_pars'] | tojson }};
 
-        var sodium_charge_histogram_data = new Array();
-        var sodium_charge_histogram_fit = new Array();
+        var lyso_charge_histogram_data = new Array();
+        var lyso_charge_histogram_fit = new Array();
         var xmax = 0;
         var ymax = 0;
-        for (var i=0; i < sodium_charge_histogram_x.length; i++) {
-            if (sodium_charge_histogram_y[i] !== null) {
-                sodium_charge_histogram_data.push({'x': sodium_charge_histogram_x[i], 'y': sodium_charge_histogram_y[i]});
-                if (sodium_charge_histogram_y[i] > ymax) {
-                    ymax = sodium_charge_histogram_y[i];
-                    xmax = sodium_charge_histogram_x[i];
+        for (var i=0; i < lyso_charge_histogram_x.length; i++) {
+            if (lyso_charge_histogram_y[i] !== null) {
+                lyso_charge_histogram_data.push({'x': lyso_charge_histogram_x[i], 'y': lyso_charge_histogram_y[i]});
+                if (lyso_charge_histogram_y[i] > ymax) {
+                    ymax = lyso_charge_histogram_y[i];
+                    xmax = lyso_charge_histogram_x[i];
                 }
             }
         }
 
-        for (var i=0; i < sodium_charge_histogram_x.length; i++) {
-            if ((sodium_charge_histogram_x[i] > xmax - 100) && (sodium_charge_histogram_x[i] < xmax + 100))
-                sodium_charge_histogram_fit.push({'x': sodium_charge_histogram_x[i], 'y': lyso_charge_fit[i]});
+        for (var i=0; i < lyso_charge_histogram_x.length; i++) {
+            if ((lyso_charge_histogram_x[i] > xmax - 100) && (lyso_charge_histogram_x[i] < xmax + 100))
+                lyso_charge_histogram_fit.push({'x': lyso_charge_histogram_x[i], 'y': lyso_charge_fit[i]});
         }
 
         var spe_charge_histogram_x = {{ info['spe_charge_histogram_x'] | tojson }};
@@ -202,12 +202,12 @@
         MG.data_graphic({
             title: "LYSO Charge Histogram",
             description: "LYSO Charge Histogram",
-            data: [sodium_charge_histogram_data,sodium_charge_histogram_fit],
+            data: [lyso_charge_histogram_data,lyso_charge_histogram_fit],
             chart_type: 'line',
-            width: $('#sodium_charge-histogram').width(),
+            width: $('#lyso_charge-histogram').width(),
             height: 250,
             left: 100,
-            target: '#sodium_charge-histogram',
+            target: '#lyso_charge-histogram',
             x_accessor: 'x',
             y_accessor: 'y',
             legend: ['Data','Fit'],

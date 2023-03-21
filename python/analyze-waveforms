@@ -523,7 +523,7 @@ if __name__ == '__main__':
                     if lyso_fit_pars is not None:
                         ch_data[channel]['lyso_fit_pars'] = lyso_fit_pars[0]
                         ch_data[channel]['lyso_fit_par_errors'] = lyso_fit_pars[1]
-                        ch_data[channel]['pc_per_kev'] = lyso_fit_pars[0][4]
+                        ch_data[channel]['pc_per_kev'] = lyso_fit_pars[0][0]
                     else:
                         ch_data[channel]['lyso_fit_pars'] = None
                         ch_data[channel]['lyso_fit_par_errors'] = None

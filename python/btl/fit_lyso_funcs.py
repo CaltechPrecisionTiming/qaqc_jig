@@ -2,12 +2,13 @@ from __future__ import division
 import numpy as np
 from scipy.stats import norm
 import ROOT
+from functools import cache
 
 # Single photoelectron charge in attenuated mode
 SPE_CHARGE = 1.0 # pC
 # Single photoelectron charge standard deviation in attenuated mode
 # FIXME: Should actually measure this
-SPE_ERROR = 0.1 # pC
+SPE_ERROR = 0.01 # pC
 
 def dn(E,Q,Z,A,forb=None):
     """
@@ -55,6 +56,7 @@ CACHE = {}
 
 EPSILON = 1e-10
 
+@cache
 def p_e(es, p):
     Z = 72
     Q = 593
@@ -79,18 +81,24 @@ def p_e(es, p):
 
     return total_spectrum
 
-def p_q(q, n):
-    return norm.pdf(q,SPE_CHARGE*n,np.sqrt(n)*SPE_ERROR)
+def fast_norm(x,mu,sigma):
+    return np.exp(-(x-mu)**2/(2*sigma**2))/(np.sqrt(2*np.pi)*sigma)
 
-def p_n(n, e, y):
-    """
-    Returns P(n|e,y) where `n` is the number of PE (assumed to be continuous so
-    we can use the gaussian approximation to the Poisson distribution) and `e`
-    is the energy in keV and `y` is the light yield in PE/keV.
-    """
-    return norm.pdf(n,e*y,np.sqrt(e*y))
+def p_q(q, y, e):
+    n = y*e/SPE_CHARGE
+    return fast_norm(q,y*e,np.sqrt(n)*SPE_CHARGE)
 
-def p2(q,avg_y,dy,p):
+# at a given energy E, we get *on average* y pc/keV
+# doesn't really tell us the exact number of photons
+# but we can assume an approximate SPE charge
+# p(q|avg_y)
+# int_e p(q|e,avg_y) p(e)
+# int_e int_y p(q|y,e,avg_y) p(y|avg_y) p(e)
+# int_e int_y p(q|y,e) p(y|avg_y) p(e)
+# from y and spe charge can calculate light yield
+# assume p(q|y,E) is gauss(q,E*y,approximate std)
+
+def likelihood(q,avg_y,dy,p):
     """
     Returns P(q|avg_y,dy,p) where avg_y is the average light yield, dy is the
     fractional difference between the light yield at the center and end of the
@@ -107,16 +115,11 @@ def p2(q,avg_y,dy,p):
     See the document "Fitting LYSO Intrinsic Spectrum" for more details.
     """
 
-    ns = np.linspace(1,1000,100)[:,np.newaxis]
-    ys = np.linspace(1-dy,1+dy,10)[:,np.newaxis,np.newaxis]
-    es = np.linspace(88,500,200)
+    ys = avg_y*np.linspace(1-dy,1+dy,10)[:,np.newaxis]
+    es = np.linspace(1,1000,1000)
 
     # Here, we assume p(y) = constant
-    i1 = np.trapz(p_n(ns,es,ys),x=ys,axis=0)
-    i2 = np.trapz(p_q(q,ns)*i1,x=ns,axis=0)
-    i3 = np.trapz(p_e(es,p)*i2,x=es,axis=0)
-
-    return i3
+    return np.trapz(p_e(tuple(es),tuple(p))*np.trapz(p_q(q,ys,es)/(2*dy),x=ys,axis=0),x=es,axis=0)
 
 def lyso_spectrum(x,p):
     """
@@ -138,7 +141,7 @@ def lyso_spectrum(x,p):
 
     ps = [p[i] for i in range(2,6)]
 
-    total_spectrum = [p2(q,p[0],p[1],ps) for q in qs]
+    total_spectrum = [likelihood(q,p[0],p[1],ps) for q in qs]
 
     CACHE[key] = total_spectrum
 
@@ -218,15 +221,19 @@ def fit_lyso(h):
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    x = np.linspace(0,1000,100)
+    x = np.linspace(0,500,500)
     f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
     f.SetParameter(0,1)
-    f.SetParameter(1,0.1)
+    f.SetParameter(1,0.001)
     f.SetParameter(2,1)
     f.SetParameter(3,1)
     f.SetParameter(4,0)
     f.SetParameter(5,0)
     y = [f.Eval(e) for e in x]
+    f.SetParameter(1,0.1)
+    y2 = [f.Eval(e) for e in x]
 
-    plt.plot(x,y)
+    plt.plot(x,y,label='dy=0.001')
+    plt.plot(x,y2,label='dy=0.1')
+    plt.legend()
     plt.show()

@@ -179,7 +179,7 @@ def fit_lyso(h):
     f.SetParameter(0,xmax/300)
     f.SetParLimits(0,0.1,10)
     f.SetParameter(1,0.1)
-    f.SetParLimits(1,0.01,10)
+    f.SetParLimits(1,0.01,0.2)
     f.SetParameter(2,h.GetEntries())
     f.SetParLimits(2,0,1e9)
     f.SetParameter(3,h.GetEntries())
@@ -201,8 +201,10 @@ def fit_lyso(h):
     fr = h.Fit(f,"S+","",xmax-100,xmax+100)
 
     # Now we float all the parameters
-    f.ReleaseParameter(4)
-    f.ReleaseParameter(5)
+    f.ReleaseParameter(0)
+    f.ReleaseParameter(1)
+    f.SetParLimits(0,0.1,10)
+    f.SetParLimits(1,0.01,0.2)
     fr = h.Fit(f,"S+","",xmax-100,xmax+100)
     if not fr.Get().IsValid():
         return None

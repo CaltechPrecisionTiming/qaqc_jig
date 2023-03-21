@@ -1584,11 +1584,16 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
                 sprintf(dset_name, "ch%i", i+16);
         }
 
-        if ((dset = H5Dopen(group_id, dset_name, H5P_DEFAULT)) < 0) {
+        if (H5Lexists(group_id, dset_name, H5P_DEFAULT) <= 0) {
             /* Dataset doesn't exist, so we create it and write to it. */
             if (write_data_to_output_file(group_id, i, data, baseline_data, n, chmask, nsamples, gzip_compression_level, channel_map))
                 return 1;
             continue;
+        }
+
+        if ((dset = H5Dopen(group_id, dset_name, H5P_DEFAULT)) < 0) {
+            fprintf(stderr, "error creating dataset\n");
+            return 1;
         }
 
         /* Get dataspace and allocate memory for read buffer. This is a two

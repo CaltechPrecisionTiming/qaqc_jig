@@ -1192,6 +1192,8 @@ void loop()
         if (packetBuffer[packetSize-1] == '\n')
             packetBuffer[packetSize-1] = '\0';
 
+        packetBuffer[packetSize] = '\0';
+
         if (debug) {
             Serial.print("Received packet of size ");
             Serial.println(packetSize);

@@ -47,63 +47,83 @@ LIGHT_YIELD = 1500/1000.0
 
 CACHE = {}
 
-def lyso_spectrum(x,p):
-    """
-    ROOT function to return the LYSO spectrum at x[0] in keV.
+# p(q) = int_e p(q|e) p(e)
+# p(q) = int_e int_y p(q|e,y) p(y|e) p(e)
+# p(q) = int_e int_y int_n p(q|n) p(n|e,y) p(y) p(e)
+# p(q) = int_e p(e) int_n p(q|n) int_y p(n|e,y) p(y) 
 
-    p[0] - Constant for 80 keV spectrum
-    p[1] - Constant for 290 keV spectrum
-    p[2] - Constant for 395 keV spectrum
-    p[3] - Constant for 597 keV spectrum
-    p[4] - Light yield (pC/keV)
-    p[5] - Multiplier for light yield when calculating sigma
-    """
+def p_e(es, p):
     Z = 72
     Q = 593
     A = 176 #Not sure if this is right?
 
-    es = np.linspace(0,1000,1000)
-
-    key = tuple(p[i] for i in range(6))
-    if key in CACHE:
-        total_spectrum = CACHE[key]
-        return np.interp(x[0]/p[4],es,total_spectrum)
-
-    spectrum_80 = np.array([dn(e-80, Q, Z, A) for e in es])
+    spectrum_88 = np.array([dn(e-88, Q, Z, A) for e in es])
     spectrum_290 = np.array([dn(e-290, Q, Z, A) for e in es])
     spectrum_395 = np.array([dn(e-395, Q, Z, A) for e in es])
     spectrum_597 = np.array([dn(e-597, Q, Z, A) for e in es])
 
-    spectrum_80 /= np.trapz(spectrum_80,x=es)
+    spectrum_88 /= np.trapz(spectrum_88,x=es)
     spectrum_290 /= np.trapz(spectrum_290,x=es)
     spectrum_395 /= np.trapz(spectrum_395,x=es)
     spectrum_597 /= np.trapz(spectrum_597,x=es)
 
-    width_80 = np.sqrt(80*LIGHT_YIELD*p[5])*p[4]/(LIGHT_YIELD*p[5])
-    gauss_x = np.arange(-100,100,es[1]-es[0])
-    gauss_y = norm.pdf(gauss_x,scale=width_80)
-    spectrum_80 = np.convolve(spectrum_80,gauss_y,'same')
+    total_spectrum = p[0]*spectrum_88 + p[1]*spectrum_290 + p[2]*spectrum_395 + p[3]*spectrum_597
 
-    width_290 = np.sqrt(290*LIGHT_YIELD*p[5])*p[4]/(LIGHT_YIELD*p[5])
-    gauss_x = np.arange(-100,100,es[1]-es[0])
-    gauss_y = norm.pdf(gauss_x,scale=width_290)
-    spectrum_290 = np.convolve(spectrum_290,gauss_y,'same')
+    return total_spectrum
 
-    width_395 = np.sqrt(395*LIGHT_YIELD*p[5])*p[4]/(LIGHT_YIELD*p[5])
-    gauss_x = np.arange(-100,100,es[1]-es[0])
-    gauss_y = norm.pdf(gauss_x,scale=width_395)
-    spectrum_395 = np.convolve(spectrum_395,gauss_y,'same')
+# Single photoelectron charge in attenuated mode
+SPE_CHARGE = 1.0 # pC
+# Single photoelectron charge standard deviation in attenuated mode
+SPE_ERROR = 0.1 # pC
 
-    width_597 = np.sqrt(597*LIGHT_YIELD*p[5])*p[4]/(LIGHT_YIELD*p[5])
-    gauss_x = np.arange(-100,100,es[1]-es[0])
-    gauss_y = norm.pdf(gauss_x,scale=width_597)
-    spectrum_597 = np.convolve(spectrum_597,gauss_y,'same')
+def p_q(q, n):
+    return norm.pdf(q,SPE_CHARGE*n,np.sqrt(n)*SPE_ERROR)
 
-    total_spectrum = p[0]*spectrum_80 + p[1]*spectrum_290 + p[2]*spectrum_395 + p[3]*spectrum_597
+def p_n(n, e, y):
+    """
+    Returns P(n|e,y) where `n` is the number of PE (assumed to be continuous so
+    we can use the gaussian approximation to the Poisson distribution) and `e`
+    is the energy in keV and `y` is the light yield in PE/keV.
+    """
+    return norm.pdf(n,e*y,np.sqrt(e*y))
+
+def p2(q,avg_y,dy,p):
+    ns = np.linspace(1,1000,100)[:,np.newaxis]
+    ys = np.linspace(1-dy,1+dy,10)[:,np.newaxis,np.newaxis]
+    es = np.linspace(88,1000,100)
+
+    # Here, we assume p(y) = constant
+    i1 = np.trapz(p_n(ns,es,ys),x=ys,axis=0)
+    i2 = np.trapz(p_q(q,ns)*i1,x=ns,axis=0)
+    i3 = np.trapz(p_e(es,p)*i2,x=es,axis=0)
+
+    return i3
+
+def lyso_spectrum(x,p):
+    """
+    ROOT function to return the LYSO spectrum at x[0] in keV.
+
+    p[0] - Average Light yield (pC/keV)
+    p[1] - Fractional difference between light yield at center and side
+    p[2] - Constant for 88 keV spectrum
+    p[3] - Constant for 290 keV spectrum
+    p[4] - Constant for 395 keV spectrum
+    p[5] - Constant for 597 keV spectrum
+    """
+    qs = np.linspace(0,1000,1000)
+
+    key = tuple(p[i] for i in range(6))
+    if key in CACHE:
+        total_spectrum = CACHE[key]
+        return np.interp(x[0],qs,total_spectrum)
+
+    ps = [p[i] for i in range(2,6)]
+
+    total_spectrum = [p2(q,p[0],p[1],ps) for q in qs]
 
     CACHE[key] = total_spectrum
 
-    return np.interp(x[0]/p[4],es,total_spectrum)
+    return np.interp(x[0],qs,total_spectrum)
 
 def get_lyso(x, p):
     f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
@@ -116,17 +136,17 @@ def fit_lyso(h):
     Fit the internal LYSO radiation spectrum to the histogram `h`. LYSO has
     intrinsic radiation from the beta decay of 176Lu (see
     https://www.nature.com/articles/s41598-018-35684-x). Here we fit the
-    histogram to a sum of beta decay spectrums offset by 88, 202+80, 307+80,
+    histogram to a sum of beta decay spectrums offset by 88, 202+88, 307+88,
     etc. where the offsets come from the gammas emitted when the daughter
     nucleus 176Hf relaxes.
 
     If the fit is successful, returns a list of the fit parameters:
-        p[0] - Constant for 80 keV spectrum
-        p[1] - Constant for 290 keV spectrum
-        p[2] - Constant for 395 keV spectrum
-        p[3] - Constant for 597 keV spectrum
-        p[4] - Light yield (pC/keV)
-        p[5] - Multiplier for light yield when calculating sigma
+        p[0] - Average light yield (pC/keV)
+        p[1] - Fractional difference between light yield at center and side
+        p[2] - Constant for 88 keV spectrum
+        p[3] - Constant for 290 keV spectrum
+        p[4] - Constant for 395 keV spectrum
+        p[5] - Constant for 597 keV spectrum
 
     Otherwise, returns None.
     """
@@ -144,28 +164,28 @@ def fit_lyso(h):
         return None
 
     # Assume peak is somewhere around 300 keV
-    f.SetParameter(0,h.GetEntries())
-    f.SetParLimits(0,0,1e9)
-    f.SetParameter(1,h.GetEntries())
-    f.SetParLimits(1,0,1e9)
-    f.SetParameter(2,0)
+    f.SetParameter(0,xmax/300)
+    f.SetParLimits(0,0.1,10)
+    f.SetParameter(1,0.1)
+    f.SetParLimits(1,0.01,10)
+    f.SetParameter(2,h.GetEntries())
     f.SetParLimits(2,0,1e9)
-    f.SetParameter(3,0)
+    f.SetParameter(3,h.GetEntries())
     f.SetParLimits(3,0,1e9)
-    f.SetParameter(4,xmax/300)
-    f.SetParLimits(4,0.1,10)
-    f.SetParameter(5,1)
-    f.SetParLimits(5,0.1,10)
+    f.SetParameter(4,0)
+    f.SetParLimits(4,0,1e9)
+    f.SetParameter(5,0)
+    f.SetParLimits(5,0,1e9)
 
     # Right now we don't fit for these higher energy components. In the future
     # if we decrease the negative voltage rail we might be able to see these
     # without the waveform getting saturated at the negative rail.
-    f.FixParameter(2,0)
-    f.FixParameter(3,0)
+    f.FixParameter(4,0)
+    f.FixParameter(5,0)
 
     # Run the first fit only floating the normalization constants
-    f.FixParameter(4,xmax/300)
-    f.FixParameter(5,1)
+    f.FixParameter(0,xmax/300)
+    f.FixParameter(1,0.1)
     fr = h.Fit(f,"S+","",xmax-100,xmax+100)
 
     # Now we float all the parameters
@@ -179,14 +199,14 @@ def fit_lyso(h):
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    x = np.linspace(0,1000,1000)
+    x = np.linspace(0,1000,100)
     f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
     f.SetParameter(0,1)
-    f.SetParameter(1,1)
-    f.SetParameter(2,0)
-    f.SetParameter(3,0)
-    f.SetParameter(4,1)
-    f.SetParameter(5,1)
+    f.SetParameter(1,0.1)
+    f.SetParameter(2,1)
+    f.SetParameter(3,1)
+    f.SetParameter(4,0)
+    f.SetParameter(5,0)
     y = [f.Eval(e) for e in x]
 
     plt.plot(x,y)

@@ -3,6 +3,7 @@ import numpy as np
 from scipy.stats import norm
 import ROOT
 from functools import cache
+from scipy.special import erf
 
 # Single photoelectron charge in attenuated mode
 SPE_CHARGE = 1.0 # pC
@@ -110,6 +111,24 @@ def likelihood(q,avg_y,dy,p):
 
     # Here, we assume p(y) = constant
     return np.trapz(p_e(tuple(es),tuple(p))*np.trapz(p_q(q,ys,es)/(2*dy),x=ys,axis=0),x=es,axis=0)
+
+def likelihood_fast(q,avg_y,dy,p):
+    """
+    Returns P(q|avg_y,dy,p) just like the function above, but is much faster
+    since we do the second integral analytically.
+    """
+    es = np.linspace(1,1000,1000)
+
+    integral = -erf((q+avg_y*(1-dy)*es)/np.sqrt(2*avg_y*(1-dy)*es*SPE_CHARGE)) \
+               +erf((q+avg_y*(1+dy)*es)/np.sqrt(2*avg_y*(1+dy)*es*SPE_CHARGE))
+    integral *= np.exp(q/SPE_CHARGE/2)
+    integral *= np.exp(q/SPE_CHARGE/2)
+    integral *= np.exp(q/SPE_CHARGE/2)
+    integral *= np.exp(q/SPE_CHARGE/2)
+    integral -= erf((-q+avg_y*(1-dy)*es)/np.sqrt(2*avg_y*(1-dy)*es*SPE_CHARGE))
+    integral += erf((-q+avg_y*(1+dy)*es)/np.sqrt(2*avg_y*(1+dy)*es*SPE_CHARGE))
+    integral *= 1/(2*es)
+    return np.trapz(p_e(tuple(es),tuple(p))*integral/(2*dy),x=es,axis=0)
 
 def lyso_spectrum(x,p):
     """

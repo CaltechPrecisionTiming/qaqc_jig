@@ -404,7 +404,7 @@ if __name__ == '__main__':
             data['temp_a'] = args.thermistor_a
             data['temp_b'] = args.thermistor_b
 
-            cursor.execute("INSERT INTO runs (voltage, institution, git_sha1, git_dirty, filename) VALUES (%(voltage)s, %(institution)s::inst, %(git_sha1)s, %(git_dirty)s, %(filename)s) RETURNING run", data)
+            cursor.execute("INSERT INTO runs (voltage, institution, git_sha1, git_dirty, filename) VALUES (%(voltage)s, %(institution)s::inst, %(git_sha1)s, %(git_dirty)s, %(filename)s, %(tec_resistance_a)s, %(tec_resistance_b)s, %(temp_a)s, %(temp_b)s) RETURNING run", data)
             result = cursor.fetchone()
             run = result[0]
         

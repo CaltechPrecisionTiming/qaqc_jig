@@ -1,3 +1,13 @@
+"""
+Python module to fit the intrinsic LYSO radiation to a sum of beta decay
+distributions. You can also run this module as a script to plot the LYSO charge
+distribution:
+
+    $ python fit_lyso_spectrum.py
+
+Author: Anthony LaTorre
+Date: March 21, 2023
+"""
 from __future__ import division
 import numpy as np
 from scipy.stats import norm
@@ -20,7 +30,13 @@ def dn(E,Q,Z,A,forb=None):
 
     From https://github.com/gzangakis/beta-spectrum/blob/master/BetaDecay.py
     """
-
+    # FIXME: I got the beta decay distribution code from
+    # https://github.com/gzangakis/beta-spectrum/blob/master/BetaDecay.py, but
+    # looking at the distribution it doesn't seem to match the distribution
+    # from the Nature paper at
+    # https://www.nature.com/articles/s41598-018-35684-x. I don't *think* this
+    # should be a big deal since our primary handle for the light yield comes
+    # from the bump at around 300 keV, but should double check this.
     e = E
 
     if not 0 < E <= Q:
@@ -50,11 +66,11 @@ def dn(E,Q,Z,A,forb=None):
     # Branch Spectrum
     return forbiddenness*F*(np.sqrt(np.power(e,2)+2*e*511)*np.power(Q-e,2)*(e+511))
 
-# Photons per keV
-LIGHT_YIELD = 1500/1000.0
-
+# Global dictionary used to speed up the calculation when the ROOT TF1 is
+# called multiple times with the same parameter
 CACHE = {}
 
+# Small number to avoid divide by zeros
 EPSILON = 1e-10
 
 @cache
@@ -68,6 +84,7 @@ def p_e(es, p):
     spectrum_395 = np.array([dn(e-395, Q, Z, A) for e in es],dtype=float)
     spectrum_597 = np.array([dn(e-597, Q, Z, A) for e in es],dtype=float)
 
+    # Add small number here in case someone is evaluating things at low energies where the higher energy distributions don't have any non-zero values.
     spectrum_88 += EPSILON
     spectrum_290 += EPSILON
     spectrum_395 += EPSILON
@@ -83,9 +100,22 @@ def p_e(es, p):
     return total_spectrum
 
 def fast_norm(x,mu,sigma):
+    """
+    Faster version of the gaussian distribution than scipy.stats.norm which
+    does a lot of checks to make sure things are in bounds.
+    """
     return np.exp(-(x-mu)**2/(2*sigma**2))/(np.sqrt(2*np.pi)*sigma)
 
 def p_q(q, y, e):
+    """
+    Probability of observing charge `q` assuming a light yield (pC/keV) `y` and
+    energy `e` (keV).
+
+    Note: Here we make the approximation that the spread in the number of PE
+    due to the Poisson distribution dominates the SPE charge spread. In
+    principle we could easily add the SPE spread, but then we wouldn't be able
+    to have the analytical form in likelihood_fast().
+    """
     n = y*e/SPE_CHARGE
     return fast_norm(q,y*e,np.sqrt(n)*SPE_CHARGE)
 

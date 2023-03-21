@@ -3,6 +3,12 @@ import numpy as np
 from scipy.stats import norm
 import ROOT
 
+# Single photoelectron charge in attenuated mode
+SPE_CHARGE = 1.0 # pC
+# Single photoelectron charge standard deviation in attenuated mode
+# FIXME: Should actually measure this
+SPE_ERROR = 0.1 # pC
+
 def dn(E,Q,Z,A,forb=None):
     """
     This function, dn(E,Q,Z,forb) Calculates the branch antineutrino kinetic
@@ -47,11 +53,6 @@ LIGHT_YIELD = 1500/1000.0
 
 CACHE = {}
 
-# p(q) = int_e p(q|e) p(e)
-# p(q) = int_e int_y p(q|e,y) p(y|e) p(e)
-# p(q) = int_e int_y int_n p(q|n) p(n|e,y) p(y) p(e)
-# p(q) = int_e p(e) int_n p(q|n) int_y p(n|e,y) p(y) 
-
 EPSILON = 1e-10
 
 def p_e(es, p):
@@ -78,11 +79,6 @@ def p_e(es, p):
 
     return total_spectrum
 
-# Single photoelectron charge in attenuated mode
-SPE_CHARGE = 1.0 # pC
-# Single photoelectron charge standard deviation in attenuated mode
-SPE_ERROR = 0.1 # pC
-
 def p_q(q, n):
     return norm.pdf(q,SPE_CHARGE*n,np.sqrt(n)*SPE_ERROR)
 
@@ -95,6 +91,22 @@ def p_n(n, e, y):
     return norm.pdf(n,e*y,np.sqrt(e*y))
 
 def p2(q,avg_y,dy,p):
+    """
+    Returns P(q|avg_y,dy,p) where avg_y is the average light yield, dy is the
+    fractional difference between the light yield at the center and end of the
+    bar, and p is a tuple containing the coefficients for the different gamma
+    captures.
+
+    A simple derivation of the likelihood is:
+
+        p(q) = int_e p(q|e) p(e)
+        p(q) = int_e int_y p(q|e,y) p(y|e) p(e)
+        p(q) = int_e int_y int_n p(q|n) p(n|e,y) p(y) p(e)
+        p(q) = int_e p(e) int_n p(q|n) int_y p(n|e,y) p(y) 
+
+    See the document "Fitting LYSO Intrinsic Spectrum" for more details.
+    """
+
     ns = np.linspace(1,1000,100)[:,np.newaxis]
     ys = np.linspace(1-dy,1+dy,10)[:,np.newaxis,np.newaxis]
     es = np.linspace(88,500,200)
@@ -117,7 +129,7 @@ def lyso_spectrum(x,p):
     p[4] - Constant for 395 keV spectrum
     p[5] - Constant for 597 keV spectrum
     """
-    qs = np.linspace(0,1000,1000)
+    qs = np.linspace(88,500,1000)
 
     key = tuple(p[i] for i in range(6))
     if key in CACHE:

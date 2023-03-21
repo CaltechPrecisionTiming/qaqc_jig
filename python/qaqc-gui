@@ -272,7 +272,12 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','self','-l','lyso','--channel-map',j % 2,'-n',n_lyso_events.get(),'-o',filename], progress_bar=i):
+            try:
+                voltage = query(client, "extmon_vread")
+            except Exception as e:
+                print_warning(str(e))
+
+            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',voltage,'-t','self','-l','lyso','--channel-map',j % 2,'-n',n_lyso_events.get(),'-o',filename], progress_bar=i):
                 hv_off(client)
                 return
 

@@ -52,15 +52,22 @@ CACHE = {}
 # p(q) = int_e int_y int_n p(q|n) p(n|e,y) p(y) p(e)
 # p(q) = int_e p(e) int_n p(q|n) int_y p(n|e,y) p(y) 
 
+EPSILON = 1e-10
+
 def p_e(es, p):
     Z = 72
     Q = 593
     A = 176 #Not sure if this is right?
 
-    spectrum_88 = np.array([dn(e-88, Q, Z, A) for e in es])
-    spectrum_290 = np.array([dn(e-290, Q, Z, A) for e in es])
-    spectrum_395 = np.array([dn(e-395, Q, Z, A) for e in es])
-    spectrum_597 = np.array([dn(e-597, Q, Z, A) for e in es])
+    spectrum_88 = np.array([dn(e-88, Q, Z, A) for e in es],dtype=float)
+    spectrum_290 = np.array([dn(e-290, Q, Z, A) for e in es],dtype=float)
+    spectrum_395 = np.array([dn(e-395, Q, Z, A) for e in es],dtype=float)
+    spectrum_597 = np.array([dn(e-597, Q, Z, A) for e in es],dtype=float)
+
+    spectrum_88 += EPSILON
+    spectrum_290 += EPSILON
+    spectrum_395 += EPSILON
+    spectrum_597 += EPSILON
 
     spectrum_88 /= np.trapz(spectrum_88,x=es)
     spectrum_290 /= np.trapz(spectrum_290,x=es)
@@ -90,7 +97,7 @@ def p_n(n, e, y):
 def p2(q,avg_y,dy,p):
     ns = np.linspace(1,1000,100)[:,np.newaxis]
     ys = np.linspace(1-dy,1+dy,10)[:,np.newaxis,np.newaxis]
-    es = np.linspace(88,1000,100)
+    es = np.linspace(88,500,200)
 
     # Here, we assume p(y) = constant
     i1 = np.trapz(p_n(ns,es,ys),x=ys,axis=0)

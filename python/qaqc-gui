@@ -93,7 +93,7 @@ def save(filename=None):
     data['module_available'] = [available.get() for available in module_available]
     data['hv'] = hv.get()
     data['ip_address'] = ip_address.get()
-    data['stepper_enable'] = stepper_enable.get()
+    #data['stepper_enable'] = stepper_enable.get()
     data['n_spe_events'] = n_spe_events.get()
     data['n_lyso_events'] = n_lyso_events.get()
     print("Saving GUI state from '%s'" % filename)
@@ -124,8 +124,8 @@ def load(filename=None):
             hv.set(data['hv'])
         if 'ip_address' in data:
             ip_address.set(data['ip_address'])
-        if 'stepper_enable' in data:
-            stepper_enable.set(data['stepper_enable'])
+        #if 'stepper_enable' in data:
+        #    stepper_enable.set(data['stepper_enable'])
         if 'n_spe_events' in data:
             n_spe_events.set(data['n_spe_events'])
         if 'n_lyso_events' in data:
@@ -190,12 +190,12 @@ def take_data():
     client = Client(ip_address.get())
 
     # First, we try to get the stepper to the home position
-    if stepper_enable.get():
-        try:
-            query(client, "step_home")
-        except Exception as e:
-            print_warning(str(e))
-            return
+    #if stepper_enable.get():
+    #    try:
+    #        query(client, "step_home")
+    #    except Exception as e:
+    #        print_warning(str(e))
+    #        return
 
     # Next, we take the single PE data
     try:
@@ -425,6 +425,8 @@ if __name__ == '__main__':
     # Create the root window
     root = tk.Tk()
 
+    root.title("BTL QA/QC GUI")
+
     # Make sure to save before quitting
     root.protocol("WM_DELETE_WINDOW", on_closing)
 
@@ -569,8 +571,8 @@ if __name__ == '__main__':
 
     entry.tag_config("error",foreground='red')
 
-    button_home = tk.Button(master=frame_buttons,text="Stepper Home", width=25, height=5, command=step_home)
-    button_home.pack()
+    #button_home = tk.Button(master=frame_buttons,text="Stepper Home", width=25, height=5, command=step_home)
+    #button_home.pack()
 
     button = tk.Button(master=frame_buttons,text="Take Data", width=25, height=5, command=take_data)
     button.pack()
@@ -579,9 +581,9 @@ if __name__ == '__main__':
     stop_button['state'] = tk.DISABLED
     stop_button.pack()
 
-    stepper_enable = tk.IntVar(frame_settings, value=1)
-    stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
-    stepper_enable_checkbox.pack()
+    #stepper_enable = tk.IntVar(frame_settings, value=1)
+    #stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
+    #stepper_enable_checkbox.pack()
 
     frame_settings.grid(row=0,column=1)
     frame_buttons.grid(row=1,column=1)

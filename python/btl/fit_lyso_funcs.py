@@ -122,7 +122,7 @@ def lyso_spectrum(x,p):
     p[4] - Constant for 395 keV spectrum
     p[5] - Constant for 597 keV spectrum
     """
-    qs = np.linspace(88,500,1000)
+    qs = np.linspace(0,1000,1000)
 
     key = tuple(p[i] for i in range(6))
     if key in CACHE:

@@ -88,16 +88,6 @@ def p_q(q, y, e):
     n = y*e/SPE_CHARGE
     return fast_norm(q,y*e,np.sqrt(n)*SPE_CHARGE)
 
-# at a given energy E, we get *on average* y pc/keV
-# doesn't really tell us the exact number of photons
-# but we can assume an approximate SPE charge
-# p(q|avg_y)
-# int_e p(q|e,avg_y) p(e)
-# int_e int_y p(q|y,e,avg_y) p(y|avg_y) p(e)
-# int_e int_y p(q|y,e) p(y|avg_y) p(e)
-# from y and spe charge can calculate light yield
-# assume p(q|y,E) is gauss(q,E*y,approximate std)
-
 def likelihood(q,avg_y,dy,p):
     """
     Returns P(q|avg_y,dy,p) where avg_y is the average light yield, dy is the
@@ -108,9 +98,9 @@ def likelihood(q,avg_y,dy,p):
     A simple derivation of the likelihood is:
 
         p(q) = int_e p(q|e) p(e)
-        p(q) = int_e int_y p(q|e,y) p(y|e) p(e)
-        p(q) = int_e int_y int_n p(q|n) p(n|e,y) p(y) p(e)
-        p(q) = int_e p(e) int_n p(q|n) int_y p(n|e,y) p(y) 
+        p(q) = int_e int_y p(q|e,y) p(y) p(e)
+        p(q) = int_e int_y p(q|e,y) p(e) # Assume p(y) = constant
+        p(q) = int_e int_y Gauss(q,e*y,sqrt(e*y/SPE_CHARGE)*SPE_CHARGE) p(e)
 
     See the document "Fitting LYSO Intrinsic Spectrum" for more details.
     """

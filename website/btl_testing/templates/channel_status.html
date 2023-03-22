@@ -148,7 +148,7 @@
         var lyso_charge_histogram_fit = new Array();
         var xmax = 0;
         var ymax = 0;
-        for (var i=0; i < lyso_charge_histogram_x.length; i++) {
+        for (var i=1; i < lyso_charge_histogram_x.length - 1; i++) {
             if (lyso_charge_histogram_y[i] !== null) {
                 var left = (lyso_charge_histogram_x[i-1] + lyso_charge_histogram_x[i])/2;
                 var right = (lyso_charge_histogram_x[i] + lyso_charge_histogram_x[i+1])/2;
@@ -173,7 +173,7 @@
 
         var spe_charge_histogram_data = new Array();
         var spe_charge_histogram_fit = new Array();
-        for (var i=0; i < spe_charge_histogram_x.length; i++) {
+        for (var i=1; i < spe_charge_histogram_x.length - 1; i++) {
             if (spe_charge_histogram_y[i] !== null) {
                 var left = (spe_charge_histogram_x[i-1] + spe_charge_histogram_x[i])/2;
                 var right = (spe_charge_histogram_x[i] + spe_charge_histogram_x[i+1])/2;

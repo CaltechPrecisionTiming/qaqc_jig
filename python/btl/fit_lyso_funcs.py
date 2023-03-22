@@ -262,19 +262,19 @@ def fit_lyso(h):
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
-    x = np.linspace(0,500,500)
+    x = np.linspace(0,800,800)
     f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
-    f.SetParameter(0,1)
+    f.SetParameter(0,0.8)
     f.SetParameter(1,0.001)
     f.SetParameter(2,1)
     f.SetParameter(3,1)
     f.SetParameter(4,0)
     f.SetParameter(5,0)
     y = [f.Eval(e) for e in x]
-    f.SetParameter(1,0.1)
+    f.SetParameter(1,0.3)
     y2 = [f.Eval(e) for e in x]
 
     plt.plot(x,y,label='dy=0.001')
-    plt.plot(x,y2,label='dy=0.1')
+    plt.plot(x,y2,label='dy=0.2')
     plt.legend()
     plt.show()

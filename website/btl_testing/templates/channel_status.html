@@ -172,7 +172,7 @@
         var spe_charge_histogram_fit = new Array();
         for (var i=0; i < spe_charge_histogram_x.length; i++) {
             if (spe_charge_histogram_y[i] !== null) {
-                spe_charge_histogram_data.push({'x': spe_charge_histogram_x[i], 'y': spe_charge_histogram_y[i]});
+                spe_charge_histogram_data.push({'x': spe_charge_histogram_x[i], 'y': spe_charge_histogram_y[i] + 1e-10});
                 spe_charge_histogram_fit.push({'x': spe_charge_histogram_x[i], 'y': spe_charge_fit[i]});
             }
         }

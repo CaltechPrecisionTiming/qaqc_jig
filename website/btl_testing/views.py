@@ -105,7 +105,7 @@ def channel_status():
     key = request.args.get("key", 0, type=int)
     log = request.args.get("log", False, type=lambda x: x.lower() == "true")
     info = get_channel_info(key=key)
-    if info['lyso_fit_pars'] is not None:
+    if info['lyso_fit_pars'] is not None and len(info['lyso_fit_pars']) == 9:
         info['lyso_charge_fit'] = list(fit_lyso_funcs.get_lyso(info['lyso_charge_histogram_x'], info['lyso_fit_pars']))
     else:
         info['lyso_charge_fit'] = list(np.zeros_like(info['lyso_charge_histogram_x']))

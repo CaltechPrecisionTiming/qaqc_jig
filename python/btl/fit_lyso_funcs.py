@@ -80,11 +80,15 @@ def p_e(es, p):
     A = 176 #Not sure if this is right?
 
     spectrum_88 = np.array([dn(e-88, Q, Z, A) for e in es],dtype=float)
+    spectrum_202 = norm.pdf(es,202,10)
     spectrum_290 = np.array([dn(e-290, Q, Z, A) for e in es],dtype=float)
+    spectrum_307 = norm.pdf(es,307,10)
     spectrum_395 = np.array([dn(e-395, Q, Z, A) for e in es],dtype=float)
     spectrum_597 = np.array([dn(e-597, Q, Z, A) for e in es],dtype=float)
 
-    # Add small number here in case someone is evaluating things at low energies where the higher energy distributions don't have any non-zero values.
+    # Add small number here in case someone is evaluating things at low
+    # energies where the higher energy distributions don't have any non-zero
+    # values.
     spectrum_88 += EPSILON
     spectrum_290 += EPSILON
     spectrum_395 += EPSILON
@@ -95,7 +99,7 @@ def p_e(es, p):
     spectrum_395 /= np.trapz(spectrum_395,x=es)
     spectrum_597 /= np.trapz(spectrum_597,x=es)
 
-    total_spectrum = p[0]*spectrum_88 + p[1]*spectrum_290 + p[2]*spectrum_395 + p[3]*spectrum_597
+    total_spectrum = p[0]*spectrum_88 + p[1]*spectrum_202 + p[2]*spectrum_290 + p[3]*spectrum_307 + p[4]*spectrum_395 + p[5]*spectrum_597
 
     return total_spectrum
 
@@ -167,18 +171,20 @@ def lyso_spectrum(x,p):
     p[0] - Average Light yield (pC/keV)
     p[1] - Fractional difference between light yield at center and side
     p[2] - Constant for 88 keV spectrum
-    p[3] - Constant for 290 keV spectrum
-    p[4] - Constant for 395 keV spectrum
-    p[5] - Constant for 597 keV spectrum
+    p[3] - Constant for 202 keV gamma
+    p[4] - Constant for 290 keV spectrum
+    p[5] - Constant for 370 keV gamma
+    p[6] - Constant for 395 keV spectrum
+    p[7] - Constant for 597 keV spectrum
     """
     qs = np.linspace(0,1000,1000)
 
-    key = tuple(p[i] for i in range(6))
+    key = tuple(p[i] for i in range(8))
     if key in CACHE:
         total_spectrum = CACHE[key]
         return np.interp(x[0],qs,total_spectrum)
 
-    ps = [p[i] for i in range(2,6)]
+    ps = [p[i] for i in range(2,8)]
 
     total_spectrum = [likelihood(q,p[0],p[1],ps) for q in qs]
 
@@ -187,8 +193,8 @@ def lyso_spectrum(x,p):
     return np.interp(x[0],qs,total_spectrum)
 
 def get_lyso(x, p):
-    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
-    for i in range(6):
+    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,8)
+    for i in range(8):
         f.SetParameter(i,p[i])
     return np.array([f.Eval(e) for e in x])
 
@@ -205,13 +211,15 @@ def fit_lyso(h):
         p[0] - Average light yield (pC/keV)
         p[1] - Fractional difference between light yield at center and side
         p[2] - Constant for 88 keV spectrum
-        p[3] - Constant for 290 keV spectrum
-        p[4] - Constant for 395 keV spectrum
-        p[5] - Constant for 597 keV spectrum
+        p[3] - Constant for 202 keV gamma
+        p[4] - Constant for 290 keV spectrum
+        p[5] - Constant for 370 keV gamma
+        p[6] - Constant for 395 keV spectrum
+        p[7] - Constant for 597 keV spectrum
 
     Otherwise, returns None.
     """
-    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
+    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,8)
     xmax = None
     ymax = 0
     for i in range(1,h.GetNbinsX()-1):
@@ -233,16 +241,20 @@ def fit_lyso(h):
     f.SetParLimits(2,0,1e9)
     f.SetParameter(3,h.GetEntries())
     f.SetParLimits(3,0,1e9)
-    f.SetParameter(4,0)
+    f.SetParameter(4,h.GetEntries())
     f.SetParLimits(4,0,1e9)
-    f.SetParameter(5,0)
+    f.SetParameter(5,h.GetEntries())
     f.SetParLimits(5,0,1e9)
+    f.SetParameter(6,0)
+    f.SetParLimits(6,0,1e9)
+    f.SetParameter(7,0)
+    f.SetParLimits(7,0,1e9)
 
     # Right now we don't fit for these higher energy components. In the future
     # if we decrease the negative voltage rail we might be able to see these
     # without the waveform getting saturated at the negative rail.
-    f.FixParameter(4,0)
-    f.FixParameter(5,0)
+    f.FixParameter(6,0)
+    f.FixParameter(7,0)
 
     # Run the first fit only floating the normalization constants
     f.FixParameter(0,xmax/300)
@@ -257,7 +269,7 @@ def fit_lyso(h):
     fr = h.Fit(f,"S+","",xmax-100,xmax+100)
     if not fr.Get().IsValid():
         return None
-    return [f.GetParameter(i) for i in range(6)], [f.GetParError(i) for i in range(6)]
+    return [f.GetParameter(i) for i in range(8)], [f.GetParError(i) for i in range(8)]
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
@@ -268,8 +280,10 @@ if __name__ == '__main__':
     f.SetParameter(1,0.001)
     f.SetParameter(2,1)
     f.SetParameter(3,1)
-    f.SetParameter(4,0)
-    f.SetParameter(5,0)
+    f.SetParameter(4,1)
+    f.SetParameter(5,1)
+    f.SetParameter(6,1)
+    f.SetParameter(7,1)
     y = [f.Eval(e) for e in x]
     f.SetParameter(1,0.3)
     y2 = [f.Eval(e) for e in x]

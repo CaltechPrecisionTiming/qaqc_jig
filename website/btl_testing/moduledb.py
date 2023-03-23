@@ -12,7 +12,7 @@ class ModuleUploadForm(Form):
     barcode = IntegerField('Barcode', [validators.NumberRange(min=0,max=100000)])
     sipm = SelectField('SiPM Type', choices=[
         ('HPK','HPK'),
-        ('FBK','FBK')
+        ('FBK','FBK'),
         ('Type-2 HPK 15 um', 'Type-2 HPK 15 um',),
         ('Type-2 HPK 20 um', 'Type-2 HPK 20 um',),
         ('Type-2 HPK 25 um', 'Type-2 HPK 25 um',),

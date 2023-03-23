@@ -287,7 +287,7 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     x = np.linspace(0,800,800)
-    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,6)
+    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,9)
     f.SetParameter(0,0.8)
     f.SetParameter(1,0.001)
     f.SetParameter(2,1)

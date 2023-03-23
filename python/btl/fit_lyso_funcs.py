@@ -12,7 +12,7 @@ from __future__ import division
 import numpy as np
 from scipy.stats import norm
 import ROOT
-from functools import cache
+from functools import lru_cache
 from scipy.special import erf
 
 # Single photoelectron charge in attenuated mode
@@ -73,7 +73,7 @@ CACHE = {}
 # Small number to avoid divide by zeros
 EPSILON = 1e-10
 
-@cache
+@lru_cache(maxsize=None)
 def p_e(es, p):
     Z = 72
     Q = 593

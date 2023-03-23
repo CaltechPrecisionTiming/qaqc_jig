@@ -7,6 +7,12 @@ CREATE TYPE inst AS ENUM (
 );
 
 CREATE TYPE sipm_type AS ENUM (
+    'Type-2 HPK 15 um',
+    'Type-2 HPK 20 um',
+    'Type-2 HPK 25 um',
+    'Type-2 HPK 25 um low Cg',
+    'Type-1 HPK 25 um',
+    'Type-3 HPK 25 um',
     'HPK',
     'FBK'
 );

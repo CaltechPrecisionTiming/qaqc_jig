@@ -678,6 +678,13 @@ int get_bias_iread(double *value)
 int get_bias_vread(double *value)
 {
     *value = analogRead(PIN_BIAS_VREAD)*(3.3/1023.0)*(HV_R5+HV_R6)/HV_R6;
+    /* Subtract off the voltage drop from the 300 + 50 ohm resistors. */
+    double r = 350 + 500e3/8.0;
+    double v = *value;
+    double i = v/r;
+    *value -= i*350;
+    /* Subtract off the voltage drop from the BAP65-02 diode. */
+    *value -= 1.0;
     return 0;
 }
 

@@ -15,7 +15,11 @@ import ROOT
 from functools import lru_cache
 from scipy.special import erf
 
-# Single photoelectron charge in attenuated mode
+# Single photoelectron charge in attenuated mode (nominal SPE charge/4)
+# Here we just use an approximate value instead of trying to get the actual
+# fitted value for each channel since it's not very critical. The only place
+# this is used is in estimating the width of the charge distribution for a
+# given number of average PE due to Poisson fluctuations.
 SPE_CHARGE = 1.0 # pC
 # Single photoelectron charge standard deviation in attenuated mode
 # FIXME: Should actually measure this

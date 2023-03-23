@@ -4,6 +4,7 @@ CREATE TYPE inst AS ENUM (
     'Rome'
     'Milano'
     'CERN'
+    'Peking'
 );
 
 CREATE TYPE sipm_type AS ENUM (

@@ -19,7 +19,7 @@ class ModuleUploadForm(Form):
         ('Type-2 HPK 25 um low Cg', 'Type-2 HPK 25 um low Cg',),
         ('Type-1 HPK 25 um', 'Type-1 HPK 25 um',),
         ('Type-3 HPK 25 um', 'Type-3 HPK 25 um',)])
-    institution = SelectField('Assembly Institution', choices=[('Caltech','Caltech'),('UVA','UVA'),('Rome','Rome')])
+    institution = SelectField('Assembly Institution', choices=[('Caltech','Caltech'),('UVA','UVA'),('Rome','Rome'),('Milano','Milano'),('CERN','CERN'),('Peking','Peking')])
     comments = TextAreaField('Comments', [validators.optional(), validators.length(max=10000)])
     password = PasswordField('Password')
 

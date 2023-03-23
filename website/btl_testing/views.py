@@ -14,6 +14,7 @@ from .moduledb import get_channels, get_channel_info, ModuleUploadForm, upload_n
 from datetime import datetime
 import pytz
 from btl import fit_lyso_funcs, fit_spe_funcs
+import numpy as np
 
 @app.template_filter('timefmt')
 def timefmt(timestamp):

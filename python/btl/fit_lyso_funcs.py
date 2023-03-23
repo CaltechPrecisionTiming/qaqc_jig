@@ -84,22 +84,29 @@ def p_e(es, p):
     spectrum_290 = np.array([dn(e-290, Q, Z, A) for e in es],dtype=float)
     spectrum_307 = norm.pdf(es,307,10)
     spectrum_395 = np.array([dn(e-395, Q, Z, A) for e in es],dtype=float)
+    spectrum_509 = norm.pdf(es,509,10)
     spectrum_597 = np.array([dn(e-597, Q, Z, A) for e in es],dtype=float)
 
     # Add small number here in case someone is evaluating things at low
     # energies where the higher energy distributions don't have any non-zero
     # values.
     spectrum_88 += EPSILON
+    spectrum_202 += EPSILON
     spectrum_290 += EPSILON
+    spectrum_307 += EPSILON
     spectrum_395 += EPSILON
+    spectrum_509 += EPSILON
     spectrum_597 += EPSILON
 
     spectrum_88 /= np.trapz(spectrum_88,x=es)
+    spectrum_202 /= np.trapz(spectrum_202,x=es)
     spectrum_290 /= np.trapz(spectrum_290,x=es)
+    spectrum_307 /= np.trapz(spectrum_307,x=es)
     spectrum_395 /= np.trapz(spectrum_395,x=es)
+    spectrum_509 /= np.trapz(spectrum_509,x=es)
     spectrum_597 /= np.trapz(spectrum_597,x=es)
 
-    total_spectrum = p[0]*spectrum_88 + p[1]*spectrum_202 + p[2]*spectrum_290 + p[3]*spectrum_307 + p[4]*spectrum_395 + p[5]*spectrum_597
+    total_spectrum = p[0]*spectrum_88 + p[1]*spectrum_202 + p[2]*spectrum_290 + p[3]*spectrum_307 + p[4]*spectrum_395 + p[5]*spectrum_509 + p[6]*spectrum_597
 
     return total_spectrum
 
@@ -173,18 +180,19 @@ def lyso_spectrum(x,p):
     p[2] - Constant for 88 keV spectrum
     p[3] - Constant for 202 keV gamma
     p[4] - Constant for 290 keV spectrum
-    p[5] - Constant for 370 keV gamma
+    p[5] - Constant for 307 keV gamma
     p[6] - Constant for 395 keV spectrum
-    p[7] - Constant for 597 keV spectrum
+    p[7] - Constant for 509 keV gamma
+    p[8] - Constant for 597 keV spectrum
     """
     qs = np.linspace(0,1000,1000)
 
-    key = tuple(p[i] for i in range(8))
+    key = tuple(p[i] for i in range(9))
     if key in CACHE:
         total_spectrum = CACHE[key]
         return np.interp(x[0],qs,total_spectrum)
 
-    ps = [p[i] for i in range(2,8)]
+    ps = [p[i] for i in range(2,9)]
 
     total_spectrum = [likelihood(q,p[0],p[1],ps) for q in qs]
 
@@ -193,8 +201,8 @@ def lyso_spectrum(x,p):
     return np.interp(x[0],qs,total_spectrum)
 
 def get_lyso(x, p):
-    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,8)
-    for i in range(8):
+    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,9)
+    for i in range(9):
         f.SetParameter(i,p[i])
     return np.array([f.Eval(e) for e in x])
 
@@ -213,13 +221,14 @@ def fit_lyso(h):
         p[2] - Constant for 88 keV spectrum
         p[3] - Constant for 202 keV gamma
         p[4] - Constant for 290 keV spectrum
-        p[5] - Constant for 370 keV gamma
+        p[5] - Constant for 307 keV gamma
         p[6] - Constant for 395 keV spectrum
-        p[7] - Constant for 597 keV spectrum
+        p[7] - Constant for 509 keV spectrum
+        p[8] - Constant for 597 keV spectrum
 
     Otherwise, returns None.
     """
-    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,8)
+    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,9)
     xmax = None
     ymax = 0
     for i in range(1,h.GetNbinsX()-1):
@@ -249,12 +258,15 @@ def fit_lyso(h):
     f.SetParLimits(6,0,1e9)
     f.SetParameter(7,0)
     f.SetParLimits(7,0,1e9)
+    f.SetParameter(8,0)
+    f.SetParLimits(8,0,1e9)
 
     # Right now we don't fit for these higher energy components. In the future
     # if we decrease the negative voltage rail we might be able to see these
     # without the waveform getting saturated at the negative rail.
     f.FixParameter(6,0)
     f.FixParameter(7,0)
+    f.FixParameter(8,0)
 
     # Run the first fit only floating the normalization constants
     f.FixParameter(0,xmax/300)
@@ -269,7 +281,7 @@ def fit_lyso(h):
     fr = h.Fit(f,"S+","",xmax-100,xmax+100)
     if not fr.Get().IsValid():
         return None
-    return [f.GetParameter(i) for i in range(8)], [f.GetParError(i) for i in range(8)]
+    return [f.GetParameter(i) for i in range(9)], [f.GetParError(i) for i in range(9)]
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
@@ -284,6 +296,7 @@ if __name__ == '__main__':
     f.SetParameter(5,1)
     f.SetParameter(6,1)
     f.SetParameter(7,1)
+    f.SetParameter(8,1)
     y = [f.Eval(e) for e in x]
     f.SetParameter(1,0.3)
     y2 = [f.Eval(e) for e in x]

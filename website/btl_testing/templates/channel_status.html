@@ -72,6 +72,10 @@
                         <th>Light Yield (PE/MeV)</th>
                         <td>{{ "%.0f" % (info['pc_per_kev']*1000/(info['spe']/4)) }}</td>
                     </tr>
+                    <tr>
+                        <th>Dark Count Rate</th>
+                        <td>{{ "%.2f MHz" % (info['spe_fit_pars'][2]/0.15) }}</td>
+                    </tr>
                 </table>
 	    </div>
 	    <div class="col-md-2">

@@ -373,7 +373,7 @@ if __name__ == '__main__':
 
     data = {}
     ch_data = {}  
-    with h5py.File(args.filename) as f:
+    with h5py.File(args.filename,'r') as f:
         root_f = ROOT.TFile(args.output, "recreate")
                 
         if args.upload:

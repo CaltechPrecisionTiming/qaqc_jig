@@ -396,7 +396,7 @@ if __name__ == '__main__':
                 sys.exit(1)
             
             data['barcode'] = int(f['lyso'].attrs['barcode'])
-            data['voltage'] = int(f['lyso'].attrs['voltage'])
+            data['voltage'] = float(f['lyso'].attrs['voltage'])
             data['git_sha1'] = f['lyso'].attrs['git_sha1'].decode("UTF-8")
             data['git_dirty'] = f['lyso'].attrs['git_dirty'].decode("UTF-8")
             data['institution'] = str(args.institution)

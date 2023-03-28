@@ -34,7 +34,7 @@ def upload_new_module(form):
     conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
 
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO modules (barcode, sipm, institution, comments) VALUES (%s, %s, %s, %s)", (form.data['barcode'], form.data['sipm'], form.data['institution'], form.data['comments']))
+    cursor.execute("INSERT INTO modules (barcode, sipm, institution, comments) VALUES (%s, %s::sipm_type, %s::inst, %s)", (form.data['barcode'], form.data['sipm'], form.data['institution'], form.data['comments']))
     print(cursor.statusmessage)
 
 def get_module_info(barcode, run=None):

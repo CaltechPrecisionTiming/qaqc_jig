@@ -12,8 +12,9 @@ from __future__ import division
 import numpy as np
 from scipy.stats import norm
 import ROOT
-from functools import lru_cache
+from functools import lru_cache, wraps
 from scipy.special import erf
+import hashlib
 
 # Single photoelectron charge in attenuated mode (nominal SPE charge/4)
 # Here we just use an approximate value instead of trying to get the actual
@@ -25,6 +26,30 @@ SPE_CHARGE = 1.0 # pC
 # FIXME: Should actually measure this
 SPE_ERROR = 0.01 # pC
 
+def memoize(fun):
+    _cache = {}
+
+    @wraps(fun)
+    def cached_fun(*args, **kwargs):
+        key = []
+        for arg in args:
+            if isinstance(arg,np.ndarray):
+                key.append(hashlib.sha1(arg).hexdigest())
+            else:
+                key.append(arg)
+        for name, kwarg in kwargs.items():
+            if isinstance(kwarg,np.ndarray):
+                key.append(name + hashlib.sha1(b).hexdigest())
+            else:
+                key.append(name + kwarg)
+        key = tuple(key)
+        if key not in _cache:
+            _cache[key] = fun(*args, **kwargs)
+        return _cache[key]
+
+    return cached_fun
+
+@lru_cache(maxsize=None)
 def dn(E,Q,Z,A,forb=None):
     """
     This function, dn(E,Q,Z,forb) Calculates the branch antineutrino kinetic
@@ -77,38 +102,28 @@ CACHE = {}
 # Small number to avoid divide by zeros
 EPSILON = 1e-10
 
-@lru_cache(maxsize=None)
-def p_e(es, p):
+@memoize
+def spectrum(es, offset):
     Z = 72
     Q = 593
     A = 176 #Not sure if this is right?
-
-    spectrum_88 = np.array([dn(e-88, Q, Z, A) for e in es],dtype=float)
-    spectrum_202 = norm.pdf(es,202,10)
-    spectrum_290 = np.array([dn(e-290, Q, Z, A) for e in es],dtype=float)
-    spectrum_307 = norm.pdf(es,307,10)
-    spectrum_395 = np.array([dn(e-395, Q, Z, A) for e in es],dtype=float)
-    spectrum_509 = norm.pdf(es,509,10)
-    spectrum_597 = np.array([dn(e-597, Q, Z, A) for e in es],dtype=float)
-
+    rv = np.array([dn(e-offset, Q, Z, A) for e in es],dtype=float)
     # Add small number here in case someone is evaluating things at low
     # energies where the higher energy distributions don't have any non-zero
     # values.
-    spectrum_88 += EPSILON
-    spectrum_202 += EPSILON
-    spectrum_290 += EPSILON
-    spectrum_307 += EPSILON
-    spectrum_395 += EPSILON
-    spectrum_509 += EPSILON
-    spectrum_597 += EPSILON
+    rv += EPSILON
+    rv /= np.trapz(rv,x=es)
+    return rv
 
-    spectrum_88 /= np.trapz(spectrum_88,x=es)
-    spectrum_202 /= np.trapz(spectrum_202,x=es)
-    spectrum_290 /= np.trapz(spectrum_290,x=es)
-    spectrum_307 /= np.trapz(spectrum_307,x=es)
-    spectrum_395 /= np.trapz(spectrum_395,x=es)
-    spectrum_509 /= np.trapz(spectrum_509,x=es)
-    spectrum_597 /= np.trapz(spectrum_597,x=es)
+@memoize
+def p_e(es, p):
+    spectrum_88 = spectrum(es,88)
+    spectrum_202 = fast_norm(es,202,10)
+    spectrum_290 = spectrum(es,290)
+    spectrum_307 = fast_norm(es,307,10)
+    spectrum_395 = spectrum(es,395)
+    spectrum_509 = fast_norm(es,509,10)
+    spectrum_597 = spectrum(es,597)
 
     total_spectrum = p[0]*spectrum_88 + p[1]*spectrum_202 + p[2]*spectrum_290 + p[3]*spectrum_307 + p[4]*spectrum_395 + p[5]*spectrum_509 + p[6]*spectrum_597
 
@@ -155,25 +170,28 @@ def likelihood(q,avg_y,dy,p):
     es = np.linspace(1,1000,1000)
 
     # Here, we assume p(y) = constant
-    return np.trapz(p_e(tuple(es),tuple(p))*np.trapz(p_q(q,ys,es)/(2*dy),x=ys,axis=0),x=es,axis=0)
+    return np.trapz(p_e(es,tuple(p))*np.trapz(p_q(q,ys,es)/(2*dy),x=ys,axis=0),x=es,axis=0)
+
+ES = np.linspace(1,1000,250)
 
 def likelihood_fast(q,avg_y,dy,p):
     """
     Returns P(q|avg_y,dy,p) just like the function above, but is much faster
     since we do the second integral analytically.
     """
-    es = np.linspace(1,1000,1000)
+    es = ES
 
     integral = -erf((q+avg_y*(1-dy)*es)/np.sqrt(2*avg_y*(1-dy)*es*SPE_CHARGE)) \
                +erf((q+avg_y*(1+dy)*es)/np.sqrt(2*avg_y*(1+dy)*es*SPE_CHARGE))
-    integral *= np.exp(q/SPE_CHARGE/2)
-    integral *= np.exp(q/SPE_CHARGE/2)
-    integral *= np.exp(q/SPE_CHARGE/2)
-    integral *= np.exp(q/SPE_CHARGE/2)
+    factor = np.exp(q/SPE_CHARGE/2)
+    integral *= factor
+    integral *= factor
+    integral *= factor
+    integral *= factor
     integral -= erf((-q+avg_y*(1-dy)*es)/np.sqrt(2*avg_y*(1-dy)*es*SPE_CHARGE))
     integral += erf((-q+avg_y*(1+dy)*es)/np.sqrt(2*avg_y*(1+dy)*es*SPE_CHARGE))
     integral *= 1/(2*es)
-    return np.trapz(p_e(tuple(es),tuple(p))*integral/(2*dy),x=es,axis=0)
+    return np.trapz(p_e(es,tuple(p))*integral/(2*dy),x=es,axis=0)
 
 def lyso_spectrum(x,p):
     """
@@ -198,7 +216,7 @@ def lyso_spectrum(x,p):
 
     ps = [p[i] for i in range(2,9)]
 
-    total_spectrum = [likelihood(q,p[0],p[1],ps) for q in qs]
+    total_spectrum = [likelihood_fast(q,p[0],p[1],ps) for q in qs]
 
     CACHE[key] = total_spectrum
 
@@ -232,31 +250,47 @@ def fit_lyso(h):
 
     Otherwise, returns None.
     """
-    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,9)
+    f = ROOT.TF1("%s_fit" % h.GetName(),lyso_spectrum,0,1000,9)
     xmax = None
     ymax = 0
+    xmin = None
+    ymin = 0
+    for i in range(1,h.GetNbinsX()-1):
+        x = h.GetBinCenter(i)
+
+        if x > h.GetStdDev()*2:
+            break
+
+        value = h.GetBinContent(i)
+
+        if xmin is None or value < ymin:
+            xmin = x
+            ymin = value
+
     for i in range(1,h.GetNbinsX()-1):
         x = h.GetBinCenter(i)
         value = h.GetBinContent(i)
-        if x > 100 and value > ymax:
+        if x > xmin and (xmax is None or value > ymax):
             xmax = x
             ymax = value
 
     if xmax is None:
         return None
 
+    dx = h.GetBinCenter(2) - h.GetBinCenter(1)
+
     # Assume peak is somewhere around 300 keV
     f.SetParameter(0,xmax/300)
     f.SetParLimits(0,0.1,10)
     f.SetParameter(1,0.1)
     f.SetParLimits(1,0.01,0.2)
-    f.SetParameter(2,h.GetEntries())
+    f.SetParameter(2,0.25*h.GetEntries()/dx)
     f.SetParLimits(2,0,1e9)
-    f.SetParameter(3,h.GetEntries())
+    f.SetParameter(3,0.25*h.GetEntries()/dx)
     f.SetParLimits(3,0,1e9)
-    f.SetParameter(4,h.GetEntries())
+    f.SetParameter(4,0.25*h.GetEntries()/dx)
     f.SetParLimits(4,0,1e9)
-    f.SetParameter(5,h.GetEntries())
+    f.SetParameter(5,0.25*h.GetEntries()/dx)
     f.SetParLimits(5,0,1e9)
     f.SetParameter(6,0)
     f.SetParLimits(6,0,1e9)
@@ -268,23 +302,28 @@ def fit_lyso(h):
     # Right now we don't fit for these higher energy components. In the future
     # if we decrease the negative voltage rail we might be able to see these
     # without the waveform getting saturated at the negative rail.
-    f.FixParameter(6,0)
-    f.FixParameter(7,0)
-    f.FixParameter(8,0)
+    #f.FixParameter(6,0)
+    #f.FixParameter(7,0)
+    #f.FixParameter(8,0)
 
     # Run the first fit only floating the normalization constants
     f.FixParameter(0,xmax/300)
     f.FixParameter(1,0.1)
-    fr = h.Fit(f,"S+","",xmax-100,xmax+100)
+    fr = h.Fit(f,"S","",xmin,800)
+    h.GetXaxis().SetRangeUser(xmin,800)
+    h.Write()
 
     # Now we float all the parameters
     f.ReleaseParameter(0)
     f.ReleaseParameter(1)
     f.SetParLimits(0,0.1,10)
     f.SetParLimits(1,0.01,0.2)
-    fr = h.Fit(f,"S+","",xmax-100,xmax+100)
+    fr = h.Fit(f,"S","",xmin,800)
     if not fr.Get().IsValid():
         return None
+    h.GetXaxis().SetRangeUser(xmin,800)
+    f.Write()
+    h.Write()
     return [f.GetParameter(i) for i in range(9)], [f.GetParError(i) for i in range(9)]
 
 if __name__ == '__main__':

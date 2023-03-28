@@ -8,6 +8,7 @@ import os
 import ROOT
 from ROOT import gROOT
 from ROOT import TMath
+from scipy.special import gamma
 
 # DEFAULT VALUES FOR SPE FIT:
 D_OFFSET = 0
@@ -113,7 +114,17 @@ def fac(x):
     Returns x!. We use the gamma function here instead since it works even for
     non-integer values and is generally faster than calling math.factorial(x).
     """
-    return np.math.gamma(x+1)
+    return gamma(x+1)
+
+def vinogradov_fast(N, l, ps):
+    """
+    Returns probability of getting `N` PEs in the integration window.  `l` is
+    the mean number of primary PEs.  `ps` is the probability that a primary PE
+    causes a secondary PE.  See this paper for a more detailed explanation:
+    https://arxiv.org/pdf/2106.13168.pdf
+    """
+    i = np.arange(N+1)
+    return np.exp(-l)*(B_coeff_fast(i, N) * (l*(1-ps))**i * ps**(N-i)).sum()/fac(N)
 
 def vinogradov(N, l, ps):
     """
@@ -128,6 +139,18 @@ def vinogradov(N, l, ps):
     model *= np.exp(-l)
     model /= fac(N)
     return model
+
+def B_coeff_fast(i, N):
+    """
+    Helper function for the vinogradov model.
+    """
+    i = np.atleast_1d(i)
+    rv = np.empty_like(i)
+    rv[(i == 0) & (N == 0)] = 1
+    rv[(i == 0) & (N > 0)] = 0
+    if (i > 0).any():
+        rv[i > 0] = (fac(N)*fac(N-1)) / (fac(i[i > 0])*fac(i[i > 0]-1)*fac(N-i[i > 0]))
+    return rv
 
 def B_coeff(i, N):
     """
@@ -158,7 +181,10 @@ class vinogradov_model:
     def __call__(self, x, p):
         model = 0
         for i in range(num_peaks):
-            model += vinogradov(i, p[2], p[6]) * TMath.Gaus(x[0]-p[1], i*p[3], TMath.Sqrt(p[4]**2 + i*(p[5]**2)), False)
+            coefficient = vinogradov_fast(i, p[2], p[6])
+            if i > 1 and coefficient < 1e-3:
+                break
+            model += coefficient * TMath.Gaus(x[0]-p[1], i*p[3], TMath.Sqrt(p[4]**2 + i*(p[5]**2)), False)
         model *= p[0]
         return model
 
@@ -240,11 +266,38 @@ def fit_spe(h, model, f_h=None, root_func=False):
         scale = h.GetEntries()*0.075
     else:
         offset, noise_spread, raw_spread, scale = filter_output
+
+    # Try to guess the offset by looking for the highest peak less than zero
+    xmax = None
+    ymax = 0
+    for i in range(1,h.GetNbinsX()-1):
+        x = h.GetBinCenter(i)
+        value = h.GetBinContent(i)
+        if x < 1 and value > ymax:
+            xmax = x
+            ymax = value
+
+    if xmax is None:
+        return None
+
+    offset = xmax
     
+    f_noise = ROOT.TF1('f_noise', 'gaus', xmax - 0.5, xmax + 0.5)
+    f_noise.SetParameter(1,offset)
+    f_noise.FixParameter(1,offset)
+    f_noise.SetParameter(2,0.1)
+    f_noise.SetParLimits(2,0.01,10)
+    h.Fit(f_noise, 'SRQ0')
+    f_noise.ReleaseParameter(1)
+    h.Fit(f_noise, 'SRQ0')
+    offset = f_noise.GetParameter(1)
+    raw_spread = f_noise.GetParameter(2)
+
     # Probability that an SPE trigger a secondary SPE
     ps = 0
 
-    # `l`, short for lambda, which is the average number of PEs measured in the integration window.
+    # `l`, short for lambda, which is the average number of PEs measured in the
+    # integration window.
     zero_peak_end = offset + 2 * raw_spread
     print(f'zero_peak_end: {zero_peak_end}')
     num_zero = h.Integral(0, get_bin_num(h, zero_peak_end))
@@ -264,14 +317,13 @@ def fit_spe(h, model, f_h=None, root_func=False):
     SPE_charge = max(zero_peak_end - offset, SPE_charge)
 
     if root_func:
-        f1 = ROOT.TF1("f1", string, offset - 1.5*raw_spread, offset + 5*h.GetStdDev())
+        f1 = ROOT.TF1("%s_fit" % h.GetName(), string, offset - 1.5*raw_spread, offset + 5*h.GetStdDev())
     else:
         # Number of parameters must be specified when using a python function
-        f1 = ROOT.TF1("f1", model, offset - 1.5*raw_spread, offset + 5*h.GetStdDev(), 7)
+        f1 = ROOT.TF1("%s_fit" % h.GetName(), model, offset - 1.5*raw_spread, offset + 5*h.GetStdDev(), 7)
 
-    f1.FixParameter(0, scale)
-    # f1.SetParameter(0, scale)
-    # f1.SetParLimits(0, scale*0.1, scale * 100)
+    f1.SetParameter(0, scale)
+    f1.SetParLimits(0, 0, 1e9)
 
     f1.FixParameter(1, offset)
 
@@ -289,7 +341,11 @@ def fit_spe(h, model, f_h=None, root_func=False):
     for i in range(6):
         print(f'[{i}]: {f1.GetParameter(i)}')
     
-    r = h.Fit(f1, 'SRB+')
+    r = h.Fit(f1, 'SRB')
+
+    h.SetAxisRange(-4, 6, "X")
+    h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
+    h.Write()
 
     for i in range(7):
         f1.ReleaseParameter(i)
@@ -301,8 +357,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
     f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.1) 
     f1.SetParLimits(6, 0, 0.25)
     
-    f1.SetLineColor(3)
-    r = h.Fit(f1, 'SR+')
+    r = h.Fit(f1, 'SR')
     r = r.Get()
     if not r.IsValid():
         # Maybe we want to return `None` here?
@@ -311,6 +366,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
     
     h.SetAxisRange(-4, 6, "X")
     h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
+    f1.Write()
     h.Write()
 
     return [f1.GetParameter(i) for i in range(7)], [f1.GetParError(i) for i in range(7)]

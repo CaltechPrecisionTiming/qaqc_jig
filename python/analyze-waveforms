@@ -7,7 +7,6 @@ Creates charge histograms from hdf5 files made from `wavedump` or
 from __future__ import print_function, division
 import h5py
 import numpy as np
-import pandas as pd
 from scipy import signal
 import os
 import sys
@@ -132,6 +131,8 @@ def get_bins(x, cutoff=None):
     """
     x = np.asarray(x)
 
+    orig_x = x.copy()
+
     if cutoff is not None:
         x = x[x > cutoff]
 
@@ -144,8 +145,8 @@ def get_bins(x, cutoff=None):
         print('Zero bin width! Quitting...', file=sys.stderr)
         sys.exit(1)
 
-    min = np.percentile(x,1)
-    max = np.percentile(x,99)
+    min = np.percentile(orig_x,1)
+    max = np.percentile(orig_x,99)
     return np.arange(min,max,bin_width)
 
 def chunks(lst, n):
@@ -270,7 +271,7 @@ def spe_baseline_subtraction(x, y, method=1):
         y -= np.array([np.median(y[i, m_mask]) if no_SPE_trials_mask[i] else np.median((y[no_SPE_trials_mask, :])[:, m_mask]) for i in range(len(y))])[:, np.newaxis]
     elif args.integration_method != 0:
         print('Not a valid integration method. Defaulting to integration method 0')
-    return (y, high_filter_y)
+    return y
 
 def plot_time_volt(x, y, channel, data_type, a, b, avg_y=None, pdf=False, filename=None):
     plt.figure()
@@ -341,6 +342,7 @@ if __name__ == '__main__':
     parser.add_argument('--tec-b', type=float, default=None, help='TEC resistance (side B)')
     parser.add_argument('--thermistor-a', type=float, default=None, help='Temperature (side A)')
     parser.add_argument('--thermistor-b', type=float, default=None, help='Temperature (side B)')
+    parser.add_argument('-g', '--group', type=str, default=None, help='which group to analyze')
     args = parser.parse_args()
 
     if not args.plot:
@@ -381,10 +383,10 @@ if __name__ == '__main__':
             if 'spe' not in dict(f):
                 print("Missing SPE data!", file=sys.stderr)
                 sys.exit(1)
-            for param in f['lyso'].attrs:
-                if f['lyso'].attrs[param] != f['spe'].attrs[param]:
-                    print(f"Conflict in {param} used to take lyso and SPE data!", file=sys.stderr)
-                    sys.exit(1)
+            #for param in f['lyso'].attrs:
+            #    if f['lyso'].attrs[param] != f['spe'].attrs[param]:
+            #        print(f"Conflict in {param} used to take lyso and SPE data!", file=sys.stderr)
+            #        sys.exit(1)
             if 'data_source' in f['lyso'].attrs:
                 if f['lyso'].attrs['data_source'] != b'CAEN':
                     print("Error: trying to upload non-CAEN data!", file=sys.stderr)
@@ -404,14 +406,18 @@ if __name__ == '__main__':
             data['temp_a'] = args.thermistor_a
             data['temp_b'] = args.thermistor_b
 
-            cursor.execute("INSERT INTO runs (voltage, institution, git_sha1, git_dirty, filename) VALUES (%(voltage)s, %(institution)s::inst, %(git_sha1)s, %(git_dirty)s, %(filename)s, %(tec_resistance_a)s, %(tec_resistance_b)s, %(temp_a)s, %(temp_b)s) RETURNING run", data)
+            cursor.execute("INSERT INTO runs (voltage, institution, git_sha1, git_dirty, filename, tec_resistance_a, tec_resistance_b, temp_a, temp_b) VALUES (%(voltage)s, %(institution)s::inst, %(git_sha1)s, %(git_dirty)s, %(filename)s, %(tec_resistance_a)s, %(tec_resistance_b)s, %(temp_a)s, %(temp_b)s) RETURNING run", data)
             result = cursor.fetchone()
             run = result[0]
         
         for group in f:
+            if args.group is not None and group != args.group:
+                continue
+
             if group != 'lyso' and group != 'spe':
                 print(f"Unknown group name: \"{group}\". Skipping...")
                 continue
+
             for channel in f[group]:
                 # All relevant channels from the scope and digitizer should
                 # be in this format: 'ch<channel number>'.
@@ -436,12 +442,12 @@ if __name__ == '__main__':
                     ch_data[channel]['barcode'] = data['barcode']
                  
                 charge = []
-                f_charge = []
                 
                 ##################
                 # Integrations
                 ##################
                 for i in range(0, len(f[group][channel]), args.chunks):
+                    print('%i/%i' % (i+1,len(f[group][channel])))
                     x, y = convert_data(f, group, channel, i, i+args.chunks)
                     if group == 'lyso':
                         a, b = get_window(x,y, left=50, right=125)
@@ -460,8 +466,7 @@ if __name__ == '__main__':
                         
                     elif group == 'spe':
                         a, b = get_spe_window(x, args.start_time, args.integration_time)
-                        y, high_filter_y = spe_baseline_subtraction(x, y, method=args.integration_method)                        
-                        f_charge.extend(integrate(x, high_filter_y, a, b))
+                        y = spe_baseline_subtraction(x, y, method=args.integration_method)                        
 
                     charge.extend(integrate(x,y, a, b))
                         
@@ -473,10 +478,6 @@ if __name__ == '__main__':
                         # plotting
                         avg_y = np.mean(y, axis=0)
                     plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
-                    # Plotting the filtered voltage signal. Doesn't have to
-                    # be included in the final draft of this code.
-                    if group == 'spe':
-                        plot_time_volt(x, high_filter_y, channel, f"high filter {group}", a, b, pdf=args.print_pdfs)
                 
                 ##################
                 # Creating Histogram
@@ -490,14 +491,7 @@ if __name__ == '__main__':
                     h.Fill(x)
                 h.GetXaxis().SetTitle("Charge (pC)")
                 h.Write()
-                if group == 'spe':
-                    f_bins = get_bins(f_charge)
-                    f_h = ROOT.TH1D(f'f_{channel}', f"Filtered Charge {group} Integral for {channel}", len(f_bins), f_bins[0], f_bins[-1])
-                    for x in f_charge:
-                        f_h.Fill(x)
-                    f_h.GetXaxis().SetTitle('Charge (pC)')
-                    f_h.Write()
-                
+
                 ##################
                 # Preparing Data for Upload
                 ##################
@@ -530,7 +524,7 @@ if __name__ == '__main__':
                         ch_data[channel]['pc_per_kev'] = None
                 else:
                     model = fit_spe_funcs.vinogradov_model()
-                    spe_fit_pars = fit_spe_funcs.fit_spe(h, model, f_h=f_h)
+                    spe_fit_pars = fit_spe_funcs.fit_spe(h, model)
                     if spe_fit_pars is not None:
                         ch_data[channel]['spe_fit_pars'] = spe_fit_pars[0]
                         ch_data[channel]['spe_fit_par_errors'] = spe_fit_pars[0]
@@ -555,7 +549,7 @@ if __name__ == '__main__':
         elif ch_data[channel]['spe'] is None:
             print(f'Failed to fit {channel} spe histogram!')
         else:
-            print(f'{channel}: {ch_data[channel]["pc_per_kev"]*4 / ch_data[channel]["spe"]}')
+            print(f'{channel}: {ch_data[channel]["pc_per_kev"]*1000*4/ch_data[channel]["spe"]}')
             
             ##################
             # Uploading Data

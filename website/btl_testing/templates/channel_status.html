@@ -149,6 +149,7 @@
         var xmax = 0;
         var ymax = 0;
         for (var i=1; i < lyso_charge_histogram_x.length - 1; i++) {
+            if (lyso_charge_histogram_x[i] < lyso_fit_pars[0]*200) continue;
             if (lyso_charge_histogram_y[i] !== null) {
                 var left = (lyso_charge_histogram_x[i-1] + lyso_charge_histogram_x[i])/2;
                 var right = (lyso_charge_histogram_x[i] + lyso_charge_histogram_x[i+1])/2;
@@ -162,7 +163,7 @@
         }
 
         for (var i=0; i < lyso_charge_histogram_x.length; i++) {
-            if ((lyso_charge_histogram_x[i] > xmax - 100) && (lyso_charge_histogram_x[i] < xmax + 100))
+            if ((lyso_charge_histogram_x[i] > xmax - 100) && (lyso_charge_histogram_x[i] < 800))
                 lyso_charge_histogram_fit.push({'x': lyso_charge_histogram_x[i], 'y': lyso_charge_fit[i]});
         }
 

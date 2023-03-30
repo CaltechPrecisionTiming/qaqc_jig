@@ -9,6 +9,7 @@ import ROOT
 from ROOT import gROOT
 from ROOT import TMath
 from scipy.special import gamma
+from functools import lru_cache, wraps
 
 # DEFAULT VALUES FOR SPE FIT:
 D_OFFSET = 0
@@ -116,6 +117,7 @@ def fac(x):
     """
     return gamma(x+1)
 
+@lru_cache(maxsize=None)
 def vinogradov_fast(N, l, ps):
     """
     Returns probability of getting `N` PEs in the integration window.  `l` is

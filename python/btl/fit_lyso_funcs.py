@@ -294,8 +294,10 @@ def fit_lyso(h):
 
     dx = h.GetBinCenter(2) - h.GetBinCenter(1)
 
+    pc_per_kev = xmax/300
+
     # Assume peak is somewhere around 300 keV
-    f.SetParameter(0,xmax/300)
+    f.SetParameter(0,pc_per_kev)
     f.SetParLimits(0,0.1,10)
     f.SetParameter(1,0.1)
     f.SetParLimits(1,0.01,0.2)

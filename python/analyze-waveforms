@@ -486,12 +486,25 @@ if __name__ == '__main__':
             ch = int(channel[2:])
             charge[ch,:len(ch_data[channel]['lyso_charge'])] = ch_data[channel]['lyso_charge']
 
+        neighbors = {}
+        for i in range(32):
+            neighbors[i] = []
+            if (i + 1) % 8 > i % 8:
+                neighbors[i].append(i+1)
+            if (i - 1) % 8 < i % 8:
+                neighbors[i].append(i-1)
+
         for channel in ch_data:
             ch = int(channel[2:])
             ##################
             # Creating Histogram
             ##################
-            lyso_bins = get_bins(charge[ch], cutoff=100)
+            # Try to get only events in which the entire beta decay and gammas
+            # happen in a single crystal. To do this, we select only events in
+            # which the charge in the current channel is greater than 50% of
+            # it's neighbors charge (i.e. the neighbor only has crosstalk).
+            selection = (charge[ch] > charge[neighbors[ch]]*0.5).all(axis=0)
+            lyso_bins = get_bins(charge[ch][selection], cutoff=100)
             hlyso = ROOT.TH1D(f"lyso_{channel}", f"LYSO Charge Integral for {channel}", len(lyso_bins), lyso_bins[0], lyso_bins[-1])
             for x in ch_data[channel]['lyso_charge']:
                 hlyso.Fill(x)

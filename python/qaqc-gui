@@ -298,11 +298,13 @@ def take_data():
 
         info = poll_single_module(client,i)
 
+        with h5py.File(filename,"w") as f:
+            for key, value in info.items():
+                f.attrs[key] = float(value)
+
         root, ext = splitext(filename)
         root_filename = "%s.root" % root
         cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename, '-u', '-i', assembly_center.get()]
-        for key, value in info.items():
-            cmd += ['--' + key.replace('_','-'), str(value)]
         if run_command(cmd):
             return
 
@@ -349,8 +351,8 @@ def poll_single_module(client, module):
             print_warning(str(e))
             return
 
-        values['thermistor%s' % key] = thermistor_value
-        values['tec%s' % key] = tec_value
+        values['temp%s' % key] = thermistor_value
+        values['tec_resistance%s' % key] = tec_value
 
     return values
 

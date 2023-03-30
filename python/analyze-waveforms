@@ -338,10 +338,6 @@ if __name__ == '__main__':
     parser.add_argument('-u','--upload', default=False, action='store_true', help='upload results to the database')
     parser.add_argument('-i','--institution', default=None, type=Institution, choices=list(Institution), help='name of institution')
     parser.add_argument('--channel-mask', type=lambda x: int(x,0), default=0xffffffff, help='channel mask')
-    parser.add_argument('--tec-a', type=float, default=None, help='TEC resistance (side A)')
-    parser.add_argument('--tec-b', type=float, default=None, help='TEC resistance (side B)')
-    parser.add_argument('--thermistor-a', type=float, default=None, help='Temperature (side A)')
-    parser.add_argument('--thermistor-b', type=float, default=None, help='Temperature (side B)')
     parser.add_argument('-g', '--group', type=str, default=None, help='which group to analyze')
     args = parser.parse_args()
 
@@ -401,10 +397,16 @@ if __name__ == '__main__':
             data['git_dirty'] = f['lyso'].attrs['git_dirty'].decode("UTF-8")
             data['institution'] = str(args.institution)
             data['filename'] = args.filename
-            data['tec_resistance_a'] = args.tec_a
-            data['tec_resistance_b'] = args.tec_b
-            data['temp_a'] = args.thermistor_a
-            data['temp_b'] = args.thermistor_b
+            try:
+                data['tec_resistance_a'] = f.attrs['tec_resistance_a']
+                data['tec_resistance_b'] = f.attrs['tec_resistance_b']
+                data['temp_a'] = f.attrs['temp_a']
+                data['temp_b'] = f.attrs['temp_a']
+            except KeyError as e:
+                data['tec_resistance_a'] = None
+                data['tec_resistance_b'] = None
+                data['temp_a'] = None
+                data['temp_b'] = None
 
             cursor.execute("INSERT INTO runs (voltage, institution, git_sha1, git_dirty, filename, tec_resistance_a, tec_resistance_b, temp_a, temp_b) VALUES (%(voltage)s, %(institution)s::inst, %(git_sha1)s, %(git_dirty)s, %(filename)s, %(tec_resistance_a)s, %(tec_resistance_b)s, %(temp_a)s, %(temp_b)s) RETURNING run", data)
             result = cursor.fetchone()

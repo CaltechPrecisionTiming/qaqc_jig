@@ -27,6 +27,7 @@
 			    <th>Run</th>
 			    <th>Barcode</th>
 			    <th>Voltage</th>
+			    <th>Average Light Yield (PE/MeV)</th>
 			    <th>Institution</th>
 			</tr>
 		    </thead>
@@ -36,6 +37,7 @@
 			<td>{{ row['run'] }}</td>
 			<td>{{ row['barcode'] }}</td>
 			<td>{{ "%.2f" % row['voltage'] }}</td>
+			<td>{{ "%.0f" % row['light_yield'] }}</td>
 			<td>{{ row['institution'] }}</td>
 		    </tr>
 		    {% endfor %}

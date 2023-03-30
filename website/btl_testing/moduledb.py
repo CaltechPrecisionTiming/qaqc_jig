@@ -112,7 +112,7 @@ def get_modules(kwargs, limit=100, offset=0, sort_by=None):
     """
     conn = engine.connect()
 
-    query = "SELECT * FROM (SELECT min(timestamp) as timestamp, run, barcode FROM data GROUP BY (run, barcode)) as channel, runs WHERE channel.run = runs.run"
+    query = "SELECT * FROM (SELECT min(timestamp) as timestamp, avg(pc_per_kev*4000/spe) as light_yield, run, barcode FROM data GROUP BY (run, barcode)) as channel, runs WHERE channel.run = runs.run"
 
     if sort_by == 'timestamp':
         query += " ORDER BY runs.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)

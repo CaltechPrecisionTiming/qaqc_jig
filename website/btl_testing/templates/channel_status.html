@@ -150,24 +150,18 @@
 
         var lyso_charge_histogram_data = new Array();
         var lyso_charge_histogram_fit = new Array();
-        var xmax = 0;
-        var ymax = 0;
         for (var i=1; i < lyso_charge_histogram_x.length - 1; i++) {
-            if (lyso_charge_histogram_x[i] < lyso_fit_pars[0]*200) continue;
+            if (lyso_charge_histogram_x[i] < lyso_fit_pars[0]*50) continue;
             if (lyso_charge_histogram_y[i] !== null) {
                 var left = (lyso_charge_histogram_x[i-1] + lyso_charge_histogram_x[i])/2;
                 var right = (lyso_charge_histogram_x[i] + lyso_charge_histogram_x[i+1])/2;
                 lyso_charge_histogram_data.push({'x': left, 'y': lyso_charge_histogram_y[i]});
                 lyso_charge_histogram_data.push({'x': right, 'y': lyso_charge_histogram_y[i]});
-                if (lyso_charge_histogram_y[i] > ymax) {
-                    ymax = lyso_charge_histogram_y[i];
-                    xmax = lyso_charge_histogram_x[i];
-                }
             }
         }
 
         for (var i=0; i < lyso_charge_histogram_x.length; i++) {
-            if ((lyso_charge_histogram_x[i] > xmax - 100) && (lyso_charge_histogram_x[i] < 800))
+            if ((lyso_charge_histogram_x[i] > lyso_fit_pars[0]*50) && (lyso_charge_histogram_x[i] < 800))
                 lyso_charge_histogram_fit.push({'x': lyso_charge_histogram_x[i], 'y': lyso_charge_fit[i]});
         }
 

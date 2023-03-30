@@ -186,7 +186,7 @@ def likelihood(q,avg_y,dy,p):
     # Here, we assume p(y) = constant
     return np.trapz(p_e(es,p)*np.trapz(p_q(q,ys,es)/(2*dy),x=ys,axis=0),x=es,axis=0)
 
-@lru_cache(maxsize=None)
+@memoize
 def integral_fast(q,avg_y,dy):
     integral = -erf((q+avg_y*(1-dy)*ES)/np.sqrt(2*avg_y*(1-dy)*ES*SPE_CHARGE)) \
                +erf((q+avg_y*(1+dy)*ES)/np.sqrt(2*avg_y*(1+dy)*ES*SPE_CHARGE))
@@ -206,7 +206,7 @@ def likelihood_fast(q,avg_y,dy,p):
     since we do the second integral analytically.
     """
     integral = integral_fast(q,avg_y,dy)
-    return np.trapz(p_e_fast(p)*integral,dx=ES[1]-ES[0],axis=0)/(2*dy)
+    return np.trapz(p_e_fast(p)*integral,dx=ES[1]-ES[0],axis=-1)/(2*dy)
 
 def lyso_spectrum(x,p):
     """
@@ -231,7 +231,7 @@ def lyso_spectrum(x,p):
 
     ps = tuple([p[i] for i in range(2,9)])
 
-    total_spectrum = [likelihood_fast(q,p[0],p[1],ps) for q in qs]
+    total_spectrum = likelihood_fast(qs[:,np.newaxis],p[0],p[1],ps)
 
     CACHE[key] = total_spectrum
 

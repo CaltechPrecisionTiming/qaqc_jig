@@ -187,63 +187,67 @@ def likelihood(q,avg_y,dy,p):
     return np.trapz(p_e(es,p)*np.trapz(p_q(q,ys,es)/(2*dy),x=ys,axis=0),x=es,axis=0)
 
 @memoize
-def integral_fast(q,avg_y,dy):
-    integral = -erf((q+avg_y*(1-dy)*ES)/np.sqrt(2*avg_y*(1-dy)*ES*SPE_CHARGE)) \
-               +erf((q+avg_y*(1+dy)*ES)/np.sqrt(2*avg_y*(1+dy)*ES*SPE_CHARGE))
-    factor = np.exp(q/SPE_CHARGE/2)
+def integral_fast(q,avg_y,dy,spe_charge):
+    integral = -erf((q+avg_y*(1-dy)*ES)/np.sqrt(2*avg_y*(1-dy)*ES*spe_charge)) \
+               +erf((q+avg_y*(1+dy)*ES)/np.sqrt(2*avg_y*(1+dy)*ES*spe_charge))
+    factor = np.exp(q/spe_charge/2)
     integral *= factor
     integral *= factor
     integral *= factor
     integral *= factor
-    integral -= erf((-q+avg_y*(1-dy)*ES)/np.sqrt(2*avg_y*(1-dy)*ES*SPE_CHARGE))
-    integral += erf((-q+avg_y*(1+dy)*ES)/np.sqrt(2*avg_y*(1+dy)*ES*SPE_CHARGE))
+    integral -= erf((-q+avg_y*(1-dy)*ES)/np.sqrt(2*avg_y*(1-dy)*ES*spe_charge))
+    integral += erf((-q+avg_y*(1+dy)*ES)/np.sqrt(2*avg_y*(1+dy)*ES*spe_charge))
     integral *= 1/(2*ES)
     return integral
 
-def likelihood_fast(q,avg_y,dy,p):
+def likelihood_fast(q,avg_y,dy,p,spe_charge=SPE_CHARGE):
     """
     Returns P(q|avg_y,dy,p) just like the function above, but is much faster
     since we do the second integral analytically.
     """
-    integral = integral_fast(q,avg_y,dy)
+    integral = integral_fast(q,avg_y,dy,spe_charge)
     return np.trapz(p_e_fast(p)*integral,dx=ES[1]-ES[0],axis=-1)/(2*dy)
 
-def lyso_spectrum(x,p):
-    """
-    ROOT function to return the LYSO spectrum at x[0] in keV.
+class lyso_spectrum(object):
+    def __init__(self, spe_charge):
+        self.spe_charge = spe_charge
 
-    p[0] - Average Light yield (pC/keV)
-    p[1] - Fractional difference between light yield at center and side
-    p[2] - Constant for 88 keV spectrum
-    p[3] - Constant for 202 keV gamma
-    p[4] - Constant for 290 keV spectrum
-    p[5] - Constant for 307 keV gamma
-    p[6] - Constant for 395 keV spectrum
-    p[7] - Constant for 509 keV gamma
-    p[8] - Constant for 597 keV spectrum
-    """
-    qs = np.linspace(0,1000,1000)
+    def __call__(self, x, p):
+        """
+        ROOT function to return the LYSO spectrum at x[0] in keV.
 
-    key = tuple(p[i] for i in range(9))
-    if key in CACHE:
-        total_spectrum = CACHE[key]
+        p[0] - Average Light yield (pC/keV)
+        p[1] - Fractional difference between light yield at center and side
+        p[2] - Constant for 88 keV spectrum
+        p[3] - Constant for 202 keV gamma
+        p[4] - Constant for 290 keV spectrum
+        p[5] - Constant for 307 keV gamma
+        p[6] - Constant for 395 keV spectrum
+        p[7] - Constant for 509 keV gamma
+        p[8] - Constant for 597 keV spectrum
+        """
+        qs = np.linspace(0,1000,1000)
+
+        key = tuple(p[i] for i in range(9))
+        if key in CACHE:
+            total_spectrum = CACHE[key]
+            return np.interp(x[0],qs,total_spectrum)
+
+        ps = tuple([p[i] for i in range(2,9)])
+
+        total_spectrum = likelihood_fast(qs[:,np.newaxis],p[0],p[1],ps,self.spe_charge)
+
+        CACHE[key] = total_spectrum
+
         return np.interp(x[0],qs,total_spectrum)
 
-    ps = tuple([p[i] for i in range(2,9)])
-
-    total_spectrum = likelihood_fast(qs[:,np.newaxis],p[0],p[1],ps)
-
-    CACHE[key] = total_spectrum
-
-    return np.interp(x[0],qs,total_spectrum)
-
-def get_lyso(x, p):
-    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,9)
+def get_lyso(x, p, spe_charge=SPE_CHARGE):
+    f = ROOT.TF1("flyso",lyso_spectrum(spe_charge),0,1000,9)
     for i in range(9):
         f.SetParameter(i,p[i])
     return np.array([f.Eval(e) for e in x])
 
-def fit_lyso(h):
+def fit_lyso(h, spe_charge=SPE_CHARGE):
     """
     Fit the internal LYSO radiation spectrum to the histogram `h`. LYSO has
     intrinsic radiation from the beta decay of 176Lu (see
@@ -265,7 +269,8 @@ def fit_lyso(h):
 
     Otherwise, returns None.
     """
-    f = ROOT.TF1("%s_fit" % h.GetName(),lyso_spectrum,0,1000,9)
+    fun = lyso_spectrum(spe_charge)
+    f = ROOT.TF1("%s_fit" % h.GetName(),fun,0,1000,9)
     xmax = None
     ymax = 0
     xmin = None
@@ -347,7 +352,8 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     x = np.linspace(0,800,800)
-    f = ROOT.TF1("flyso",lyso_spectrum,0,1000,9)
+    fun = lyso_spectrum(SPE_CHARGE)
+    f = ROOT.TF1("flyso",fun,0,1000,9)
     f.SetParameter(0,0.8)
     f.SetParameter(1,0.001)
     f.SetParameter(2,1)

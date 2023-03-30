@@ -247,7 +247,7 @@ def get_lyso(x, p, spe_charge=SPE_CHARGE):
         f.SetParameter(i,p[i])
     return np.array([f.Eval(e) for e in x])
 
-def fit_lyso(h, spe_charge=SPE_CHARGE):
+def fit_lyso(h, model):
     """
     Fit the internal LYSO radiation spectrum to the histogram `h`. LYSO has
     intrinsic radiation from the beta decay of 176Lu (see
@@ -269,8 +269,7 @@ def fit_lyso(h, spe_charge=SPE_CHARGE):
 
     Otherwise, returns None.
     """
-    fun = lyso_spectrum(spe_charge)
-    f = ROOT.TF1("%s_fit" % h.GetName(),fun,0,1000,9)
+    f = ROOT.TF1("%s_fit" % h.GetName(),model,0,1000,9)
     xmax = None
     ymax = 0
     xmin = None
@@ -352,8 +351,8 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
     x = np.linspace(0,800,800)
-    fun = lyso_spectrum(SPE_CHARGE)
-    f = ROOT.TF1("flyso",fun,0,1000,9)
+    model = lyso_spectrum(SPE_CHARGE)
+    f = ROOT.TF1("flyso",model,0,1000,9)
     f.SetParameter(0,0.8)
     f.SetParameter(1,0.001)
     f.SetParameter(2,1)

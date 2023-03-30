@@ -294,26 +294,26 @@ def fit_lyso(h):
 
     dx = h.GetBinCenter(2) - h.GetBinCenter(1)
 
+    # Assume peak is somewhere around 300 keV
     pc_per_kev = xmax/300
 
-    # Assume peak is somewhere around 300 keV
     f.SetParameter(0,pc_per_kev)
     f.SetParLimits(0,0.1,10)
     f.SetParameter(1,0.1)
     f.SetParLimits(1,0.01,0.2)
     f.SetParameter(2,0.25*h.GetEntries()/dx)
     f.SetParLimits(2,0,1e9)
-    f.SetParameter(3,0.25*h.GetEntries()/dx)
+    f.SetParameter(3,0)
     f.SetParLimits(3,0,1e9)
     f.SetParameter(4,0.25*h.GetEntries()/dx)
     f.SetParLimits(4,0,1e9)
-    f.SetParameter(5,0.25*h.GetEntries()/dx)
+    f.SetParameter(5,0)
     f.SetParLimits(5,0,1e9)
-    f.SetParameter(6,0)
+    f.SetParameter(6,0.25*h.GetEntries()/dx)
     f.SetParLimits(6,0,1e9)
     f.SetParameter(7,0)
     f.SetParLimits(7,0,1e9)
-    f.SetParameter(8,0)
+    f.SetParameter(8,0.25*h.GetEntries()/dx)
     f.SetParLimits(8,0,1e9)
 
     # Right now we don't fit for these higher energy components. In the future
@@ -326,7 +326,7 @@ def fit_lyso(h):
     # Run the first fit only floating the normalization constants
     f.FixParameter(0,xmax/300)
     f.FixParameter(1,0.1)
-    fr = h.Fit(f,"S","",xmin,800)
+    fr = h.Fit(f,"S","",pc_per_kev*200,800)
     h.GetXaxis().SetRangeUser(xmin,800)
     h.Write()
 
@@ -335,7 +335,7 @@ def fit_lyso(h):
     f.ReleaseParameter(1)
     f.SetParLimits(0,0.1,10)
     f.SetParLimits(1,0.01,0.2)
-    fr = h.Fit(f,"S","",xmin,800)
+    fr = h.Fit(f,"S","",pc_per_kev*200,800)
     if not fr.Get().IsValid():
         return None
     h.GetXaxis().SetRangeUser(xmin,800)

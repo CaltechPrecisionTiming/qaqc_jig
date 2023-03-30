@@ -469,6 +469,8 @@ if __name__ == '__main__':
                         y = spe_baseline_subtraction(x, y, method=args.integration_method)                        
 
                     charge.extend(integrate(x,y, a, b))
+
+                ch_data[channel]['%s_charge' % group] = np.array(charge)
                         
                 if args.plot or args.print_pdfs:
                     if group == 'lyso':
@@ -479,63 +481,71 @@ if __name__ == '__main__':
                         avg_y = np.mean(y, axis=0)
                     plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
                 
-                ##################
-                # Creating Histogram
-                ##################
-                if group == 'lyso':
-                    bins = get_bins(charge, cutoff=100)
-                else:
-                    bins = get_bins(charge)
-                h = ROOT.TH1D(f"{group}_{channel}", f"{group} Charge Integral for {channel}", len(bins), bins[0], bins[-1])
-                for x in charge:
-                    h.Fill(x)
-                h.GetXaxis().SetTitle("Charge (pC)")
-                h.Write()
+        charge = np.zeros((32,max(len(ch_data[channel]['lyso_charge']) for channel in ch_data)))
+        for channel in ch_data:
+            ch = int(channel[2:])
+            charge[ch,:len(ch_data[channel]['lyso_charge'])] = ch_data[channel]['lyso_charge']
 
-                ##################
-                # Preparing Data for Upload
-                ##################
-                if args.upload:
-                    ch_data[channel]['lyso_rise_time'] = float(np.median(ch_data[channel]['lyso_rise_time']))
-                    ch_data[channel]['lyso_fall_time'] = float(np.median(ch_data[channel]['lyso_rise_time']))
-                    ch_data[channel]['avg_pulse_x'] = list(map(float,ch_data[channel]['avg_pulse_x']))
-                    ch_data[channel]['avg_pulse_y'] = list(map(float,ch_data[channel]['avg_pulse_y']))
-                    bincenters = (bins[1:] + bins[:-1])/2
-                    if group == 'lyso':
-                        ch_data[channel]['lyso_charge_histogram_y'] = list(map(float,np.histogram(charge,bins=bins)[0]))
-                        ch_data[channel]['lyso_charge_histogram_x'] = list(map(float,bincenters))
-                    else:
-                        ch_data[channel]['spe_charge_histogram_y'] = list(map(float,np.histogram(charge,bins=bins)[0]))
-                        ch_data[channel]['spe_charge_histogram_x'] = list(map(float,bincenters))
+        for channel in ch_data:
+            ##################
+            # Creating Histogram
+            ##################
+            lyso_bins = get_bins(charge, cutoff=100)
+            spe_bins = get_bins(charge)
+            hlyso = ROOT.TH1D(f"lyso_{channel}", f"LYSO Charge Integral for {channel}", len(lyso_bins), lyso_bins[0], lyso_bins[-1])
+            for x in ch_data[channel]['lyso_charge']:
+                hlyso.Fill(x)
+            hlyso.GetXaxis().SetTitle("Charge (pC)")
+            hlyso.Write()
 
-                ##################
-                # Fitting Histogram
-                ##################
-                print(f'Fitting {group} {channel}!')
-                if group == 'lyso':
-                    lyso_fit_pars = fit_lyso_funcs.fit_lyso(h)
-                    if lyso_fit_pars is not None:
-                        ch_data[channel]['lyso_fit_pars'] = lyso_fit_pars[0]
-                        ch_data[channel]['lyso_fit_par_errors'] = lyso_fit_pars[1]
-                        ch_data[channel]['pc_per_kev'] = lyso_fit_pars[0][0]
-                    else:
-                        ch_data[channel]['lyso_fit_pars'] = None
-                        ch_data[channel]['lyso_fit_par_errors'] = None
-                        ch_data[channel]['pc_per_kev'] = None
-                else:
-                    model = fit_spe_funcs.vinogradov_model()
-                    spe_fit_pars = fit_spe_funcs.fit_spe(h, model)
-                    if spe_fit_pars is not None:
-                        ch_data[channel]['spe_fit_pars'] = spe_fit_pars[0]
-                        ch_data[channel]['spe_fit_par_errors'] = spe_fit_pars[0]
-                        ch_data[channel]['spe'] = spe_fit_pars[0][3]
-                    else:
-                        ch_data[channel]['spe_fit_pars'] = None
-                        ch_data[channel]['spe_fit_par_errors'] = None
-                        ch_data[channel]['spe'] = None
-                
-                plot_hist(h, pdf=args.print_pdfs, filename=args.filename)
-                
+            hspe = ROOT.TH1D(f"spe_{channel}", f"LYSO Charge Integral for {channel}", len(spe_bins), spe_bins[0], spe_bins[-1])
+            for x in ch_data[channel]['spe_charge']:
+                hspe.Fill(x)
+            hspe.GetXaxis().SetTitle("Charge (pC)")
+            hspe.Write()
+
+            ##################
+            # Preparing Data for Upload
+            ##################
+            if args.upload:
+                ch_data[channel]['lyso_rise_time'] = float(np.median(ch_data[channel]['lyso_rise_time']))
+                ch_data[channel]['lyso_fall_time'] = float(np.median(ch_data[channel]['lyso_rise_time']))
+                ch_data[channel]['avg_pulse_x'] = list(map(float,ch_data[channel]['avg_pulse_x']))
+                ch_data[channel]['avg_pulse_y'] = list(map(float,ch_data[channel]['avg_pulse_y']))
+                lyso_bincenters = (lyso_bins[1:] + lyso_bins[:-1])/2
+                ch_data[channel]['lyso_charge_histogram_y'] = list(map(float,np.histogram(ch_data[channel]['lyso_charge'],bins=lyso_bins)[0]))
+                ch_data[channel]['lyso_charge_histogram_x'] = list(map(float,lyso_bincenters))
+                ch_data[channel]['spe_charge_histogram_y'] = list(map(float,np.histogram(ch_data[channel]['spe_charge'],bins=spe_bins)[0]))
+                ch_data[channel]['spe_charge_histogram_x'] = list(map(float,spe_bincenters))
+
+            ##################
+            # Fitting Histogram
+            ##################
+            print(f'Fitting LYSO {channel}!')
+            lyso_fit_pars = fit_lyso_funcs.fit_lyso(hlyso)
+            if lyso_fit_pars is not None:
+                ch_data[channel]['lyso_fit_pars'] = lyso_fit_pars[0]
+                ch_data[channel]['lyso_fit_par_errors'] = lyso_fit_pars[1]
+                ch_data[channel]['pc_per_kev'] = lyso_fit_pars[0][0]
+            else:
+                ch_data[channel]['lyso_fit_pars'] = None
+                ch_data[channel]['lyso_fit_par_errors'] = None
+                ch_data[channel]['pc_per_kev'] = None
+
+            model = fit_spe_funcs.vinogradov_model()
+            spe_fit_pars = fit_spe_funcs.fit_spe(hspe, model)
+            if spe_fit_pars is not None:
+                ch_data[channel]['spe_fit_pars'] = spe_fit_pars[0]
+                ch_data[channel]['spe_fit_par_errors'] = spe_fit_pars[0]
+                ch_data[channel]['spe'] = spe_fit_pars[0][3]
+            else:
+                ch_data[channel]['spe_fit_pars'] = None
+                ch_data[channel]['spe_fit_par_errors'] = None
+                ch_data[channel]['spe'] = None
+            
+            plot_hist(hlyso, pdf=args.print_pdfs, filename=args.filename)
+            plot_hist(hspe, pdf=args.print_pdfs, filename=args.filename)
+            
     ##################
     # Reviewing Data
     ##################

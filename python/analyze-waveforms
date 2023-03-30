@@ -290,13 +290,13 @@ def plot_time_volt(x, y, channel, data_type, a, b, avg_y=None, pdf=False, filena
     plt.ylabel("Voltage (V)")
     plt.axvline(x[a])
     plt.axvline(x[b])
-    plt.suptitle(f"{data_type} {channel}")
+    plt.suptitle("%s %s" % (data_type, channel))
     if args.print_pdfs:
         if not filename:
             print('No filename specified; can not print pdf!')
         else:
             root, ext = os.path.splitext(filename)
-            plt.savefig(os.path.join(args.print_pdfs, f"{root}_{data_type}_{channel}_TimeVolt.pdf"))
+            plt.savefig(os.path.join(args.print_pdfs, "%s_%s_%s_TimeVolt.pdf" % (root,data_type,channel)))
 
 def plot_hist(h, pdf=False, filename=None):
     global canvas
@@ -313,7 +313,7 @@ def plot_hist(h, pdf=False, filename=None):
             print('No filename specified; can not print pdf!')
         else:
             root, ext = os.path.splitext(filename)
-            c.Print(os.path.join(args.print_pdfs, f"{root}_{h.GetName()}.pdf"))
+            c.Print(os.path.join(args.print_pdfs, "%s_%s.pdf" % (root, h.GetName())))
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -385,7 +385,7 @@ if __name__ == '__main__':
                 sys.exit(1)
             #for param in f['lyso'].attrs:
             #    if f['lyso'].attrs[param] != f['spe'].attrs[param]:
-            #        print(f"Conflict in {param} used to take lyso and SPE data!", file=sys.stderr)
+            #        print("Conflict in %s used to take lyso and SPE data!" % param, file=sys.stderr)
             #        sys.exit(1)
             if 'data_source' in f['lyso'].attrs:
                 if f['lyso'].attrs['data_source'] != b'CAEN':
@@ -415,7 +415,7 @@ if __name__ == '__main__':
                 continue
 
             if group != 'lyso' and group != 'spe':
-                print(f"Unknown group name: \"{group}\". Skipping...")
+                print("Unknown group name: \"%s\". Skipping..." % group)
                 continue
 
             for channel in f[group]:
@@ -505,14 +505,14 @@ if __name__ == '__main__':
             # it's neighbors charge (i.e. the neighbor only has crosstalk).
             selection = (charge[ch] > charge[neighbors[ch]]*0.5).all(axis=0)
             lyso_bins = get_bins(charge[ch][selection], cutoff=100)
-            hlyso = ROOT.TH1D(f"lyso_{channel}", f"LYSO Charge Integral for {channel}", len(lyso_bins), lyso_bins[0], lyso_bins[-1])
+            hlyso = ROOT.TH1D("lyso_%s" % channel, "LYSO Charge Integral for %s" % channel, len(lyso_bins), lyso_bins[0], lyso_bins[-1])
             for x in ch_data[channel]['lyso_charge']:
                 hlyso.Fill(x)
             hlyso.GetXaxis().SetTitle("Charge (pC)")
             hlyso.Write()
 
             spe_bins = get_bins(ch_data[channel]['spe_charge'])
-            hspe = ROOT.TH1D(f"spe_{channel}", f"LYSO Charge Integral for {channel}", len(spe_bins), spe_bins[0], spe_bins[-1])
+            hspe = ROOT.TH1D("spe_%s" % channel, "LYSO Charge Integral for %s" % channel, len(spe_bins), spe_bins[0], spe_bins[-1])
             for x in ch_data[channel]['spe_charge']:
                 hspe.Fill(x)
             hspe.GetXaxis().SetTitle("Charge (pC)")
@@ -546,6 +546,7 @@ if __name__ == '__main__':
                 ch_data[channel]['lyso_fit_par_errors'] = None
                 ch_data[channel]['pc_per_kev'] = None
 
+            print('Fitting SPE %s!' % channel)
             model = fit_spe_funcs.vinogradov_model()
             spe_fit_pars = fit_spe_funcs.fit_spe(hspe, model)
             if spe_fit_pars is not None:

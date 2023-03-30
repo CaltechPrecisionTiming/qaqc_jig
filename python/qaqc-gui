@@ -300,11 +300,13 @@ def take_data():
 
         with h5py.File(filename,"w") as f:
             for key, value in info.items():
-                f.attrs[key] = float(value)
+                f.attrs[key] = value
+
+        f.attrs['institution'] = assembly_center.get()
 
         root, ext = splitext(filename)
         root_filename = "%s.root" % root
-        cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename, '-u', '-i', assembly_center.get()]
+        cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename, '-u']
         if run_command(cmd):
             return
 

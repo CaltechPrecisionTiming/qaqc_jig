@@ -354,10 +354,6 @@ if __name__ == '__main__':
             print("need to set BTL_DB_PASS environment variable!",file=sys.stderr)
             sys.exit(1)
 
-        if args.institution is None:
-            print("must specify institution with -i argument!",file=sys.stderr)
-            sys.exit(1)
-
         print("Uploading results to the database...")
         conn = psycopg2.connect(dbname='btl_qa',
                                 user='btl',
@@ -395,7 +391,14 @@ if __name__ == '__main__':
             data['voltage'] = float(f['lyso'].attrs['voltage'])
             data['git_sha1'] = f['lyso'].attrs['git_sha1'].decode("UTF-8")
             data['git_dirty'] = f['lyso'].attrs['git_dirty'].decode("UTF-8")
-            data['institution'] = str(args.institution)
+            if 'institution' in f.attrs:
+                data['institution'] = f.attrs['institution']
+            elif args.institution is not None:
+                data['institution'] = args.institution
+            else:
+                print("Error: no institution specified in hdf5 file or with -i option!",file=sys.stderr)
+                sys.exit(1)
+
             data['filename'] = args.filename
             try:
                 data['tec_resistance_a'] = f.attrs['tec_resistance_a']

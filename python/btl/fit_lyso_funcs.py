@@ -26,6 +26,8 @@ SPE_CHARGE = 1.0 # pC
 # FIXME: Should actually measure this
 SPE_ERROR = 0.01 # pC
 
+ES = np.linspace(1,1000,250)
+
 def memoize(fun):
     _cache = {}
 
@@ -115,6 +117,18 @@ def spectrum(es, offset):
     rv /= np.trapz(rv,x=es)
     return rv
 
+SPECTRUM_88 = spectrum(ES,88)
+SPECTRUM_202 = norm.pdf(ES,202,1)
+SPECTRUM_290 = spectrum(ES,290)
+SPECTRUM_307 = norm.pdf(ES,307,1)
+SPECTRUM_395 = spectrum(ES,395)
+SPECTRUM_509 = norm.pdf(ES,509,1)
+SPECTRUM_597 = spectrum(ES,597)
+
+@lru_cache(maxsize=None)
+def p_e_fast(p):
+    return p[0]*SPECTRUM_88 + p[1]*SPECTRUM_202 + p[2]*SPECTRUM_290 + p[3]*SPECTRUM_307 + p[4]*SPECTRUM_395 + p[5]*SPECTRUM_509 + p[6]*SPECTRUM_597
+
 @memoize
 def p_e(es, p):
     spectrum_88 = spectrum(es,88)
@@ -170,28 +184,29 @@ def likelihood(q,avg_y,dy,p):
     es = np.linspace(1,1000,1000)
 
     # Here, we assume p(y) = constant
-    return np.trapz(p_e(es,tuple(p))*np.trapz(p_q(q,ys,es)/(2*dy),x=ys,axis=0),x=es,axis=0)
+    return np.trapz(p_e(es,p)*np.trapz(p_q(q,ys,es)/(2*dy),x=ys,axis=0),x=es,axis=0)
 
-ES = np.linspace(1,1000,250)
+@lru_cache(maxsize=None)
+def integral_fast(q,avg_y,dy):
+    integral = -erf((q+avg_y*(1-dy)*ES)/np.sqrt(2*avg_y*(1-dy)*ES*SPE_CHARGE)) \
+               +erf((q+avg_y*(1+dy)*ES)/np.sqrt(2*avg_y*(1+dy)*ES*SPE_CHARGE))
+    factor = np.exp(q/SPE_CHARGE/2)
+    integral *= factor
+    integral *= factor
+    integral *= factor
+    integral *= factor
+    integral -= erf((-q+avg_y*(1-dy)*ES)/np.sqrt(2*avg_y*(1-dy)*ES*SPE_CHARGE))
+    integral += erf((-q+avg_y*(1+dy)*ES)/np.sqrt(2*avg_y*(1+dy)*ES*SPE_CHARGE))
+    integral *= 1/(2*ES)
+    return integral
 
 def likelihood_fast(q,avg_y,dy,p):
     """
     Returns P(q|avg_y,dy,p) just like the function above, but is much faster
     since we do the second integral analytically.
     """
-    es = ES
-
-    integral = -erf((q+avg_y*(1-dy)*es)/np.sqrt(2*avg_y*(1-dy)*es*SPE_CHARGE)) \
-               +erf((q+avg_y*(1+dy)*es)/np.sqrt(2*avg_y*(1+dy)*es*SPE_CHARGE))
-    factor = np.exp(q/SPE_CHARGE/2)
-    integral *= factor
-    integral *= factor
-    integral *= factor
-    integral *= factor
-    integral -= erf((-q+avg_y*(1-dy)*es)/np.sqrt(2*avg_y*(1-dy)*es*SPE_CHARGE))
-    integral += erf((-q+avg_y*(1+dy)*es)/np.sqrt(2*avg_y*(1+dy)*es*SPE_CHARGE))
-    integral *= 1/(2*es)
-    return np.trapz(p_e(es,tuple(p))*integral/(2*dy),x=es,axis=0)
+    integral = integral_fast(q,avg_y,dy)
+    return np.trapz(p_e_fast(p)*integral,dx=ES[1]-ES[0],axis=0)/(2*dy)
 
 def lyso_spectrum(x,p):
     """
@@ -214,7 +229,7 @@ def lyso_spectrum(x,p):
         total_spectrum = CACHE[key]
         return np.interp(x[0],qs,total_spectrum)
 
-    ps = [p[i] for i in range(2,9)]
+    ps = tuple([p[i] for i in range(2,9)])
 
     total_spectrum = [likelihood_fast(q,p[0],p[1],ps) for q in qs]
 

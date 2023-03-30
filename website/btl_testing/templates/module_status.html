@@ -101,7 +101,7 @@
                         </tr>
                     </thead>
                     {% for i in range(info['channels']|length) %}
-		        <tr onclick="window.document.location = '{{ url_for('channel_status',key=info['keys'][i]) }}';">
+		        <tr onclick="window.document.location = '{{ url_for('channel_status',key=info['keys'][i]) }}';" class="{% if info['spe_percent'][i] > 0.1 %} danger {% endif %}">
                             <td class="text-center">{{ info['channels'][i] }}</td>
                             <td class="text-center">{{ "%.2f" % info['pc_per_kev'][i] }}</td>
                             <td class="text-center">{{ "%.2f" % info['spe'][i] }}</td>

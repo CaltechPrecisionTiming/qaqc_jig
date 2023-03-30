@@ -99,6 +99,8 @@ def module_status():
     if info is None:
         flash('No module found in database with that barcode. Did you forget to upload it?','danger')
         return redirect(url_for('module_database'))
+    mean_spe = np.mean(info['spe'])
+    info['spe_percent'] = [np.abs(spe-mean_spe)/mean_spe for spe in info['spe']]
     return render_template('module_status.html', info=info)
 
 @app.route('/channel-status')

@@ -35,7 +35,7 @@
                         <td>{{ row['timestamp'] | time_from_now }}</td>
 			<td>{{ row['run'] }}</td>
 			<td>{{ row['barcode'] }}</td>
-			<td>{{ row['voltage'] }}</td>
+			<td>{{ "%.2f" % row['voltage'] }}</td>
 			<td>{{ row['institution'] }}</td>
 		    </tr>
 		    {% endfor %}

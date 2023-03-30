@@ -394,7 +394,7 @@ if __name__ == '__main__':
             if 'institution' in f.attrs:
                 data['institution'] = f.attrs['institution']
             elif args.institution is not None:
-                data['institution'] = args.institution
+                data['institution'] = str(args.institution)
             else:
                 print("Error: no institution specified in hdf5 file or with -i option!",file=sys.stderr)
                 sys.exit(1)

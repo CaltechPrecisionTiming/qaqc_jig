@@ -527,6 +527,7 @@ if __name__ == '__main__':
                 ch_data[channel]['avg_pulse_x'] = list(map(float,ch_data[channel]['avg_pulse_x']))
                 ch_data[channel]['avg_pulse_y'] = list(map(float,ch_data[channel]['avg_pulse_y']))
                 lyso_bincenters = (lyso_bins[1:] + lyso_bins[:-1])/2
+                spe_bincenters = (spe_bins[1:] + spe_bins[:-1])/2
                 ch_data[channel]['lyso_charge_histogram_y'] = list(map(float,np.histogram(ch_data[channel]['lyso_charge'],bins=lyso_bins)[0]))
                 ch_data[channel]['lyso_charge_histogram_x'] = list(map(float,lyso_bincenters))
                 ch_data[channel]['spe_charge_histogram_y'] = list(map(float,np.histogram(ch_data[channel]['spe_charge'],bins=spe_bins)[0]))

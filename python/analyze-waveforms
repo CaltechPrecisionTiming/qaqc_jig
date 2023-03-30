@@ -250,7 +250,7 @@ def spe_baseline_subtraction(x, y, method=1):
         s = y.T
         s_mask = s > -10*iqr(high_filter_y.flatten())
         good_s = [s[i, s_mask[i]] for i in range(len(s))]
-        print(f'average number of good samples: {np.mean([len(sub) for sub in good_s])}')
+        print('average number of good samples: %.2f' % np.mean([len(sub) for sub in good_s]))
         sample_medians = np.array([np.median(sub) for sub in good_s])
         y -= sample_medians
     elif args.integration_method == 3:
@@ -304,7 +304,7 @@ def plot_hist(h, pdf=False, filename=None):
     # will always make a default canvas with name `c1` the first time you
     # fit a histogram. The only way I know how to get rid of it is to
     # overwrite it like this.
-    c = ROOT.TCanvas(f'c{len(canvas)+1}')
+    c = ROOT.TCanvas('c%i' % (len(canvas)+1))
     canvas.append(c)
     h.Draw()
     c.Update()
@@ -535,7 +535,7 @@ if __name__ == '__main__':
             ##################
             # Fitting Histogram
             ##################
-            print(f'Fitting LYSO {channel}!')
+            print('Fitting LYSO %s!' % channel)
             lyso_fit_pars = fit_lyso_funcs.fit_lyso(hlyso)
             if lyso_fit_pars is not None:
                 ch_data[channel]['lyso_fit_pars'] = lyso_fit_pars[0]
@@ -565,15 +565,15 @@ if __name__ == '__main__':
     ##################
     for channel in ch_data:
         if 'pc_per_kev' not in ch_data[channel]:
-            print(f'Mising lyso data for {channel}!')
+            print('Mising lyso data for %s!' % channel)
         elif 'spe' not in ch_data[channel]:
-            print(f'Missing SPE data for {channel}!')
+            print('Missing SPE data for %s!' % channel)
         elif ch_data[channel]['pc_per_kev'] is None:
-            print(f'Failed to fit {channel} lyso histogram!')
+            print('Failed to fit %s lyso histogram!' % channel)
         elif ch_data[channel]['spe'] is None:
-            print(f'Failed to fit {channel} spe histogram!')
+            print('Failed to fit %s spe histogram!' % channel)
         else:
-            print(f'{channel}: {ch_data[channel]["pc_per_kev"]*1000*4/ch_data[channel]["spe"]}')
+            print('%s: %.2f' % (channel, ch_data[channel]["pc_per_kev"]*1000*4/ch_data[channel]["spe"]))
             
             ##################
             # Uploading Data

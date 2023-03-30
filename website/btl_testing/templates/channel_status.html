@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% block title %}Module Status{% endblock %}
+{% block title %}Channel {{ info['channel'] }} Status{% endblock %}
 {% block head %}
     <!-- metrics-graphics stylesheet goes above super() because we want bootstrap's style
     (which is linked in super()) to override it. -->

@@ -198,6 +198,7 @@
             legend: ['Data','Fit'],
             x_label: 'Charge (pC)',
             y_label: 'Entries',
+            interpolate: d3.curveLinear,
             {% if log %}
             y_scale_type: 'log'
             {% else %}
@@ -217,7 +218,8 @@
             y_accessor: 'y',
             legend: ['Data','Fit'],
             x_label: 'Charge (pC)',
-            y_label: 'Entries'
+            y_label: 'Entries',
+            interpolate: d3.curveLinear
         });
 
         MG.data_graphic({

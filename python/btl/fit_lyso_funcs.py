@@ -209,7 +209,7 @@ def likelihood_fast(q,avg_y,dy,p,spe_charge=SPE_CHARGE):
     return np.trapz(p_e_fast(p)*integral,dx=ES[1]-ES[0],axis=-1)/(2*dy)
 
 class lyso_spectrum(object):
-    def __init__(self, spe_charge):
+    def __init__(self, spe_charge=SPE_CHARGE):
         self.spe_charge = spe_charge
 
     def __call__(self, x, p):

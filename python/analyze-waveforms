@@ -237,14 +237,10 @@ def spe_baseline_subtraction(x, y, method=1):
     high_filter_y = high_filter_SPE(x, y)
     
     # Integration Method 0, per event median subtraction:
-    y -= np.median(y, axis=-1)[:, np.newaxis]
+    y -= np.median(y[:,x < args.start_time], axis=-1)[:, np.newaxis]
     
     if args.integration_method == 1:  # Default 
-        cutoff = -2*iqr(high_filter_y.flatten())
-        no_SPE_mask = y > cutoff 
-        y -= np.array([np.median(y[i, no_SPE_mask[i]]) for i in range(len(y))])[:, np.newaxis]
-        i_mask = np.logical_and(x>=args.start_time, x<args.start_time+args.integration_time)
-        y -= np.median(y[:, i_mask])
+        pass
     elif args.integration_method == 2:
         # `s` for samples
         s = y.T

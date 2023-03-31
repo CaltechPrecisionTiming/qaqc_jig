@@ -355,14 +355,13 @@ def fit_spe(h, model, f_h=None, root_func=False):
     f1.FixParameter(1, f1.GetParameter(1)) 
     f1.SetParLimits(2, max(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1)
     f1.SetParLimits(3, max(zero_peak_end-offset, f1.GetParameter(3) - 1), f1.GetParameter(3) + 1)
-    f1.SetParLimits(4, 0, f1.GetParameter(4) + 0.1) 
-    f1.SetParLimits(5, 0, f1.GetParameter(5) + 0.1) 
-    f1.SetParLimits(6, 0, 0.25)
+    f1.SetParLimits(4, 0, 0.5) 
+    f1.SetParLimits(5, 0, 0.5) 
+    f1.SetParLimits(6, 0, 0.5)
     
     r = h.Fit(f1, 'SR')
     r = r.Get()
     if not r.IsValid():
-        # Maybe we want to return `None` here?
         print("Fit error!")
         return None
     

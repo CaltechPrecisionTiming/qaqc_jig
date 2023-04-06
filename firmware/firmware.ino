@@ -95,8 +95,8 @@ bool debug = false;
 #define PIN_STP_EN_UC  (23)
 
 /* Array of HV relay pins and names. */
-int hv_relays[6] = {KC1,KC2,KC3,KC4,KC5,KC6};
-const char *hv_relay_names[6] = {"KC1","KC2","KC3","KC4","KC5","KC6"};
+int hv_relays[6] = {KC1,KC2,KC4,KC3,KC6,KC5};
+const char *hv_relay_names[6] = {"KC1","KC2","KC4","KC3","KC6","KC5"};
 int tec_relays[3] = {TEC_CTRL1, TEC_CTRL2, TEC_CTRL3};
 const char *tec_relay_names[3] = {"TEC_CTRL1", "TEC_CTRL2", "TEC_CTRL3"};
 int thermistors[4] = {THERMISTOR1, THERMISTOR2, THERMISTOR3, TEC_SENSE};

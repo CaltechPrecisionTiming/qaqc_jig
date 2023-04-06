@@ -383,8 +383,6 @@ if __name__ == '__main__':
                 print("Data source not specified!", file=sys.stderr)
                 sys.exit(1)
             
-            data['barcode'] = int(f['lyso'].attrs['barcode'])
-            data['voltage'] = float(f.attrs['voltage'])
             data['git_sha1'] = f['lyso'].attrs['git_sha1'].decode("UTF-8")
             data['git_dirty'] = f['lyso'].attrs['git_dirty'].decode("UTF-8")
             if 'institution' in f.attrs:
@@ -396,6 +394,15 @@ if __name__ == '__main__':
                 sys.exit(1)
 
             data['filename'] = args.filename
+
+            if 'barcode' in f['lyso'].attrs:
+                # Here for backwards compatibility with data taken at Fermilab
+                data['barcode'] = int(f['lyso'].attrs['barcode'])
+                data['voltage'] = float(f['lsyo'].attrs['voltage'])
+            else:
+                data['barcode'] = int(f.attrs['barcode'])
+                data['voltage'] = float(f.attrs['voltage'])
+
             try:
                 data['tec_resistance_a'] = f.attrs['tec_resistance_a']
                 data['tec_resistance_b'] = f.attrs['tec_resistance_b']

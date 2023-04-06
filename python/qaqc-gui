@@ -308,6 +308,7 @@ def take_data():
         root_filename = "%s.root" % root
         cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename, '-u']
         if run_command(cmd):
+            print_warning("Failed to analyze '%s'. Quitting..." % filename)
             return
 
 def poll_single_module(client, module):

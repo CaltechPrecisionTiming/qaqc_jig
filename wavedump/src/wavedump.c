@@ -1377,21 +1377,6 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
         file = H5Fopen(filename, H5F_ACC_RDWR, H5P_DEFAULT);
     }
 
-    if (write_float_to_attrs("voltage", file, WDcfg->voltage))
-        return 1;
-
-    if (write_float_to_attrs("temp_a", file, WDcfg->temp_a))
-        return 1;
-
-    if (write_float_to_attrs("temp_b", file, WDcfg->temp_b))
-        return 1;
-
-    if (write_float_to_attrs("tec_resistance_a", file, WDcfg->tec_resistance_a))
-        return 1;
-
-    if (write_float_to_attrs("tec_resistance_b", file, WDcfg->tec_resistance_b))
-        return 1;
-
     /* If group not in file, create the group. Else, extend the dataset in
      * the group. */
     if (H5Lexists(file, group_name, H5P_DEFAULT) <= 0) { 
@@ -1465,18 +1450,6 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
 
         if (ret) {
             fprintf(stderr, "failed to write DRS4 frequency to hdf5 file.\n");
-            return 1;
-        }
-
-        H5Sclose(aid);
-        H5Aclose(attr);
-
-        aid = H5Screate(H5S_SCALAR);
-        attr = H5Acreate2(group_id, "barcode", H5T_NATIVE_INT, aid, H5P_DEFAULT, H5P_DEFAULT);
-        ret = H5Awrite(attr, H5T_NATIVE_INT, &WDcfg->barcode);
-
-        if (ret) {
-            fprintf(stderr, "failed to write barcode to hdf5 file.\n");
             return 1;
         }
 
@@ -1704,12 +1677,6 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
 void print_help()
 {
     fprintf(stderr, "usage: wavedump -o [OUTPUT] -n [NUMBER] [CONFIG_FILE]\n"
-    "  -b, --barcode Barcode of the module being tested\n"
-    "  -v, --voltage Voltage (V)\n"
-    "  --temp-a      Temperature (degrees C)\n"
-    "  --temp-b      Temperature (degrees C)\n"
-    "  --tec-resistance-a      TEC resistance (Ohms)\n"
-    "  --tec-resistance-b      TEC resistance (Ohms)\n"
     "  -t, --trigger Type of trigger: \"software\", \"external\", or \"self\".\n"
     "  -l, --label   Name of hdf5 group to write data to (lyso, spe)\n"
     "  --threshold   Trigger threshold (volts) (default: -0.1)\n"
@@ -1910,12 +1877,6 @@ int main(int argc, char *argv[])
     char *output_filename = NULL;
     int nevents = 100;
     int total_events = 0;
-    double voltage = -1;
-    float temp_a = -1;
-    float temp_b = -1;
-    float tec_resistance_a = -1;
-    float tec_resistance_b = -1;
-    int barcode = 0;
     uint32_t data;
     char *trig_type = "self";
     char *label = NULL;
@@ -1943,18 +1904,6 @@ int main(int argc, char *argv[])
             trig_type = argv[++i];            
         } else if ((!strcmp(argv[i],"-l") || !strcmp(argv[i],"--label")) && i < argc - 1) {
             label = argv[++i];            
-        } else if ((!strcmp(argv[i],"-b") || !strcmp(argv[i],"--barcode")) && i < argc - 1) {
-            barcode = atoi(argv[++i]);
-        } else if ((!strcmp(argv[i],"-v") || !strcmp(argv[i],"--voltage")) && i < argc - 1) {
-            voltage = atof(argv[++i]);
-        } else if (!strcmp(argv[i],"--temp-a") && i < argc - 1) {
-            temp_a = atof(argv[++i]);
-        } else if (!strcmp(argv[i],"--temp-b") && i < argc - 1) {
-            temp_b = atof(argv[++i]);
-        } else if (!strcmp(argv[i],"--tec-resistance-a") && i < argc - 1) {
-            tec_resistance_a = atof(argv[++i]);
-        } else if (!strcmp(argv[i],"--tec-resistance-b") && i < argc - 1) {
-            tec_resistance_b = atof(argv[++i]);
         } else if ((!strcmp(argv[i],"--threshold")) && i < argc - 1) {
             threshold = atof(argv[++i]);
         } else if ((!strcmp(argv[i],"--gzip-compression-level")) && i < argc - 1) {
@@ -1989,18 +1938,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    if (barcode == 0) {
-        fprintf(stderr, "please specify a barcode with --barcode\n");
-        print_help();
-        exit(1);
-    }
-
-    if (voltage < 0) {
-        fprintf(stderr, "please specify a positive voltage with --voltage\n");
-        print_help();
-        exit(1);
-    }
-
     signal(SIGINT, sigint_handler);
 
     int nchannels = 0;
@@ -2022,13 +1959,6 @@ int main(int argc, char *argv[])
         WDcfg = get_lyso_settings(trig_type);
     else
         WDcfg = get_default_settings(trig_type);
-    
-    WDcfg.voltage = voltage;
-    WDcfg.temp_a = temp_a;
-    WDcfg.temp_b = temp_b;
-    WDcfg.tec_resistance_a = tec_resistance_a;
-    WDcfg.tec_resistance_b = tec_resistance_b;
-    WDcfg.barcode = barcode;
     
     /* config file parsing */
     if (config_filename) {

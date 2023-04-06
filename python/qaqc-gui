@@ -277,7 +277,7 @@ def take_data():
             except Exception as e:
                 print_warning(str(e))
 
-            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',voltage,'-t','self','-l','lyso','--channel-map',j % 2,'-n',n_lyso_events.get(),'-o',filename], progress_bar=i):
+            if run_command([WAVEDUMP_PROGRAM,'-t','self','-l','lyso','--channel-map',j % 2,'-n',n_lyso_events.get(),'-o',filename], progress_bar=i):
                 hv_off(client)
                 return
 
@@ -302,6 +302,8 @@ def take_data():
             for key, value in info.items():
                 f.attrs[key] = value
 
+        f.attrs['barcode'] = barcode
+        f.attrs['voltage'] = voltage
         f.attrs['institution'] = assembly_center.get()
 
         root, ext = splitext(filename)

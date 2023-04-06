@@ -142,6 +142,10 @@ typedef struct {
     char ipAddress[25];
     int barcode;
     float voltage;
+    float temp_a;
+    float temp_b;
+    float tec_resistance_a;
+    float tec_resistance_b;
 } WaveDumpConfig_t;
 
 

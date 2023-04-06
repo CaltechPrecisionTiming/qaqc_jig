@@ -1263,6 +1263,11 @@ int write_data_to_output_file(hid_t group_id, int channel, float data[WF_SIZE][3
         if (channel <= 7)
             sprintf(dset_name, "ch%i", channel);
         else
+            /* We have to do the channel gymnastics here because of the way the
+             * boards are layed out. The upper 8 channels on the digitizer come
+             * from the second side of the module and go "backwards" as
+             * compared to the first side.  See the file test_channel_map.py
+             * for testing to make sure it behaves as expected. */
             sprintf(dset_name, "ch%i", (7 - (channel % 8) + 16);
     } else if (channel_map == 1) {
         /* We're reading out the second half of the module. */

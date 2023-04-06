@@ -1263,13 +1263,13 @@ int write_data_to_output_file(hid_t group_id, int channel, float data[WF_SIZE][3
         if (channel <= 7)
             sprintf(dset_name, "ch%i", channel);
         else
-            sprintf(dset_name, "ch%i", channel+8);
+            sprintf(dset_name, "ch%i", (7 - (channel % 8) + 16);
     } else if (channel_map == 1) {
         /* We're reading out the second half of the module. */
         if (channel <= 7)
             sprintf(dset_name, "ch%i", channel+8);
         else
-            sprintf(dset_name, "ch%i", channel+16);
+            sprintf(dset_name, "ch%i", (7 - (channel % 8) + 24);
     }
 
     float *wdata = malloc(n*nsamples*sizeof(float));

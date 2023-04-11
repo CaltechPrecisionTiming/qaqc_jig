@@ -261,7 +261,7 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            if run_command([WAVEDUMP_PROGRAM,'-b',barcode,'-v',hv.get(),'-t','software','-l','spe','--channel-map',j % 2,'-n',n_spe_events.get(),'-o',filename], progress_bar=i):
+            if run_command([WAVEDUMP_PROGRAM,'-t','software','-l','spe','--channel-map',j % 2,'-n',n_spe_events.get(),'-o',filename], progress_bar=i):
                 hv_off(client)
                 return
 

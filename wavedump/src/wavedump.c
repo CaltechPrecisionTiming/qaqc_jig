@@ -1348,6 +1348,7 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
     int ndims;
     hsize_t dims[2], extdims[2], maxdims[2];
     char dset_name[256];
+    char base_dset_name[256];
     hsize_t start[2], count[2];
     int i, j, k;
     unsigned int filter_info;
@@ -1512,24 +1513,11 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
                 for (k = 0; k < nsamples; k++)
                     wdata[j][k] = baseline_data[j][i][k];
 
-            if (channel_map == -1) {
-                /* Default behavior */
-                sprintf(dset_name, "base_ch%i", i);
-            } else if (channel_map == 0) {
-                /* We're reading out the first half of the module. */
-                if (i <= 7)
-                    sprintf(dset_name, "base_ch%i", i);
-                else
-                    sprintf(dset_name, "base_ch%i", i+8);
-            } else if (channel_map == 1) {
-                /* We're reading out the second half of the module. */
-                if (i <= 7)
-                    sprintf(dset_name, "base_ch%i", i+8);
-                else
-                    sprintf(dset_name, "base_ch%i", i+16);
-            }
+            get_dset_name(dset_name,i,channel_map);
 
-            dset = H5Dcreate(baseline_group_id, dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+            sprintf(base_dset_name,"base_%s", dset_name);
+
+            dset = H5Dcreate(baseline_group_id, base_dset_name, H5T_NATIVE_FLOAT, space, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
 
             /* Write the data to the dataset. */
             status = H5Dwrite(dset, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, wdata);

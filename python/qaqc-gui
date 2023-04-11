@@ -377,10 +377,10 @@ def poll():
                 bus = (i//3)*2 + k
                 thermistor = i % 3
                 if k % 2 == 0:
-                    thermistor_text[(i,'thermistor_a')].config(text="")
+                    thermistor_text[(i,'temp_a')].config(text="")
                     thermistor_text[(i,'tec_a')].config(text="")
                 else:
-                    thermistor_text[(i,'thermistor_b')].config(text="")
+                    thermistor_text[(i,'temp_b')].config(text="")
                     thermistor_text[(i,'tec_b')].config(text="")
             continue
 
@@ -557,10 +557,10 @@ if __name__ == '__main__':
     for i in range(12):
         thermistor_labels[i] = tk.Label(frame_thermistor,text="Barcode %i: " % i)
         thermistor_labels[i].grid(row=i+1,column=0)
-        thermistor_text[(i,'thermistor_a')] = tk.Label(frame_thermistor,text="")
-        thermistor_text[(i,'thermistor_a')].grid(row=i+1,column=1)
-        thermistor_text[(i,'thermistor_b')] = tk.Label(frame_thermistor,text="")
-        thermistor_text[(i,'thermistor_b')].grid(row=i+1,column=2)
+        thermistor_text[(i,'temp_a')] = tk.Label(frame_thermistor,text="")
+        thermistor_text[(i,'temp_a')].grid(row=i+1,column=1)
+        thermistor_text[(i,'temp_b')] = tk.Label(frame_thermistor,text="")
+        thermistor_text[(i,'temp_b')].grid(row=i+1,column=2)
         thermistor_text[(i,'tec_a')] = tk.Label(frame_thermistor,text="")
         thermistor_text[(i,'tec_a')].grid(row=i+1,column=3)
         thermistor_text[(i,'tec_b')] = tk.Label(frame_thermistor,text="")

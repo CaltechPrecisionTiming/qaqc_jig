@@ -298,13 +298,13 @@ def take_data():
 
         info = poll_single_module(client,i)
 
-        with h5py.File(filename,"w") as f:
+        with h5py.File(filename,"a") as f:
             for key, value in info.items():
                 f.attrs[key] = value
 
-        f.attrs['barcode'] = barcode
-        f.attrs['voltage'] = voltage
-        f.attrs['institution'] = assembly_center.get()
+            f.attrs['barcode'] = barcode
+            f.attrs['voltage'] = voltage
+            f.attrs['institution'] = assembly_center.get()
 
         root, ext = splitext(filename)
         root_filename = "%s.root" % root

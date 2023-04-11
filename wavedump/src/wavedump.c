@@ -1227,6 +1227,31 @@ void get_baselines(float data[][32][1024], float *baselines, int n, unsigned lon
     }
 }
 
+void get_dset_name(char *name, int channel, int channel_map)
+{
+    if (channel_map == -1) {
+        /* Default behavior */
+        sprintf(name, "ch%i", channel);
+    } else if (channel_map == 0) {
+        /* We're reading out the first half of the module. */
+        if (channel <= 7)
+            sprintf(name, "ch%i", channel);
+        else
+            /* We have to do the channel gymnastics here because of the way the
+             * boards are layed out. The upper 8 channels on the digitizer come
+             * from the second side of the module and go "backwards" as
+             * compared to the first side.  See the file test_channel_map.py
+             * for testing to make sure it behaves as expected. */
+            sprintf(name, "ch%i", (7 - (channel % 8) + 16));
+    } else if (channel_map == 1) {
+        /* We're reading out the second half of the module. */
+        if (channel <= 7)
+            sprintf(name, "ch%i", channel+8);
+        else
+            sprintf(name, "ch%i", (7 - (channel % 8) + 24));
+    }
+}
+
 int write_data_to_output_file(hid_t group_id, int channel, float data[WF_SIZE][32][1024], float baseline_data[BS_SIZE][32][1024], int n, unsigned long chmask, int nsamples, int gzip_compression_level, int channel_map)
 {
     hid_t space, dset, dcpl;
@@ -1255,27 +1280,7 @@ int write_data_to_output_file(hid_t group_id, int channel, float data[WF_SIZE][3
     status = H5Pset_deflate(dcpl, gzip_compression_level);
     status = H5Pset_chunk(dcpl, 2, chunk);
 
-    if (channel_map == -1) {
-        /* Default behavior */
-        sprintf(dset_name, "ch%i", channel);
-    } else if (channel_map == 0) {
-        /* We're reading out the first half of the module. */
-        if (channel <= 7)
-            sprintf(dset_name, "ch%i", channel);
-        else
-            /* We have to do the channel gymnastics here because of the way the
-             * boards are layed out. The upper 8 channels on the digitizer come
-             * from the second side of the module and go "backwards" as
-             * compared to the first side.  See the file test_channel_map.py
-             * for testing to make sure it behaves as expected. */
-            sprintf(dset_name, "ch%i", (7 - (channel % 8) + 16));
-    } else if (channel_map == 1) {
-        /* We're reading out the second half of the module. */
-        if (channel <= 7)
-            sprintf(dset_name, "ch%i", channel+8);
-        else
-            sprintf(dset_name, "ch%i", (7 - (channel % 8) + 24));
-    }
+    get_dset_name(dset_name,channel,channel_map);
 
     float *wdata = malloc(n*nsamples*sizeof(float));
 
@@ -1570,22 +1575,7 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
     for (i = 0; i < 32; i++) {
         if (!(chmask & (1 << i))) continue;
 
-        if (channel_map == -1) {
-            /* Default behavior */
-            sprintf(dset_name, "ch%i", i);
-        } else if (channel_map == 0) {
-            /* We're reading out the first half of the module. */
-            if (i <= 7)
-                sprintf(dset_name, "ch%i", i);
-            else
-                sprintf(dset_name, "ch%i", i+8);
-        } else if (channel_map == 1) {
-            /* We're reading out the second half of the module. */
-            if (i <= 7)
-                sprintf(dset_name, "ch%i", i+8);
-            else
-                sprintf(dset_name, "ch%i", i+16);
-        }
+        get_dset_name(dset_name,i,channel_map);
 
         if (H5Lexists(group_id, dset_name, H5P_DEFAULT) <= 0) {
             /* Dataset doesn't exist, so we create it and write to it. */

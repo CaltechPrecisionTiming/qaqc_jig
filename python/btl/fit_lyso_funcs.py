@@ -330,7 +330,7 @@ def fit_lyso(h, model):
     # Run the first fit only floating the normalization constants
     f.FixParameter(0,xmax/300)
     f.FixParameter(1,0.1)
-    fr = h.Fit(f,"S","",pc_per_kev*50,800)
+    fr = h.Fit(f,"S","",pc_per_kev*150,800)
     h.GetXaxis().SetRangeUser(xmin,800)
     h.Write()
 
@@ -339,7 +339,7 @@ def fit_lyso(h, model):
     f.ReleaseParameter(1)
     f.SetParLimits(0,0.1,10)
     f.SetParLimits(1,0.01,0.2)
-    fr = h.Fit(f,"S","",pc_per_kev*50,800)
+    fr = h.Fit(f,"S","",pc_per_kev*150,800)
     if not fr.Get().IsValid():
         return None
     h.GetXaxis().SetRangeUser(xmin,800)

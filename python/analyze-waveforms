@@ -14,6 +14,8 @@ from enum import Enum
 
 canvas = []
 
+ATTENUATION_FACTOR = 5.85
+
 class Institution(Enum):
     """
     Note: This must be kept in sync with the values in btl_qa.sql.
@@ -577,7 +579,7 @@ if __name__ == '__main__':
             if 'lyso_charge' in ch_data[channel]:
                 print('Fitting LYSO %s!' % channel)
                 if 'spe_charge' in ch_data[channel] and spe_fit_pars is not None:
-                    model = fit_lyso_funcs.lyso_spectrum(spe_fit_pars[0][3]/4)
+                    model = fit_lyso_funcs.lyso_spectrum(spe_fit_pars[0][3]/ATTENUATION_FACTOR)
                 else:
                     model = fit_lyso_funcs.lyso_spectrum()
 

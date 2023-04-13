@@ -190,11 +190,11 @@ def likelihood(q,avg_y,dy,p):
 def integral_fast(q,avg_y,dy,spe_charge):
     integral = -erf((q+avg_y*(1-dy)*ES)/np.sqrt(2*avg_y*(1-dy)*ES*spe_charge)) \
                +erf((q+avg_y*(1+dy)*ES)/np.sqrt(2*avg_y*(1+dy)*ES*spe_charge))
-    factor = np.exp(q/spe_charge/2)
-    integral *= factor
-    integral *= factor
-    integral *= factor
-    integral *= factor
+    # Take the log, add 2*q/spe_charge and then exponentiate to avoid overflows
+    # when calculating np.exp(2*q/spe_charge)
+    integral = np.log(integral)
+    integral += 2*q/spe_charge
+    integral = np.exp(integral)
     integral -= erf((-q+avg_y*(1-dy)*ES)/np.sqrt(2*avg_y*(1-dy)*ES*spe_charge))
     integral += erf((-q+avg_y*(1+dy)*ES)/np.sqrt(2*avg_y*(1+dy)*ES*spe_charge))
     integral *= 1/(2*ES)

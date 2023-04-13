@@ -283,6 +283,7 @@ int reset()
     pinMode(PIN_CS,OUTPUT);
     digitalWrite(PIN_CS,HIGH);
 
+    enable_dac();
     return rv;
 }
 
@@ -331,7 +332,7 @@ uint16_t DAC_POWER_DOWN_GND_100K = 0x800;
 uint16_t DAC_POWER_DOWN_GND_1K = 0xc00;
 float DAC_VREF = 2.048;
 
-double HV_R1 = 1e9;
+double HV_R1 = 1e6;
 double HV_R2 = 14e3;
 
 /* Set the DC DC boost converter output voltage to a given value.
@@ -345,8 +346,9 @@ int set_hv(float value)
      * R1 = R2(Vout2/Vref - 1)
      * R1/R2 = Vout2/Vref - 1
      * R1/R2 + 1 = Vout2/Vref
-     * Vref = Vout2/(R1/R2 + 1) */
-    float vref = value/(HV_R1/HV_R2 + 1);
+     * Vref = Vout2/(R1/R2 + 1)
+     * Vapd = Vout2 - 5 */
+    float vref = (value+5)/(HV_R1/HV_R2 + 1);
     return set_dac(vref);
 }
 
@@ -358,7 +360,7 @@ int disable_hv(void)
     /* Set the HV dac pin select on (low). */
     digitalWrite(PIN_CS,LOW);
     SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE1));
-    SPI.transfer16(DAC_WRITE_THROUGH | code);
+    SPI.transfer16(code);
     delay(DELAY);
     SPI.endTransaction();
     digitalWrite(PIN_CS,HIGH);
@@ -377,11 +379,22 @@ int disable_hv(void)
  * the falling edge, but I can't be sure. */
 int set_dac(float value)
 {
-    uint16_t code = value*0x10000000000000/DAC_VREF;
+    uint16_t code = (value/DAC_VREF)*16384;
     /* Set the HV dac pin select on (low). */
     digitalWrite(PIN_CS,LOW);
     SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE1));
     SPI.transfer16(DAC_WRITE_THROUGH | code);
+    delay(DELAY);
+    SPI.endTransaction();
+    digitalWrite(PIN_CS,HIGH);
+    return 0;
+}
+
+int enable_dac()
+{
+    digitalWrite(PIN_CS,LOW);
+    SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE1));
+    SPI.transfer16(DAC_POWER_DOWN | DAC_POWER_DOWN_NORMAL);
     delay(DELAY);
     SPI.endTransaction();
     digitalWrite(PIN_CS,HIGH);
@@ -1047,6 +1060,18 @@ int do_command(char *cmd, float *value)
 
         *value = (float) temp;
         return 2;
+    } else if (!strcmp(tokens[0], "enable_dac")) {
+        if (ntok != 1) {
+            sprintf(err, "enable_dac command expects no arguments");
+            return -1;
+        }
+
+        if (enable_dac()) {
+            sprintf(err, "error enabling the dac for HV boost converter");
+            return -1;
+        }
+
+        return 0;
     } else if (!strcmp(tokens[0], "set_hv")) {
         if (ntok != 2) {
             sprintf(err, "set_hv command expects 1 argument: set_hv [voltage]");

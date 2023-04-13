@@ -320,12 +320,11 @@ def fit_lyso(h, model):
     f.SetParameter(8,0.25*h.GetEntries()/dx)
     f.SetParLimits(8,0,1e9)
 
-    # Right now we don't fit for these higher energy components. In the future
-    # if we decrease the negative voltage rail we might be able to see these
-    # without the waveform getting saturated at the negative rail.
-    #f.FixParameter(6,0)
-    #f.FixParameter(7,0)
-    #f.FixParameter(8,0)
+    # Right now we don't fit for the single gammas since they should mostly be
+    # cut out since we only include events where the given channel has more
+    # charge than it's neighbors and it makes the fit more complicated.
+    f.FixParameter(3,0)
+    f.FixParameter(5,0)
 
     # Run the first fit only floating the normalization constants
     f.FixParameter(0,xmax/300)

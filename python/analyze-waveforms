@@ -464,7 +464,7 @@ if __name__ == '__main__':
                     print('%i/%i' % (i+1,len(f[group][channel])))
                     x, y = convert_data(f, group, channel, i, i+args.chunks)
                     if group == 'lyso':
-                        a, b = get_window(x,y, left=50, right=125)
+                        a, b = get_window(x,y, left=50, right=350)
                         y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
                         if 'avg_pulse_y' in ch_data[channel]:
                             ch_data[channel]['avg_pulse_y'] = (ch_data[channel]['avg_pulse_count']*ch_data[channel]['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (ch_data[channel]['avg_pulse_count'] + len(y))

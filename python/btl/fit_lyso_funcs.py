@@ -288,7 +288,13 @@ def fit_lyso(h, model):
 
     for i in range(1,h.GetNbinsX()-1):
         x = h.GetBinCenter(i)
+
+        if x > 800:
+            # Around 900 is where we saturate the CAEN digitizer
+            break
+
         value = h.GetBinContent(i)
+
         if x > xmin and (xmax is None or value > ymax):
             xmax = x
             ymax = value

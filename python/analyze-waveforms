@@ -572,7 +572,7 @@ if __name__ == '__main__':
                 spe_fit_pars = fit_spe_funcs.fit_spe(hspe, model)
                 if spe_fit_pars is not None:
                     ch_data[channel]['spe_fit_pars'] = spe_fit_pars[0]
-                    ch_data[channel]['spe_fit_par_errors'] = spe_fit_pars[0]
+                    ch_data[channel]['spe_fit_par_errors'] = spe_fit_pars[1]
                     ch_data[channel]['spe'] = spe_fit_pars[0][3]
                 else:
                     ch_data[channel]['spe_fit_pars'] = None

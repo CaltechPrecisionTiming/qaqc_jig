@@ -621,6 +621,10 @@ if __name__ == '__main__':
 
     x = array('d')
     y = array('d')
+    pc_per_kev = array('d')
+    pc_per_kev_err = array('d')
+    spe = array('d')
+    spe_err = array('d')
     yerr = array('d')
     for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
         lyso_fit_pars = ch_data[channel]['lyso_fit_pars']
@@ -630,6 +634,10 @@ if __name__ == '__main__':
         if lyso_fit_pars is not None and spe_fit_pars is not None:
             x.append(int(channel[2:]))
             y.append(lyso_fit_pars[0]*ATTENUATION_FACTOR*1000/spe_fit_pars[3])
+            pc_per_kev.append(lyso_fit_pars[0])
+            pc_per_kev_err.append(lyso_fit_par_errors[0])
+            spe.append(spe_pars[3])
+            spe_err.append(spe_fit_par_errors[3])
             dlyso = lyso_fit_par_errors[0]/lyso_fit_pars[0]
             dspe = spe_fit_par_errors[3]/spe_fit_pars[3]
             dtotal = np.sqrt(dlyso**2 + dspe**2)
@@ -637,6 +645,16 @@ if __name__ == '__main__':
     g = ROOT.TGraph(len(x),x,y,0,yerr)
     g.SetTitle("Light Yield (PE/MeV); Channel; Light Yield (PE/MeV)")
     g.SetName("light_yield")
+    g.Write()
+
+    g = ROOT.TGraph(len(x),x,pc_per_kev,0,pc_per_kev_err)
+    g.SetTitle("LYSO Fit Results; Channel; Light Yield (pC/keV)")
+    g.SetName("pc_per_kev")
+    g.Write()
+
+    g = ROOT.TGraph(len(x),x,spe,0,spe_err)
+    g.SetTitle("SPE Fit Results; Channel; SPE Charge (pC)")
+    g.SetName("spe")
     g.Write()
 
     root_f.Close()

@@ -15,6 +15,9 @@ from array import array
 
 canvas = []
 
+# How much does the attenuator attenuate the signal relative to the no
+# attenuation path. This can be calculated using the pi_pad_calculator.py
+# script.
 ATTENUATION_FACTOR = 5.85
 
 class Institution(Enum):

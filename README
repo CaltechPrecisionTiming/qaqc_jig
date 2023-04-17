@@ -4,17 +4,21 @@ Installation
 These installation instructions have only been tested on Fedora 36 and Rocky
 Linux 8.
 
-First, you should install hdf5, numpy, scipy, psycopg2, root, and pyroot with either:
+First, you should install hdf5, numpy, scipy, psycopg2, root, and pyroot with the following command:
 
 ```
 $ sudo dnf install hdf5 hdf5-devel python3-numpy python3-scipy python3-psycopg2 root python3-root python3-h5py python3-matplotlib
 ```
 
-Then, install the dependencies
+Then, you can install the kernel modules and libraries required to talk to the
+CAEN digitizer by running the following command:
 
 ```
 $ sudo make install-deps
 ```
+
+Note that the kernel module will need to be rebuilt if you ever update the
+software on the computer!
 
 Finally, you can build and install the wavedump program and the GUI:
 
@@ -26,10 +30,36 @@ $ sudo make install
 Running
 -------
 
-You can run the wavedump software by running:
+Typical usage for the assembly center will involve running the GUI by running:
+
+```console
+$ qaqc-gui
+```
+
+Instructions for running the GUI can be found in the "QA/QC Jig For Dummies"
+document. For the rest of the README I will describe the lower level commands
+you can use to take data and analyze it.
+
+The program `wavedump` is a program which takes data from the CAEN digitizer and writes out the data in the HDF5 file format. An example:
 
 ```
-$ wavedump -b [barcode] -v [voltage] -o test.hdf5 -n 1000
+$ wavedump -o test.hdf5 -n 1000 -t self --threshold -0.1 -l spe
+```
+
+will take 1000 events triggering on the channels themselves at a threshold of
+100 mV and will store the data in the dataset 'spe'. You can look at the raw
+data by running:
+
+```console
+$ python
+>>> import h5py
+>>> import matplotlib.pyplot as plt
+>>> import numpy as np
+>>> f = h5py.File("test.hdf5","r")
+>>> data = f['spe']['ch0'][0]/2**12
+>>> data -= np.mean(data[:100]) # subtract baseline
+>>> plt.plot(data)
+>>> plt.show()
 ```
 
 Analyzing Results

@@ -593,6 +593,9 @@ if __name__ == '__main__':
                     # taking data when the neighbor is unpowered, so we have no
                     # way of knowing if the event started there.
                     print("Not fitting LYSO distribution for channel %i because the neighboring crystal is not powered." % ch)
+                    ch_data[channel]['lyso_fit_pars'] = None
+                    ch_data[channel]['lyso_fit_par_errors'] = None
+                    ch_data[channel]['pc_per_kev'] = None
                     continue
 
                 print('Fitting LYSO %s!' % channel)

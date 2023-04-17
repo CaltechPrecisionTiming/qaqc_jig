@@ -11,6 +11,7 @@ from scipy import signal
 import os
 import sys
 from enum import Enum
+from array import array
 
 canvas = []
 
@@ -617,6 +618,26 @@ if __name__ == '__main__':
             ##################
             if args.upload:
                 result = cursor.execute("INSERT INTO data (channel, barcode, pc_per_kev, spe, lyso_rise_time, lyso_fall_time, lyso_charge_histogram_x, lyso_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run, spe_fit_pars, lyso_fit_pars, spe_fit_par_errors, lyso_fit_par_errors) VALUES (%(channel)s, %(barcode)s, %(pc_per_kev)s, %(spe)s, %(lyso_rise_time)s, %(lyso_fall_time)s, %(lyso_charge_histogram_x)s, %(lyso_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s, %(spe_fit_pars)s, %(lyso_fit_pars)s, %(spe_fit_par_errors)s, %(lyso_fit_par_errors)s)", ch_data[channel])
+
+    x = array('d')
+    y = array('d')
+    yerr = array('d')
+    for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
+        lyso_fit_pars = ch_data[channel]['lyso_fit_pars']
+        spe_fit_pars = ch_data[channel]['spe_fit_pars']
+        lyso_fit_par_errors = ch_data[channel]['lyso_fit_par_errors']
+        spe_fit_par_errors = ch_data[channel]['spe_fit_par_errors']
+        if lyso_fit_pars is not None and spe_fit_pars is not None:
+            x.append(int(channel[2:]))
+            y.append(lyso_fit_pars[0]*ATTENUATION_FACTOR*1000/spe_fit_pars[3])
+            dlyso = lyso_fit_par_errors[0]/lyso_fit_pars[0]
+            dspe = spe_fit_par_errors[3]/spe_fit_pars[3]
+            dtotal = np.sqrt(dlyso**2 + dspe**2)
+            yerr.append(y[-1]*dtotal)
+    g = ROOT.TGraph(len(x),x,y,0,yerr)
+    g.SetTitle("Light Yield (PE/MeV); Channel; Light Yield (PE/MeV)")
+    g.SetName("light_yield")
+    g.Write()
 
     root_f.Close()
 

@@ -520,7 +520,7 @@ if __name__ == '__main__':
             # which the charge in the current channel is greater than 50% of
             # it's neighbors charge (i.e. the neighbor only has crosstalk).
             if 'lyso_charge' in ch_data[channel]:
-                selection = (charge[ch] > charge[neighbors[ch]]).all(axis=0)
+                selection = (charge[ch] > charge[neighbors[ch]]*2).all(axis=0)
                 lyso_bins = get_bins(charge[ch][selection], cutoff=100)
                 hlyso = ROOT.TH1D("lyso_%s" % channel, "LYSO Charge Integral for %s" % channel, len(lyso_bins), lyso_bins[0], lyso_bins[-1])
                 for x in ch_data[channel]['lyso_charge'][selection]:
@@ -581,6 +581,20 @@ if __name__ == '__main__':
                 plot_hist(hspe, pdf=args.print_pdfs, filename=args.filename)
 
             if 'lyso_charge' in ch_data[channel]:
+                if ch in (7,8,23,24):
+                    # Right now to avoid the issue of crosstalk appearing in
+                    # the charge distribution (which is hard to model apriori),
+                    # we only look at charges in which the neighboring channels
+                    # have much less charge. This hopefully only selects events
+                    # in which either all the gammas convert in the same
+                    # crystal or they all escape (but none interact in a
+                    # neighboring crystal). The only problem with this scheme
+                    # is that for the two bars in the middle we are sometimes
+                    # taking data when the neighbor is unpowered, so we have no
+                    # way of knowing if the event started there.
+                    print("Not fitting LYSO distribution for channel %i because the neighboring crystal is not powered." % ch)
+                    continue
+
                 print('Fitting LYSO %s!' % channel)
                 if 'spe_charge' in ch_data[channel] and spe_fit_pars is not None:
                     model = fit_lyso_funcs.lyso_spectrum(spe_fit_pars[0][3]/ATTENUATION_FACTOR)

@@ -1111,7 +1111,7 @@ int do_command(char *cmd, float *value)
                     "bias_iread\n"
                     "bias_vread\n"
                     "extmon_vread\n"
-                    "set_hv\n"
+                    "set_hv [voltage]\n"
                     "disable_hv");
         return -1;
     } else {

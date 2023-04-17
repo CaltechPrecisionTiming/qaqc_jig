@@ -510,7 +510,7 @@ if __name__ == '__main__':
             if (i - 1) % 8 < i % 8:
                 neighbors[i].append(i-1)
 
-        for channel in ch_data:
+        for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
             ch = int(channel[2:])
             ##################
             # Creating Histogram
@@ -604,7 +604,7 @@ if __name__ == '__main__':
     ##################
     # Reviewing Data
     ##################
-    for channel in ch_data:
+    for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
         if 'pc_per_kev' not in ch_data[channel]:
             print('Mising lyso data for %s!' % channel)
         elif 'spe' not in ch_data[channel]:

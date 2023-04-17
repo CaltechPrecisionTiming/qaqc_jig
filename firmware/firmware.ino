@@ -1112,7 +1112,8 @@ int do_command(char *cmd, float *value)
                     "bias_vread\n"
                     "extmon_vread\n"
                     "set_hv [voltage]\n"
-                    "disable_hv");
+                    "disable_hv\n"
+                    "enable_dac");
         return -1;
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);

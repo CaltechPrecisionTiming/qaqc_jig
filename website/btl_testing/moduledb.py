@@ -42,7 +42,26 @@ def upload_new_module(form):
     cursor.execute("INSERT INTO modules (barcode, sipm, institution, comments) VALUES (%s, %s::sipm_type, %s::inst, %s)", (form.data['barcode'], form.data['sipm'], form.data['institution'], form.data['comments']))
     print(cursor.statusmessage)
 
-def get_module_info(barcode, run=None):
+def get_module_info(barcode):
+    conn = engine.connect()
+
+    query = "SELECT * FROM modules where modules.barcode = %s"
+
+    result = conn.execute(query,(barcode,))
+
+    keys = result.keys()
+    row = result.fetchone()
+
+    if row is None:
+        module_info = None
+    else:
+        module_info = dict(zip(keys,row))
+
+    run_info = get_runs(limit=100, offset=0, barcode=barcode)
+
+    return module_info, run_info
+
+def get_run_info(barcode, run=None):
     conn = engine.connect()
 
     query = "SELECT *, runs.institution as runs_institution, modules.timestamp as modules_timestamp, modules.institution as modules_institution, runs.timestamp as timestamp FROM (SELECT run, barcode, array_agg(key ORDER BY channel) as keys, array_agg(data.channel ORDER BY channel) as channels, array_agg(data.pc_per_kev ORDER BY channel) as pc_per_kev, array_agg(spe ORDER BY channel) as spe FROM data GROUP BY (run,barcode)) as channel, runs, modules WHERE channel.run = runs.run AND channel.barcode = modules.barcode"
@@ -107,17 +126,11 @@ def get_channel_info(key):
 
 def get_modules(kwargs, limit=100, offset=0, sort_by=None):
     """
-    Returns a list of the latest data for individual channels. `kwargs` should
-    be a dictionary containing fields and their associated values to select on.
-    For example, to select only channels that have low occupancy:
-
-        >>> get_channels({'low_occupancy': True})
-
-    `limit` should be the maximum number of records returned.
+    Returns a list of the latest data for each module.
     """
     conn = engine.connect()
 
-    query = "SELECT * FROM (SELECT min(timestamp) as timestamp, avg(pc_per_kev*%.2f/spe) as light_yield, run, barcode FROM data GROUP BY (run, barcode)) as channel, runs WHERE channel.run = runs.run" % (ATTENUATION_FACTOR*1000)
+    query = "SELECT * FROM (SELECT DISTINCT on (barcode) min(timestamp) as timestamp, avg(pc_per_kev*%.2f/spe) as light_yield, run, barcode FROM data GROUP BY (run, barcode)) as channel, runs WHERE channel.run = runs.run" % (ATTENUATION_FACTOR*1000)
 
     if sort_by == 'timestamp':
         query += " ORDER BY runs.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)
@@ -125,6 +138,35 @@ def get_modules(kwargs, limit=100, offset=0, sort_by=None):
         query += " ORDER BY runs.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)
 
     result = conn.execute(query, kwargs)
+
+    if result is None:
+        return None
+
+    keys = result.keys()
+    rows = result.fetchall()
+
+    return [dict(zip(keys,row)) for row in rows]
+
+def get_runs(limit=100, offset=0, barcode=None, sort_by=None):
+    """
+    Returns a list of the latest runs.
+    """
+    conn = engine.connect()
+
+    query = "SELECT * FROM (SELECT min(timestamp) as timestamp, avg(pc_per_kev*%.2f/spe) as light_yield, run, barcode FROM data GROUP BY (run, barcode)) as channel, runs WHERE channel.run = runs.run" % (ATTENUATION_FACTOR*1000)
+
+    if barcode is not None:
+        query += " AND barcode = %s"
+
+    if sort_by == 'timestamp':
+        query += " ORDER BY runs.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)
+    else:
+        query += " ORDER BY runs.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)
+
+    if barcode is not None:
+        result = conn.execute(query, (barcode,))
+    else:
+        result = conn.execute(query)
 
     if result is None:
         return None

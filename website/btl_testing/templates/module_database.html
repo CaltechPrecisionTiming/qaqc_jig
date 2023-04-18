@@ -32,7 +32,7 @@
 			</tr>
 		    </thead>
 		    {% for row in results %}
-		    <tr onclick="window.document.location = '{{ "run-status?barcode=%i&run=%i" % (row['barcode'],row['run']) }}';">
+		    <tr onclick="window.document.location = '{{ "module-status?barcode=%i&run=%i" % (row['barcode'],row['run']) }}';">
                         <td>{{ row['timestamp'] | time_from_now }}</td>
 			<td>{{ row['run'] }}</td>
 			<td>{{ row['barcode'] }}</td>
@@ -43,9 +43,9 @@
 		    {% endfor %}
 		</table>
                 {% if offset != 0 %}
-                <p class="text-left"><a href="{{ url_for('run_database',limit=limit,offset=offset-limit) }}">Prev</a>
+                <p class="text-left"><a href="{{ url_for('module_database',limit=limit,offset=offset-limit) }}">Prev</a>
                 {% endif %}
-                <p class="text-right"><a href="{{ url_for('run_database',limit=limit,offset=offset+limit) }}">Next</a>
+                <p class="text-right"><a href="{{ url_for('module_database',limit=limit,offset=offset+limit) }}">Next</a>
 	    </div>
 	</div>
     </div>
@@ -65,9 +65,9 @@
             params["limit"] = document.getElementById("limit").value;
 
             if (Object.keys(params).length > 0) {
-                window.location.replace($SCRIPT_ROOT + "/run-database?" + $.param(params));
+                window.location.replace($SCRIPT_ROOT + "/module-database?" + $.param(params));
             } else {
-                window.location.replace($SCRIPT_ROOT + "/run-database");
+                window.location.replace($SCRIPT_ROOT + "/module-database");
             }
         });
     </script>

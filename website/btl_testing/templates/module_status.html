@@ -129,7 +129,7 @@
         var light_output = new Array();
         for (var i=0; i < x.length; i++) {
             if (pc_per_kev[i] !== null)
-                light_output.push({'x': x[i], 'y': pc_per_kev[i]*5.85*1000/spe[i])});
+                light_output.push({'x': x[i], 'y': pc_per_kev[i]*5.85*1000/spe[i]});
         }
 
         MG.data_graphic({

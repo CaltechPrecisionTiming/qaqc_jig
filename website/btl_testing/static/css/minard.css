@@ -245,3 +245,10 @@ svg {
     opacity: .2;
     z-index: 2;
 }
+
+.navbar-brand img {
+  height: 20px;
+  /* put value of image height as your need */
+  float: left;
+  margin-right: 7px;
+}

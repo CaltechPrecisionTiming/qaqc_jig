@@ -107,7 +107,7 @@ def module_status():
     module_info, run_info = get_module_info(barcode=barcode)
     if module_info is None:
         flash('No module found in database with that barcode. Did you forget to upload it?','danger')
-    return render_template('module_status.html', module_info=module_info, run_info=run_info, limit=limit, offset=offset)
+    return render_template('module_status.html', module_info=module_info, run_info=run_info, barcode=barcode, limit=limit, offset=offset)
 
 @app.route('/run-status')
 def run_status():

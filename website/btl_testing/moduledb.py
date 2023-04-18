@@ -42,7 +42,7 @@ def upload_new_module(form):
     cursor.execute("INSERT INTO modules (barcode, sipm, institution, comments) VALUES (%s, %s::sipm_type, %s::inst, %s)", (form.data['barcode'], form.data['sipm'], form.data['institution'], form.data['comments']))
     print(cursor.statusmessage)
 
-def get_module_info(barcode):
+def get_module_info(barcode,limit=100,offset=0):
     conn = engine.connect()
 
     query = "SELECT * FROM modules where modules.barcode = %s"
@@ -57,7 +57,7 @@ def get_module_info(barcode):
     else:
         module_info = dict(zip(keys,row))
 
-    run_info = get_runs(limit=100, offset=0, barcode=barcode)
+    run_info = get_runs(limit=limit, offset=offset, barcode=barcode)
 
     return module_info, run_info
 

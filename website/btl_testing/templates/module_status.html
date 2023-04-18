@@ -105,7 +105,7 @@
                             <td class="text-center">{{ info['channels'][i] }}</td>
                             <td class="text-center">{{ "%.2f" % info['pc_per_kev'][i] }}</td>
                             <td class="text-center">{{ "%.2f" % info['spe'][i] }}</td>
-                            <td class="text-center">{{ "%.0f" % (info['pc_per_kev'][i]*1000/(info['spe'][i]/4.0)) }}</td>
+                            <td class="text-center">{{ "%.0f" % (info['pc_per_kev'][i]*5.85*1000/info['spe'][i]) }}</td>
                         </tr>
                     {% endfor %}
                 </table>

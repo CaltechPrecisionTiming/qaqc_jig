@@ -242,7 +242,8 @@ class lyso_spectrum(object):
         return np.interp(x[0],qs,total_spectrum)
 
 def get_lyso(x, p, spe_charge=SPE_CHARGE):
-    f = ROOT.TF1("flyso",lyso_spectrum(spe_charge),0,1000,9)
+    model = lyso_spectrum(spe_charge)
+    f = ROOT.TF1("flyso",model,0,1000,9)
     for i in range(9):
         f.SetParameter(i,p[i])
     return np.array([f.Eval(e) for e in x])

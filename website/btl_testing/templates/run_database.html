@@ -43,9 +43,9 @@
 		    {% endfor %}
 		</table>
                 {% if offset != 0 %}
-                <p class="text-left"><a href="{{ url_for('module_database',limit=limit,offset=offset-limit) }}">Prev</a>
+                <p class="text-left"><a href="{{ url_for('run_database',limit=limit,offset=offset-limit) }}">Prev</a>
                 {% endif %}
-                <p class="text-right"><a href="{{ url_for('module_database',limit=limit,offset=offset+limit) }}">Next</a>
+                <p class="text-right"><a href="{{ url_for('run_database',limit=limit,offset=offset+limit) }}">Next</a>
 	    </div>
 	</div>
     </div>

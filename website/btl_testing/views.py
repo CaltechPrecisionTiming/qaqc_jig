@@ -24,13 +24,13 @@ def timefmt(timestamp):
 def internal_error(exception):
     return render_template('500.html'), 500
 
-@app.route('/module-database')
-def module_database():
+@app.route('/run-database')
+def run_database():
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
     sort_by = request.args.get("sort-by", "timestamp")
     results = get_modules(request.args, limit, offset, sort_by)
-    return render_template('module_database.html', results=results, limit=limit, offset=offset, sort_by=sort_by)
+    return render_template('run_database.html', results=results, limit=limit, offset=offset, sort_by=sort_by)
 
 @app.route('/channel-database')
 def channel_database():
@@ -98,7 +98,7 @@ def module_status():
     info = get_module_info(barcode=barcode,run=run)
     if info is None:
         flash('No module found in database with that barcode. Did you forget to upload it?','danger')
-        return redirect(url_for('module_database'))
+        return redirect(url_for('run_database'))
     mean_spe = np.mean(info['spe'])
     info['spe_percent'] = [np.abs(spe-mean_spe)/mean_spe for spe in info['spe']]
     return render_template('module_status.html', info=info)
@@ -124,4 +124,4 @@ def channel_status():
 
 @app.route('/')
 def index():
-    return redirect(url_for('module_database'))
+    return redirect(url_for('run_database'))

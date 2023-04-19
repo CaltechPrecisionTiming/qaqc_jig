@@ -18,5 +18,6 @@ install:
 	sed -i "s/127.0.0.1/$(SERVER_NAME)/g" /etc/nginx/nginx.conf
 	systemctl enable --now gunicorn.socket
 	systemctl enable --now gunicorn
+	service gunicorn restart
 
 .PHONY: install

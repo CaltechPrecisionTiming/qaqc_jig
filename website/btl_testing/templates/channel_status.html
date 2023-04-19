@@ -151,7 +151,7 @@
         var lyso_charge_histogram_data = new Array();
         var lyso_charge_histogram_fit = new Array();
         for (var i=1; i < lyso_charge_histogram_x.length - 1; i++) {
-            if (lyso_charge_histogram_x[i] < lyso_fit_pars[0]*150) continue;
+            if (lyso_charge_histogram_x[i] < lyso_fit_pars[0]*50) continue;
             if (lyso_charge_histogram_y[i] !== null) {
                 var left = (lyso_charge_histogram_x[i-1] + lyso_charge_histogram_x[i])/2;
                 var right = (lyso_charge_histogram_x[i] + lyso_charge_histogram_x[i+1])/2;
@@ -181,8 +181,6 @@
                 spe_charge_histogram_fit.push({'x': spe_charge_histogram_x[i], 'y': spe_charge_fit[i]});
             }
         }
-
-        console.log("{{ log }}");
 
         MG.data_graphic({
             title: "SPE Charge Histogram",
@@ -219,6 +217,7 @@
             legend: ['Data','Fit'],
             x_label: 'Charge (pC)',
             y_label: 'Entries',
+            min_y_from_data: true,
             interpolate: d3.curveLinear
         });
 

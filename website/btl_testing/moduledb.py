@@ -130,7 +130,7 @@ def get_modules(barcode=None, limit=100, offset=0, sort_by=None):
     """
     conn = engine.connect()
 
-    query = "SELECT * FROM (SELECT DISTINCT on (barcode) min(timestamp) as timestamp, avg(pc_per_kev*%.2f/spe) as light_yield, run, barcode FROM data GROUP BY (run, barcode) ORDER BY barcode, timestamp DESC) as channel, runs WHERE channel.run = runs.run" % (ATTENUATION_FACTOR*1000)
+    query = "SELECT *, pass(channel.run) as pass FROM (SELECT DISTINCT on (barcode) min(timestamp) as timestamp, avg(pc_per_kev*%.2f/spe) as light_yield, run, barcode FROM data GROUP BY (run, barcode) ORDER BY barcode, timestamp DESC) as channel, runs WHERE channel.run = runs.run" % (ATTENUATION_FACTOR*1000)
 
     if barcode is not None:
         query += " AND barcode = %s"
@@ -159,7 +159,7 @@ def get_runs(limit=100, offset=0, barcode=None, sort_by=None):
     """
     conn = engine.connect()
 
-    query = "SELECT * FROM (SELECT min(timestamp) as timestamp, avg(pc_per_kev*%.2f/spe) as light_yield, run, barcode FROM data GROUP BY (run, barcode)) as channel, runs WHERE channel.run = runs.run" % (ATTENUATION_FACTOR*1000)
+    query = "SELECT *, pass(channel.run) as pass FROM (SELECT min(timestamp) as timestamp, avg(pc_per_kev*%.2f/spe) as light_yield, run, barcode FROM data GROUP BY (run, barcode)) as channel, runs WHERE channel.run = runs.run" % (ATTENUATION_FACTOR*1000)
 
     if barcode is not None:
         query += " AND barcode = %s"

@@ -1,3 +1,7 @@
+CREATE OR REPLACE FUNCTION pass(run_number bigint) RETURNS boolean AS $$
+    SELECT count(*) > 32 FROM data WHERE run = run_number and pc_per_kev*5850/spe > 3000 AND pc_per_kev*5850/spe < 5000 AND spe > 3 AND spe < 4;
+$$ LANGUAGE SQL;
+
 CREATE TYPE inst AS ENUM (
     'Caltech',
     'UVA',

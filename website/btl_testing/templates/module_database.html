@@ -30,6 +30,7 @@
 			    <th>Barcode</th>
 			    <th>Voltage</th>
 			    <th>Average Light Yield (PE/MeV)</th>
+			    <th>Pass</th>
 			    <th>Institution</th>
 			</tr>
 		    </thead>
@@ -40,6 +41,13 @@
 			<td>{{ row['barcode'] }}</td>
 			<td>{{ "%.2f" % row['voltage'] }}</td>
 			<td>{{ "%.0f" % row['light_yield'] }}</td>
+			<td>
+                        {% if row['pass'] %}
+                            <span class="glyphicon glyphicon-ok-sign text-success"></span>
+                        {% else %}
+                            <span class="glyphicon glyphicon-remove-sign text-danger"></span>
+                        {% endif %}
+                        </td>
 			<td>{{ row['institution'] }}</td>
 		    </tr>
 		    {% endfor %}

@@ -89,7 +89,11 @@
                 </div>
                 {% endif %}
 	    </div>
-	    <div class="col-md-8" id='ch-light-output'></div>
+	    <div class="col-md-8">
+	        <div id='ch-light-output'></div>
+	        <div id='ch-spe'></div>
+	        <div id='ch-pc-per-kev'></div>
+            </div>
         </div>
 	<div class="row">
 	    <div class="col-md-12">
@@ -132,6 +136,18 @@
                 light_output.push({'x': x[i], 'y': pc_per_kev[i]*5.85*1000/spe[i]});
         }
 
+        var spe_array = new Array();
+        for (var i=0; i < x.length; i++) {
+            if (spe[i] !== null)
+                spe_array.push({'x': x[i], 'y': spe[i]});
+        }
+
+        var pc_per_kev_array = new Array();
+        for (var i=0; i < x.length; i++) {
+            if (pc_per_kev[i] !== null)
+                pc_per_kev_array.push({'x': x[i], 'y': pc_per_kev[i]});
+        }
+
         MG.data_graphic({
             title: "Light Output",
             description: "Light Output",
@@ -145,6 +161,38 @@
             y_accessor: 'y',
             x_label: 'Channel',
             y_label: 'Light Output (PE/MeV)'
+        });
+
+        MG.data_graphic({
+            title: "SPE Charge",
+            description: "SPE Charge",
+            data: spe_array,
+            chart_type: 'point',
+            width: $('#ch-spe').width(),
+            height: 250,
+            left: 100,
+            target: '#ch-spe',
+            x_accessor: 'x',
+            y_accessor: 'y',
+            x_label: 'Channel',
+            y_label: 'SPE Charge (pC)',
+            yax_format: d3.format('.2f')
+        });
+
+        MG.data_graphic({
+            title: "LYSO Fit",
+            description: "LYSO Fit",
+            data: pc_per_kev_array,
+            chart_type: 'point',
+            width: $('#ch-pc-per-kev').width(),
+            height: 250,
+            left: 100,
+            target: '#ch-pc-per-kev',
+            x_accessor: 'x',
+            y_accessor: 'y',
+            x_label: 'Channel',
+            y_label: 'Charge per unit Energy Deposited (pC/keV)',
+            yax_format: d3.format('.2f')
         });
     </script>
 {% endblock %}

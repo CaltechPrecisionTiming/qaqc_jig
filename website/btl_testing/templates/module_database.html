@@ -8,6 +8,8 @@
     <div class="container">
         <div class="row">
             <div class="col-md-10">
+                Barcode
+                <input type="number" id="barcode" name="barcode"> 
             </div>
             <div class="col-md-2 text-right">
                 Results
@@ -63,6 +65,17 @@
         $("#limit").on("change", function() {
             var params = {};
             params["limit"] = document.getElementById("limit").value;
+
+            if (Object.keys(params).length > 0) {
+                window.location.replace($SCRIPT_ROOT + "/module-database?" + $.param(params));
+            } else {
+                window.location.replace($SCRIPT_ROOT + "/module-database");
+            }
+        });
+        $("#barcode").on("change", function() {
+            var params = {};
+            params["limit"] = document.getElementById("limit").value;
+            params["barcode"] = document.getElementById("barcode").value;
 
             if (Object.keys(params).length > 0) {
                 window.location.replace($SCRIPT_ROOT + "/module-database?" + $.param(params));

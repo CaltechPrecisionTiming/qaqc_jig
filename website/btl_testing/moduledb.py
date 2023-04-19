@@ -124,7 +124,7 @@ def get_channel_info(key):
 
     return dict(zip(keys,row))
 
-def get_modules(kwargs, limit=100, offset=0, sort_by=None):
+def get_modules(barcode=None, limit=100, offset=0, sort_by=None):
     """
     Returns a list of the latest data for each module.
     """
@@ -132,12 +132,18 @@ def get_modules(kwargs, limit=100, offset=0, sort_by=None):
 
     query = "SELECT * FROM (SELECT DISTINCT on (barcode) min(timestamp) as timestamp, avg(pc_per_kev*%.2f/spe) as light_yield, run, barcode FROM data GROUP BY (run, barcode)) as channel, runs WHERE channel.run = runs.run" % (ATTENUATION_FACTOR*1000)
 
+    if barcode is not None:
+        query += " AND barcode = %s"
+
     if sort_by == 'timestamp':
         query += " ORDER BY runs.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)
     else:
         query += " ORDER BY runs.timestamp DESC LIMIT %i OFFSET %i" % (limit,offset)
 
-    result = conn.execute(query, kwargs)
+    if barcode is not None:
+        result = conn.execute(query, (barcode,))
+    else:
+        result = conn.execute(query)
 
     if result is None:
         return None

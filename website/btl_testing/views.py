@@ -26,10 +26,11 @@ def internal_error(exception):
 
 @app.route('/module-database')
 def module_database():
+    barcode = request.args.get("barcode", None, type=int)
     limit = request.args.get("limit", 100, type=int)
     offset = request.args.get("offset", 0, type=int)
     sort_by = request.args.get("sort-by", "timestamp")
-    results = get_modules(request.args, limit, offset, sort_by)
+    results = get_modules(barcode, limit, offset, sort_by)
     return render_template('module_database.html', results=results, limit=limit, offset=offset, sort_by=sort_by)
 
 @app.route('/run-database')

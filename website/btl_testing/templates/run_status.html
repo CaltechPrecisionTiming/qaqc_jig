@@ -150,7 +150,7 @@
 
         MG.data_graphic({
             title: "Light Output",
-            description: "Light Output",
+            description: "Light Output in PE/MeV. This is determined from the charge per unit energy deposited and the single photoelectron charge. Note that the results may be slightly less accurate for channels 7, 8, 23, and 24 which are adjacent to an unpowered bar and so contain more crosstalk.",
             data: light_output,
             chart_type: 'point',
             width: $('#ch-light-output').width(),
@@ -165,7 +165,7 @@
 
         MG.data_graphic({
             title: "SPE Charge",
-            description: "SPE Charge",
+            description: "Single photoelectron charge in pC.",
             data: spe_array,
             chart_type: 'point',
             width: $('#ch-spe').width(),
@@ -181,7 +181,7 @@
 
         MG.data_graphic({
             title: "LYSO Fit",
-            description: "LYSO Fit",
+            description: "Charge per unit energy deposited as determined from the LYSO Fit. Note that this is with attenuation turned on, so to directly compare with the SPE charge you should multiply by a factor of 5.85. Also note that the results may be slightly less accurate for channels 7, 8, 23, and 24 which are adjacent to an unpowered bar and so contain more crosstalk.",
             data: pc_per_kev_array,
             chart_type: 'point',
             width: $('#ch-pc-per-kev').width(),

@@ -14,7 +14,7 @@ class ModuleUploadForm(Form):
     """
     A class for the form to upload a new module.
     """
-    barcode = IntegerField('Barcode', [validators.NumberRange(min=0,max=100000)])
+    barcode = IntegerField('Barcode', [validators.NumberRange(min=0,max=None)])
     sipm = SelectField('SiPM Type', choices=[
         ('HPK','HPK'),
         ('FBK','FBK'),

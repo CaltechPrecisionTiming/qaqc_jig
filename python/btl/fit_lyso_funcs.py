@@ -248,7 +248,7 @@ def get_lyso(x, p, spe_charge=SPE_CHARGE):
         f.SetParameter(i,p[i])
     return np.array([f.Eval(e) for e in x])
 
-def fit_lyso(h, model):
+def fit_lyso(h, model, fix_pars=True):
     """
     Fit the internal LYSO radiation spectrum to the histogram `h`. LYSO has
     intrinsic radiation from the beta decay of 176Lu (see
@@ -287,12 +287,25 @@ def fit_lyso(h, model):
             xmin = x
             ymin = value
 
-    for i in range(1,h.GetNbinsX()-1):
+    for i in range(1,h.GetNbinsX()-1)[::-1]:
+        # We look for the peak by looping over the bins from the *right* to the
+        # *left* and then looking for a peak and then for the distribution to
+        # go below 90% of this peak (I just picked the 90% number as a guess
+        # and it seems to work well, but this could be tweaked). The reason for
+        # this is that channels 7, 8, 23, and 24 are in the middle of the
+        # module and next to a bar which is not powered, so we can't properly
+        # cut coincidences. This means that a beta decay event may happen in a
+        # neighboring unpowered bar and we trigger on crosstalk. These charge
+        # distributions often have a huge peak at the low end which is only
+        # from crosstalk, so by going from the right to the left and looking
+        # for a peak we avoid setting the 300 keV peak at this crosstalk which
+        # screws up the fit.
         x = h.GetBinCenter(i)
 
         if x > 800:
-            # Around 900 is where we saturate the CAEN digitizer
-            break
+            # Around 900 is where we saturate the CAEN digitizer, so we only
+            # ever fit up to 800 pC to be safe.
+            continue
 
         value = h.GetBinContent(i)
 
@@ -300,12 +313,21 @@ def fit_lyso(h, model):
             xmax = x
             ymax = value
 
+        if x < xmax*0.9:
+            break
+
     if xmax is None:
         return None
 
     dx = h.GetBinCenter(2) - h.GetBinCenter(1)
 
     # Assume peak is somewhere around 300 keV
+    # For most of the channels where we cut coincidences this peak occurs for
+    # the 290 keV spectrum, i.e. a beta decay distribution offset by the
+    # absorption of the 88 and 202 keV gammas. For channels 7, 8, 23, and 24 we
+    # will also have this peak, but we also will have a strong 307 keV gamma
+    # peak. Both 290 and 307 are close enough to 300 keV that this gives us a
+    # good starting parameter for p[0]
     pc_per_kev = xmax/300
 
     f.SetParameter(0,pc_per_kev)
@@ -330,8 +352,9 @@ def fit_lyso(h, model):
     # Right now we don't fit for the single gammas since they should mostly be
     # cut out since we only include events where the given channel has more
     # charge than it's neighbors and it makes the fit more complicated.
-    f.FixParameter(3,0)
-    f.FixParameter(5,0)
+    if fix_pars:
+        f.FixParameter(3,0)
+        f.FixParameter(5,0)
 
     # Run the first fit only floating the normalization constants
     f.FixParameter(0,xmax/300)

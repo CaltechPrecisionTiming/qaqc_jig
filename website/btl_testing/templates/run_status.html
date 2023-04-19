@@ -19,7 +19,7 @@
 	<div class="row">
 	    <div class="col-md-2">
                 <h3>Test Info</h3>
-                <table class="table table-bordered">
+                <table class="table table-bordered table-condensed">
                     <tr>
                         <th>Date</th>
                         <td>{{ info['timestamp'].strftime("%Y-%m-%d %H:%M:%S") }}</td>
@@ -65,7 +65,7 @@
 	    <div class="col-md-2">
                 <h3>Module Info</h3>
                 {% if 'modules_timestamp' in info %}
-                <table class="table table-bordered">
+                <table class="table table-bordered table-condensed">
                     <tr>
                         <th>Date Added to Database</th>
                         <td>{{ info['modules_timestamp'].strftime("%Y-%m-%d %H:%M:%S") }}</td>
@@ -89,7 +89,10 @@
                 </div>
                 {% endif %}
 	    </div>
-	    <div class="col-md-8">
+	    <div class="col-md-8" id='ch-light-output'></div>
+        </div>
+	<div class="row">
+	    <div class="col-md-12">
                 <h3>Individual Channel Results</h3>
                 <table class="table table-hover table-condensed table-striped">
 		    <thead>
@@ -110,9 +113,6 @@
                     {% endfor %}
                 </table>
             </div>
-        </div>
-	<div class="row">
-	    <div class="col-md-12" id='ch-light-output'></div>
         </div>
 	{% endif %}
     </div>

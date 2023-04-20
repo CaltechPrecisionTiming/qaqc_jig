@@ -313,7 +313,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
         l = D_LAMBDA
     else:
         l = -np.log(prob_zero)
-    num_peaks = min(20, max(4, poisson.ppf(0.95, l)))
+    num_peaks = min(20, max(4, int(poisson.ppf(0.95, l))))
 
     # SPE Charge estimated using the method from this forum:
     # https://math.stackexchange.com/questions/3689141/calculating-the-mean-and-standard-deviation-of-a-gaussian-mixture-model-of-two-c

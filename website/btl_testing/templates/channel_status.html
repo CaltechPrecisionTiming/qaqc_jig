@@ -19,7 +19,7 @@
 	<div class="row">
 	    <div class="col-md-4">
                 <h3>Test Info</h3>
-                <table class="table table-bordered">
+                <table class="table table-bordered table-condensed">
                     <tr>
                         <th>Date</th>
                         <td>{{ info['timestamp'].strftime("%Y-%m-%d %H:%M:%S") }}</td>
@@ -81,7 +81,7 @@
 	    <div class="col-md-2">
                 <h3>Module Info</h3>
                 {% if 'modules_timestamp' in info %}
-                <table class="table table-bordered">
+                <table class="table table-bordered table-condensed">
                     <tr>
                         <th>Date Added to Database</th>
                         <td>{{ info['modules_timestamp'].strftime("%Y-%m-%d %H:%M:%S") }}</td>
@@ -105,25 +105,23 @@
                 </div>
                 {% endif %}
 	    </div>
-            <div class="col-md-4">
-            </div>
-            <div class="col-md-2 text-right">
+            <div class="col-md-6">
+	        <div id='lyso_charge-histogram'></div>
                 Log Scale
                 <select id="log">
                     {% for i in ["False","True"] %}
                         <option {% if log == i %}selected="selected" {% endif %}value="{{ i }}">{{ i }}</option>
                     {% endfor %}
                 </select>
+	        <div id='spe_charge-histogram'></div>
             </div>
         </div>
 	<div class="row">
 	    <div class="col-md-12" id='avg-pulse'></div>
         </div>
 	<div class="row">
-	    <div class="col-md-12" id='lyso_charge-histogram'></div>
-        </div>
-	<div class="row">
-	    <div class="col-md-12" id='spe_charge-histogram'></div>
+            <div class="col-md-12">
+            </div>
         </div>
 	{% endif %}
     </div>
@@ -184,7 +182,7 @@
 
         MG.data_graphic({
             title: "SPE Charge Histogram",
-            description: "SPE Charge Histogram",
+            description: "Single photoelectron charge distribution.",
             data: [spe_charge_histogram_data,spe_charge_histogram_fit],
             chart_type: 'line',
             width: $('#spe_charge-histogram').width(),
@@ -205,7 +203,7 @@
 
         MG.data_graphic({
             title: "LYSO Charge Histogram",
-            description: "LYSO Charge Histogram",
+            description: "Lutetium-176 beta decay charge distribution. The major peak in this plot comes from the beta decay of Lutetium-176 to Halfnium-176 plus the absorption of an 88 keV and 202 keV gamma.",
             data: [lyso_charge_histogram_data,lyso_charge_histogram_fit],
             chart_type: 'line',
             width: $('#lyso_charge-histogram').width(),

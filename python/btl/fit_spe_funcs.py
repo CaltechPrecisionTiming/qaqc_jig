@@ -274,10 +274,15 @@ def fit_spe(h, model, f_h=None, root_func=False):
     ymax = 0
     for i in range(1,h.GetNbinsX()-1):
         x = h.GetBinCenter(i)
+
         value = h.GetBinContent(i)
+
         if x < 1 and value > ymax:
             xmax = x
             ymax = value
+
+        if x < xmax*0.8:
+            break
 
     if xmax is None:
         return None

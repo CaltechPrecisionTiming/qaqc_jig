@@ -313,7 +313,7 @@ def fit_lyso(h, model, fix_pars=True):
             xmax = x
             ymax = value
 
-        if x < xmax*0.9:
+        if x < xmax*0.8:
             break
 
     if xmax is None:

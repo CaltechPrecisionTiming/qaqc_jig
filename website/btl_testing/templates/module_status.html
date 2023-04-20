@@ -1,0 +1,130 @@
+{% extends "layout.html" %}
+{% block title %}Module Status{% endblock %}
+{% block head %}
+    <!-- metrics-graphics stylesheet goes above super() because we want bootstrap's style
+    (which is linked in super()) to override it. -->
+    <link rel="stylesheet" type="text/css"  href="{{ url_for('static',filename='css/metricsgraphics.css') }}">
+    <link rel="stylesheet" type="text/css"  href="{{ url_for('static',filename='css/mg_line_brushing.css') }}">
+    {{ super() }}
+    <style>
+        .table th {
+           text-align: center;   
+        }
+        .table td {
+           text-align: center;   
+        }
+    </style>
+{% endblock %}
+{% block body %}
+    {{ super() }}
+    <div class="container">
+	{% if error %}
+	<div class="alert alert-danger" role="alert">
+	<span class="glyphicon glyphicon-exclamation-sign" aria-hidden="true"></span>
+	Error: {{ error }}
+	</div>
+	{% else %}
+        <div class="row">
+            <div class="col-md-10">
+            </div>
+            <div class="col-md-2 text-right">
+                Results
+                <select id="limit">
+                    {% for i in [10,100,200,500,1000] %}
+                        <option {% if limit == i %}selected="selected" {% endif %}value="{{ i }}">{{ i }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+	<div class="row">
+	    <div class="col-md-2">
+                <h3>Module Info</h3>
+                {% if module_info is not none %}
+                <table class="table table-bordered">
+                    <tr>
+                        <th>Date Added to Database</th>
+                        <td>{{ module_info['timestamp'].strftime("%Y-%m-%d %H:%M:%S") }}</td>
+                    </tr>
+                    <tr>
+                        <th>Barcode</th>
+                        <td>{{ module_info['barcode'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>SiPM Type</th>
+                        <td>{{ module_info['sipm'] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Assembly Institution</th>
+                        <td>{{ module_info['institution'] }}</td>
+                    </tr>
+                </table>
+                {% else %}
+                <div class="alert alert-danger">
+                No module found with this barcode in database. Did you forget to upload it <a href="{{ url_for('upload_new_module_view')}}">here</a>?
+                </div>
+                {% endif %}
+	    </div>
+        </div>
+	<div class="row">
+	    <div class="col-md-12">
+		<table class="table table-hover table-condensed">
+		    <thead>
+			<tr>
+                            <th>Last Updated</th>
+			    <th>Run</th>
+			    <th>Barcode</th>
+			    <th>Voltage</th>
+			    <th>Avg. LY (PE/MeV)</th>
+			    <th>Pass</th>
+			    <th>Institution</th>
+			</tr>
+		    </thead>
+		    {% for row in run_info %}
+		    <tr onclick="window.document.location = '{{ "run-status?barcode=%i&run=%i" % (row['barcode'],row['run']) }}';">
+                        <td>{{ row['timestamp'] | time_from_now }}</td>
+			<td>{{ row['run'] }}</td>
+			<td>{{ row['barcode'] }}</td>
+			<td>{{ "%.2f" % row['voltage'] }}</td>
+			<td>{{ "%.0f" % row['light_yield'] }}</td>
+			<td>
+                        {% if row['pass'] %}
+                            <span class="glyphicon glyphicon-ok-sign text-success"></span>
+                        {% else %}
+                            <span class="glyphicon glyphicon-remove-sign text-danger"></span>
+                        {% endif %}
+                        </td>
+			<td>{{ row['institution'] }}</td>
+		    </tr>
+		    {% endfor %}
+		</table>
+                {% if offset != 0 %}
+                <p class="text-left"><a href="{{ url_for('module_status',barcode=barcode,limit=limit,offset=offset-limit) }}">Prev</a>
+                {% endif %}
+                <p class="text-right"><a href="{{ url_for('module_status',barcode=barcode,limit=limit,offset=offset+limit) }}">Next</a>
+            </div>
+        </div>
+	{% endif %}
+    </div>
+{% endblock %}
+{% block script %}
+    <script>
+        var setting = 0;
+        for (var key in url_params) {
+            if (url_params.hasOwnProperty(key)) {
+                if (key == 'limit') {
+                    document.getElementById("limit").value = url_params.limit;
+                }
+            }
+        }
+        $("#limit").on("change", function() {
+            var params = {};
+            params["limit"] = document.getElementById("limit").value;
+
+            if (Object.keys(params).length > 0) {
+                window.location.replace($SCRIPT_ROOT + "/module-status?" + $.param(params));
+            } else {
+                window.location.replace($SCRIPT_ROOT + "/module-status");
+            }
+        });
+    </script>
+{% endblock %}

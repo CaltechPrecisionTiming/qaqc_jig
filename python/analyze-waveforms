@@ -246,7 +246,8 @@ def spe_baseline_subtraction(x, y, method=1):
     y -= np.median(y[:,x < args.start_time], axis=-1)[:, np.newaxis]
     
     if args.integration_method == 1:  # Default 
-        pass
+        std = np.std(y[:,x < args.start_time],axis=-1)
+        y = y[std < np.percentile(std,50)]
     elif args.integration_method == 2:
         # `s` for samples
         s = y.T
@@ -335,7 +336,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--integration-time', default=150, type=float, help='SPE integration length in nanoseconds.')
     parser.add_argument('-s', '--start-time',  default=50, type=float, help='start time of the SPE integration in nanoseconds.')
     parser.add_argument('--active', default=None, help='Only take data from a single channel. If not specified, all channels are analyzed.')
-    parser.add_argument('--integration-method', type=int, default=1, help='Select a method of integration. Methods described in __main__')
+    parser.add_argument('--integration-method', type=int, default=0, help='Select a method of integration. Methods described in __main__')
     parser.add_argument("--print-pdfs", default=None, type=str, help="Folder to save pdfs in.")
     parser.add_argument('-u','--upload', default=False, action='store_true', help='upload results to the database')
     parser.add_argument('-i','--institution', default=None, type=Institution, choices=list(Institution), help='name of institution')

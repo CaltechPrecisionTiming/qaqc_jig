@@ -281,7 +281,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
             xmax = x
             ymax = value
 
-        if x < xmax*0.8:
+        if value < ymax*0.8:
             break
 
     if xmax is None:

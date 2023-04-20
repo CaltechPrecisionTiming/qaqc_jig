@@ -517,8 +517,11 @@ if __name__ == '__main__':
             ##################
             # Try to get only events in which the entire beta decay and gammas
             # happen in a single crystal. To do this, we select only events in
-            # which the charge in the current channel is greater than 50% of
+            # which the charge in the current channel is greater than 200% of
             # it's neighbors charge (i.e. the neighbor only has crosstalk).
+            # The factor of 200% could probably be optimized. I noticed that
+            # with 100% it worked pretty well, but you could still see the
+            # gamma peaks, whereas at 200% they are pretty hard to see.
             if 'lyso_charge' in ch_data[channel]:
                 selection = (charge[ch] > charge[neighbors[ch]]*2).all(axis=0)
                 lyso_bins = get_bins(charge[ch][selection], cutoff=100)

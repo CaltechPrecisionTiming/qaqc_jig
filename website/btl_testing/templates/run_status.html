@@ -6,6 +6,14 @@
     <link rel="stylesheet" type="text/css"  href="{{ url_for('static',filename='css/metricsgraphics.css') }}">
     <link rel="stylesheet" type="text/css"  href="{{ url_for('static',filename='css/mg_line_brushing.css') }}">
     {{ super() }}
+    <style>
+        .table th {
+           text-align: center;   
+        }
+        .table td {
+           text-align: center;   
+        }
+    </style>
 {% endblock %}
 {% block body %}
     {{ super() }}
@@ -101,18 +109,18 @@
                 <table class="table table-hover table-condensed table-striped">
 		    <thead>
                         <tr>
-                            <th class="text-center">Channel</th>
-                            <th class="text-center">pC/keV</th>
-                            <th class="text-center">SPE Charge (pC)</th>
-                            <th class="text-center">Light Output (PE/MeV)</th>
+                            <th>Channel</th>
+                            <th>pC/keV</th>
+                            <th>SPE Charge (pC)</th>
+                            <th>Light Output (PE/MeV)</th>
                         </tr>
                     </thead>
                     {% for i in range(info['channels']|length) %}
 		        <tr onclick="window.document.location = '{{ url_for('channel_status',key=info['keys'][i]) }}';" class="{% if info['spe_percent'][i] > 0.1 %} danger {% endif %}">
-                            <td class="text-center">{{ info['channels'][i] }}</td>
-                            <td class="text-center">{{ "%.2f" % info['pc_per_kev'][i] }}</td>
-                            <td class="text-center">{{ "%.2f" % info['spe'][i] }}</td>
-                            <td class="text-center">{{ "%.0f" % (info['pc_per_kev'][i]*5.85*1000/info['spe'][i]) }}</td>
+                            <td>{{ info['channels'][i] }}</td>
+                            <td>{{ "%.2f" % info['pc_per_kev'][i] }}</td>
+                            <td>{{ "%.2f" % info['spe'][i] }}</td>
+                            <td>{{ "%.0f" % (info['pc_per_kev'][i]*5.85*1000/info['spe'][i]) }}</td>
                         </tr>
                     {% endfor %}
                 </table>

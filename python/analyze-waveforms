@@ -587,16 +587,20 @@ if __name__ == '__main__':
                 else:
                     model = fit_lyso_funcs.lyso_spectrum()
 
-                if ch in (7,8,23,24):
-                    # These channels are in the middle of a module and next to
-                    # an unpowered bar so we can't cut coincidences properly,
-                    # i.e. the charge distribution will have both crosstalk and
-                    # gammas from neighboring unpowered bars. Therefore, we
-                    # don't fix the gamma peak parameters when doing these
-                    # fits.
-                    lyso_fit_pars = fit_lyso_funcs.fit_lyso(hlyso, model, fix_pars=False)
+                if hlyso.GetEntries() == 0:
+                    # I think this can happen if the channel is not plugged in.
+                    lyso_fit_pars = None
                 else:
-                    lyso_fit_pars = fit_lyso_funcs.fit_lyso(hlyso, model)
+                    if ch in (7,8,23,24):
+                        # These channels are in the middle of a module and next
+                        # to an unpowered bar so we can't cut coincidences
+                        # properly, i.e. the charge distribution will have both
+                        # crosstalk and gammas from neighboring unpowered bars.
+                        # Therefore, we don't fix the gamma peak parameters
+                        # when doing these fits.
+                        lyso_fit_pars = fit_lyso_funcs.fit_lyso(hlyso, model, fix_pars=False)
+                    else:
+                        lyso_fit_pars = fit_lyso_funcs.fit_lyso(hlyso, model)
 
                 if lyso_fit_pars is not None:
                     ch_data[channel]['lyso_fit_pars'] = lyso_fit_pars[0]

@@ -369,7 +369,10 @@ def fit_lyso(h, model, fix_pars=True):
     f.SetParLimits(0,0.1,10)
     f.SetParLimits(1,0.01,0.2)
     fr = h.Fit(f,"S","",pc_per_kev*150,800)
-    if not fr.Get().IsValid():
+    try:
+        if not fr.Get().IsValid():
+            return None
+    except Exception as e:
         return None
     h.GetXaxis().SetRangeUser(xmin,800)
     f.Write()

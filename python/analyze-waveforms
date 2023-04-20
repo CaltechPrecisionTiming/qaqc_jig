@@ -246,7 +246,7 @@ def spe_baseline_subtraction(x, y, method=1):
     y -= np.median(y[:,x < args.start_time], axis=-1)[:, np.newaxis]
     
     if args.integration_method == 1:  # Default 
-        std = np.std(y[:,x < args.start_time],axis=-1)
+        std = np.std(y[:,:100],axis=-1)
         y = y[std < np.percentile(std,50)]
     elif args.integration_method == 2:
         # `s` for samples
@@ -496,12 +496,13 @@ if __name__ == '__main__':
                         avg_y = np.mean(y, axis=0)
                     plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
                 
-        charge = np.zeros((32,max(len(ch_data[channel]['lyso_charge']) for channel in ch_data if 'lyso_charge' in ch_data[channel])))
-        for channel in ch_data:
-            if 'lyso_charge' not in ch_data[channel]:
-                continue
-            ch = int(channel[2:])
-            charge[ch,:len(ch_data[channel]['lyso_charge'])] = ch_data[channel]['lyso_charge']
+        if len(list(len(ch_data[channel]['lyso_charge']) for channel in ch_data if 'lyso_charge' in ch_data[channel])) > 0:
+            charge = np.zeros((32,max(len(ch_data[channel]['lyso_charge']) for channel in ch_data if 'lyso_charge' in ch_data[channel])))
+            for channel in ch_data:
+                if 'lyso_charge' not in ch_data[channel]:
+                    continue
+                ch = int(channel[2:])
+                charge[ch,:len(ch_data[channel]['lyso_charge'])] = ch_data[channel]['lyso_charge']
 
         neighbors = {}
         for i in range(32):
@@ -647,6 +648,10 @@ if __name__ == '__main__':
     spe_err = array('d')
     yerr = array('d')
     for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
+        if 'lyso_fit_pars' not in ch_data[channel]:
+            continue
+        if 'spe_fit_pars' not in ch_data[channel]:
+            continue
         lyso_fit_pars = ch_data[channel]['lyso_fit_pars']
         spe_fit_pars = ch_data[channel]['spe_fit_pars']
         lyso_fit_par_errors = ch_data[channel]['lyso_fit_par_errors']
@@ -662,20 +667,22 @@ if __name__ == '__main__':
             dspe = spe_fit_par_errors[3]/spe_fit_pars[3]
             dtotal = np.sqrt(dlyso**2 + dspe**2)
             yerr.append(y[-1]*dtotal)
-    g = ROOT.TGraphErrors(len(x),x,y,0,yerr)
-    g.SetTitle("Light Yield (PE/MeV); Channel; Light Yield (PE/MeV)")
-    g.SetName("light_yield")
-    g.Write()
 
-    g = ROOT.TGraphErrors(len(x),x,pc_per_kev,0,pc_per_kev_err)
-    g.SetTitle("LYSO Fit Results; Channel; Light Yield (pC/keV)")
-    g.SetName("pc_per_kev")
-    g.Write()
+    if len(x) > 0:
+        g = ROOT.TGraphErrors(len(x),x,y,0,yerr)
+        g.SetTitle("Light Yield (PE/MeV); Channel; Light Yield (PE/MeV)")
+        g.SetName("light_yield")
+        g.Write()
 
-    g = ROOT.TGraphErrors(len(x),x,spe,0,spe_err)
-    g.SetTitle("SPE Fit Results; Channel; SPE Charge (pC)")
-    g.SetName("spe")
-    g.Write()
+        g = ROOT.TGraphErrors(len(x),x,pc_per_kev,0,pc_per_kev_err)
+        g.SetTitle("LYSO Fit Results; Channel; Light Yield (pC/keV)")
+        g.SetName("pc_per_kev")
+        g.Write()
+
+        g = ROOT.TGraphErrors(len(x),x,spe,0,spe_err)
+        g.SetTitle("SPE Fit Results; Channel; SPE Charge (pC)")
+        g.SetName("spe")
+        g.Write()
 
     root_f.Close()
 

@@ -179,6 +179,7 @@ class vinogradov_model:
     p[4]: std. of scope/digitizer noise
     p[5]: std. of SPE charge
     p[6]: probability that a primary PE triggers a secondary PE (https://arxiv.org/pdf/2106.13168.pdf)
+    p[7]: constant offset
     """
     def __call__(self, x, p):
         model = 0
@@ -187,6 +188,7 @@ class vinogradov_model:
             if i > 1 and coefficient < 1e-3:
                 break
             model += coefficient * TMath.Gaus(x[0]-p[1], i*p[3], TMath.Sqrt(p[4]**2 + i*(p[5]**2)), False)
+        model += p[7]
         model *= p[0]
         return model
 
@@ -211,16 +213,19 @@ def plot_dists():
 
 def get_spe(x, p):
     model = vinogradov_model()
-    f = ROOT.TF1("fspe",model,0,1000,7)
-    for i in range(7):
-        f.SetParameter(i,p[i])
+    f = ROOT.TF1("fspe",model,0,1000,8)
+    for i in range(8):
+        if len(p) > i:
+            f.SetParameter(i,p[i])
+        else:
+            f.SetParameter(i,0)
     return np.array([f.Eval(e) for e in x])
 
 def fit_spe(h, model, f_h=None, root_func=False):
     """ 
     SPE Fitting Strategy
     
-    1. We use a 7 parameter model to fit the SPE charge histogram.
+    1. We use a 8 parameter model to fit the SPE charge histogram.
        See `vinogradov_model` in this module for an explanation.
     
     2. Each SPE histogram should have a corresponding filtered
@@ -327,7 +332,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
         f1 = ROOT.TF1("%s_fit" % h.GetName(), string, offset - 1.5*raw_spread, offset + 5*h.GetStdDev())
     else:
         # Number of parameters must be specified when using a python function
-        f1 = ROOT.TF1("%s_fit" % h.GetName(), model, offset - 1.5*raw_spread, offset + 5*h.GetStdDev(), 7)
+        f1 = ROOT.TF1("%s_fit" % h.GetName(), model, offset - 1.5*raw_spread, offset + 5*h.GetStdDev(), 8)
 
     f1.SetParameter(0, scale)
     f1.SetParLimits(0, 0, 1e9)
@@ -344,7 +349,8 @@ def fit_spe(h, model, f_h=None, root_func=False):
     f1.FixParameter(5, D_SPE_CHARGE_SPREAD)
     
     f1.FixParameter(6, ps)
-    
+    f1.FixParameter(7, 0)
+
     for i in range(6):
         print(f'[{i}]: {f1.GetParameter(i)}')
     
@@ -354,16 +360,15 @@ def fit_spe(h, model, f_h=None, root_func=False):
     h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
     h.Write()
 
-    for i in range(7):
+    for i in range(8):
         f1.ReleaseParameter(i)
 
-    f1.FixParameter(1, f1.GetParameter(1)) 
     f1.SetParLimits(2, max(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1)
     f1.SetParLimits(3, max(zero_peak_end-offset, f1.GetParameter(3) - 1), f1.GetParameter(3) + 1)
     f1.SetParLimits(4, 0, 0.5) 
     f1.SetParLimits(5, 0, 0.5) 
     f1.SetParLimits(6, 0, 0.5)
-    
+
     r = h.Fit(f1, 'SR')
     r = r.Get()
     if not r.IsValid():
@@ -375,4 +380,4 @@ def fit_spe(h, model, f_h=None, root_func=False):
     f1.Write()
     h.Write()
 
-    return [f1.GetParameter(i) for i in range(7)], [f1.GetParError(i) for i in range(7)]
+    return [f1.GetParameter(i) for i in range(8)], [f1.GetParError(i) for i in range(8)]

@@ -314,10 +314,13 @@ int set_attenuation(bool ison)
 
     delay(DELAY);
 
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < 20; i++) {
         /* Clock in either the attenuated or unattenuated relays. */
         digitalWrite(ison ? PIN_ATT : PIN_THRU,HIGH);
-        delay(DELAY);
+        /* Datasheet says it needs at least 10 ms, so we wait 20 ms. Previously
+         * this was set to 10 ms, but 1 relay during testing wouldn't properly
+         * close. */
+        delay(20);
         digitalWrite(ison ? PIN_ATT : PIN_THRU,LOW);
         delay(DELAY);
     }
@@ -1306,7 +1309,7 @@ void loop()
 #endif
 
     for (i = 0; i < (int) LEN(bus); i++) {
-        if (active[i] && poll[i]) {
+        if (active[i] && poll[i] %% millis() % 1000 == 0) {
             gpio_read(i, THERMISTOR1, &temp);
             sprintf(msg, "%i Thermistor 1: %.2f\n", i, temp);
             Serial.print(msg);
@@ -1321,5 +1324,4 @@ void loop()
             Serial.print(msg);
         }
     }
-    delay(1000);
 }

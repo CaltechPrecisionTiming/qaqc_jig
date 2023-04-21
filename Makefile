@@ -1,7 +1,7 @@
 all: wavedump/src/wavedump
 
 CAENUSBdrvB-1.5.4/CAENUSBdrvB.o:
-	$(MAKE) -c CAENUSBdrvB-1.5.4
+	$(MAKE) -C CAENUSBdrvB-1.5.4
 
 install-deps: CAENUSBdrvB-1.5.4/CAENUSBdrvB.o
 	cd CAENVMELib-3.3.0/lib && ./install_x64

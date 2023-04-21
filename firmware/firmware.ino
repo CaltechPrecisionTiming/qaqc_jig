@@ -336,18 +336,38 @@ double HV_R1 = 1e6;
 double HV_R2 = 14e3;
 
 /* Set the DC DC boost converter output voltage to a given value.
- * Returns 0 on success, -1 on error. */
+ * Returns 0 on success, -1 on error.
+ *
+ * According to the docs here:
+ * https://www.analog.com/media/en/technical-documentation/data-sheets/3482fa.pdf,
+ * we should set the control voltage according to:
+ *
+ * R1 = R2(Vout2/Vref - 1)
+ * R1/R2 = Vout2/Vref - 1
+ * R1/R2 + 1 = Vout2/Vref
+ * Vref = Vout2/(R1/R2 + 1)
+ * Vapd = Vout2 - 5
+ *
+ * Lautaro measured the set/actual voltage and found the following values:
+ *
+ * Set   Actual
+ * ----- ------
+ * 30    32.123
+ * 32.5  34.6
+ * 35    37.066
+ * 40    41.99
+ * 41.5  43.475
+ *
+ * and fit these to the following equation:
+ *
+ * actual = 0.986*set + 2.55
+ *
+ * Therefore, we want to change the set value to:
+ *
+ * (value - 2.55)/0.986 */
 int set_hv(float value)
 {
-    /* According to the docs here:
-     * https://www.analog.com/media/en/technical-documentation/data-sheets/3482fa.pdf,
-     * we should set the control voltage according to:
-     *
-     * R1 = R2(Vout2/Vref - 1)
-     * R1/R2 = Vout2/Vref - 1
-     * R1/R2 + 1 = Vout2/Vref
-     * Vref = Vout2/(R1/R2 + 1)
-     * Vapd = Vout2 - 5 */
+    value = (value - 2.55)/0.986;
     float vref = (value+5)/(HV_R1/HV_R2 + 1);
     return set_dac(vref);
 }
@@ -726,7 +746,7 @@ int extmon_vread(double *value)
     double i = v/r;
     *value -= i*350;
     /* Subtract off the voltage drop from the BAP65-02 diode. */
-    *value -= 1.0;
+    //*value -= 1.0;
     return 0;
 }
 

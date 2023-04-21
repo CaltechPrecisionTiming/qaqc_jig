@@ -229,25 +229,36 @@ def high_filter_SPE(x, y):
     filter_data = signal.lfilter(b, a, y)
     return filter_data
 
-def spe_baseline_subtraction(x, y, method=1):
+def spe_baseline_subtraction(x, y, a, b, method=1):
     """ 
     INTEGRATION METHODS
     0: Only per event median subtraction (preformed in every method).
-    1 (default): For each event, subtract off the median of all points that lie above `cutoff`.
-                 Then, across all events, subtract off the median of all points between `a` and `b`.
-    2: Per sample median subtraction. This method is not good because the SPE signal gets diminished.
-    3: Delete all trials that have an SPE between `ma` and `mb`. Subtract off the median between `ma` and `mb` on a per event basis.
-    4: Same as 3, except no trials are deleted. Trials that have an SPE between `ma` and `mb` get reduced by the total median
-       between `ma` and `mb` of events that don't have an SPE in this range.
+
+    1: Cut events where the voltage is more than two standard
+       devations below the baseline at the start or end of the integration
+       window to avoid half pulses.
+
+    2: Per sample median subtraction. This method is not good because the SPE
+       signal gets diminished.
+    3: Delete all trials that have an SPE between `ma` and `mb`. Subtract off
+       the median between `ma` and `mb` on a per event basis.
+
+    4: Same as 3, except no trials are deleted. Trials that have an SPE between
+       `ma` and `mb` get reduced by the total median between `ma` and `mb` of
+       events that don't have an SPE in this range.
     """ 
     high_filter_y = high_filter_SPE(x, y)
     
     # Integration Method 0, per event median subtraction:
     y -= np.median(y[:,x < args.start_time], axis=-1)[:, np.newaxis]
-    
+
+    # Get a rough approximation of the standard deviation of the noise.
+    std = np.std(y[:,x < args.start_time])
+
     if args.integration_method == 1:  # Default 
-        std = np.std(y[:,:100],axis=-1)
-        y = y[std < np.percentile(std,50)]
+        # Cut events where the voltage signal is more than 2 standard
+        # deviations away at the start or stop of the integration window.
+        y = y[(y[:,a] > -2*std) & (y[:,b] > -2*std)]
     elif args.integration_method == 2:
         # `s` for samples
         s = y.T
@@ -336,7 +347,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--integration-time', default=150, type=float, help='SPE integration length in nanoseconds.')
     parser.add_argument('-s', '--start-time',  default=50, type=float, help='start time of the SPE integration in nanoseconds.')
     parser.add_argument('--active', default=None, help='Only take data from a single channel. If not specified, all channels are analyzed.')
-    parser.add_argument('--integration-method', type=int, default=0, help='Select a method of integration. Methods described in __main__')
+    parser.add_argument('--integration-method', type=int, default=1, help='Select a method of integration. Methods described in __main__')
     parser.add_argument("--print-pdfs", default=None, type=str, help="Folder to save pdfs in.")
     parser.add_argument('-u','--upload', default=False, action='store_true', help='upload results to the database')
     parser.add_argument('-i','--institution', default=None, type=Institution, choices=list(Institution), help='name of institution')
@@ -481,7 +492,7 @@ if __name__ == '__main__':
                         
                     elif group == 'spe':
                         a, b = get_spe_window(x, args.start_time, args.integration_time)
-                        y = spe_baseline_subtraction(x, y, method=args.integration_method)                        
+                        y = spe_baseline_subtraction(x, y, a, b, method=args.integration_method)
 
                     charge.extend(integrate(x,y, a, b))
 
@@ -494,7 +505,7 @@ if __name__ == '__main__':
                         # avg_y for the spe waveform is only used for
                         # plotting
                         avg_y = np.mean(y, axis=0)
-                    plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
+                    plot_time_volt(x, y, a, b, avg_y=avg_y, pdf=args.print_pdfs)
                 
         if len(list(len(ch_data[channel]['lyso_charge']) for channel in ch_data if 'lyso_charge' in ch_data[channel])) > 0:
             charge = np.zeros((32,max(len(ch_data[channel]['lyso_charge']) for channel in ch_data if 'lyso_charge' in ch_data[channel])))

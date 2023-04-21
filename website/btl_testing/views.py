@@ -27,24 +27,24 @@ def internal_error(exception):
 @app.route('/module-database')
 def module_database():
     barcode = request.args.get("barcode", None, type=int)
-    limit = request.args.get("limit", 100, type=int)
-    offset = request.args.get("offset", 0, type=int)
+    limit = max(10,request.args.get("limit", 100, type=int))
+    offset = max(0,request.args.get("offset", 0, type=int))
     sort_by = request.args.get("sort-by", "timestamp")
     results = get_modules(barcode, limit, offset, sort_by)
     return render_template('module_database.html', results=results, limit=limit, offset=offset, sort_by=sort_by)
 
 @app.route('/run-database')
 def run_database():
-    limit = request.args.get("limit", 100, type=int)
-    offset = request.args.get("offset", 0, type=int)
+    limit = max(10,request.args.get("limit", 100, type=int))
+    offset = max(0,request.args.get("offset", 0, type=int))
     sort_by = request.args.get("sort-by", "timestamp")
     results = get_runs(limit, offset, sort_by=sort_by)
     return render_template('run_database.html', results=results, limit=limit, offset=offset, sort_by=sort_by)
 
 @app.route('/channel-database')
 def channel_database():
-    limit = request.args.get("limit", 100, type=int)
-    offset = request.args.get("offset", 0, type=int)
+    limit = max(10,request.args.get("limit", 100, type=int))
+    offset = max(0,request.args.get("offset", 0, type=int))
     sort_by = request.args.get("sort-by", "timestamp")
     results = get_channels(request.args, limit, offset, sort_by)
     return render_template('channel_database.html', results=results, limit=limit, offset=offset, sort_by=sort_by)
@@ -102,8 +102,8 @@ def upload_new_module_view():
 
 @app.route('/module-status')
 def module_status():
-    limit = request.args.get("limit", 100, type=int)
-    offset = request.args.get("offset", 0, type=int)
+    limit = max(10,request.args.get("limit", 100, type=int))
+    offset = max(0,request.args.get("offset", 0, type=int))
     barcode = request.args.get("barcode", 0, type=int)
     module_info, run_info = get_module_info(barcode=barcode,limit=limit,offset=offset)
     return render_template('module_status.html', module_info=module_info, run_info=run_info, barcode=barcode, limit=limit, offset=offset)

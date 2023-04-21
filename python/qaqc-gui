@@ -152,7 +152,7 @@ def hv_off(client):
     n_boards = int(n_boards_var.get())
 
     try:
-        query(client, "hv_disable")
+        query(client, "disable_hv")
     except Exception as e:
         print_warning(str(e))
 

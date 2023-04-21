@@ -1309,7 +1309,7 @@ void loop()
 #endif
 
     for (i = 0; i < (int) LEN(bus); i++) {
-        if (active[i] && poll[i] %% millis() % 1000 == 0) {
+        if (active[i] && poll[i] && millis() % 1000 == 0) {
             gpio_read(i, THERMISTOR1, &temp);
             sprintf(msg, "%i Thermistor 1: %.2f\n", i, temp);
             Serial.print(msg);

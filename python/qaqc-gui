@@ -373,7 +373,7 @@ def poll_single_module(client, module):
             return
 
         values['temp%s' % key] = thermistor_value
-        values['tec_resistance%s' % key] = tec_value
+        values['tec%s' % key] = tec_value
 
     return values
 
@@ -406,6 +406,8 @@ def poll():
             return
 
         for key, value in values.items():
+            print("i, key = ", i, key)
+            print("value = ", value)
             thermistor_text[(i,key)].config(text="%.2f" % value)
 
 def step_home():

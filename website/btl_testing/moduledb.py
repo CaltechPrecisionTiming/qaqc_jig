@@ -64,7 +64,7 @@ def get_module_info(barcode,limit=100,offset=0):
 def get_run_info(barcode, run=None):
     conn = engine.connect()
 
-    query = "SELECT *, runs.institution as runs_institution, modules.timestamp as modules_timestamp, modules.institution as modules_institution, runs.timestamp as timestamp FROM (SELECT run, barcode, array_agg(key ORDER BY channel) as keys, array_agg(data.channel ORDER BY channel) as channels, array_agg(data.pc_per_kev ORDER BY channel) as pc_per_kev, array_agg(spe ORDER BY channel) as spe FROM data GROUP BY (run,barcode)) as channel, runs, modules WHERE channel.run = runs.run AND channel.barcode = modules.barcode"
+    query = "SELECT *, runs.institution as runs_institution, modules.timestamp as modules_timestamp, modules.institution as modules_institution, runs.timestamp as timestamp FROM (SELECT run, barcode, array_agg(key ORDER BY channel) as keys, array_agg(data.channel ORDER BY channel) as channels, array_agg(data.pc_per_kev ORDER BY channel) as pc_per_kev, array_agg(spe ORDER BY channel) as spe, array_agg(pass_channel(key) ORDER BY channel) as pass FROM data GROUP BY (run,barcode)) as channel, runs, modules WHERE channel.run = runs.run AND channel.barcode = modules.barcode"
 
     if run is not None:
         vars = (barcode, run)
@@ -82,7 +82,7 @@ def get_run_info(barcode, run=None):
 
     if row is None:
         # No module info?
-        query = "SELECT *, runs.institution as runs_institution, runs.timestamp as timestamp FROM (SELECT run, barcode, array_agg(key ORDER BY channel) as keys, array_agg(data.channel ORDER BY channel) as channels, array_agg(data.pc_per_kev ORDER BY channel) as pc_per_kev, array_agg(spe ORDER BY channel) as spe FROM data GROUP BY (run,barcode)) as channel, runs WHERE channel.run = runs.run"
+        query = "SELECT *, runs.institution as runs_institution, runs.timestamp as timestamp FROM (SELECT run, barcode, array_agg(key ORDER BY channel) as keys, array_agg(data.channel ORDER BY channel) as channels, array_agg(data.pc_per_kev ORDER BY channel) as pc_per_kev, array_agg(spe ORDER BY channel) as spe, array_agg(pass_channel(key) ORDER BY channel) as pass FROM data GROUP BY (run,barcode)) as channel, runs WHERE channel.run = runs.run"
 
         if run is not None:
             vars = (barcode, run)

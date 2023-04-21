@@ -112,14 +112,22 @@
                             <th>Channel</th>
                             <th>pC/keV</th>
                             <th>SPE Charge (pC)</th>
+			    <th>Pass</th>
                             <th>Light Output (PE/MeV)</th>
                         </tr>
                     </thead>
                     {% for i in range(info['channels']|length) %}
-		        <tr onclick="window.document.location = '{{ url_for('channel_status',key=info['keys'][i]) }}';" class="{% if info['spe_percent'][i] > 0.1 %} danger {% endif %}">
+		        <tr onclick="window.document.location = '{{ url_for('channel_status',key=info['keys'][i]) }}';">
                             <td>{{ info['channels'][i] }}</td>
                             <td>{{ "%.2f" % info['pc_per_kev'][i] }}</td>
                             <td>{{ "%.2f" % info['spe'][i] }}</td>
+                            <td>
+                            {% if info['pass'][i] %}
+                                <span class="glyphicon glyphicon-ok-sign text-success"></span>
+                            {% else %}
+                                <span class="glyphicon glyphicon-remove-sign text-danger"></span>
+                            {% endif %}
+                            </td>
                             <td>{{ "%.0f" % (info['pc_per_kev'][i]*5.85*1000/info['spe'][i]) }}</td>
                         </tr>
                     {% endfor %}

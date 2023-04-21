@@ -19,5 +19,6 @@ install:
 	systemctl enable --now gunicorn.socket
 	systemctl enable --now gunicorn
 	service gunicorn restart
+	sudo -u postgres psql -f btl_qa.sql btl_qa
 
 .PHONY: install

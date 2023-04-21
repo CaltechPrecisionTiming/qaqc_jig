@@ -1114,6 +1114,11 @@ int do_command(char *cmd, float *value)
         if (mystrtod(tokens[1], &temp))
             return -1;
 
+        if ((temp < 0) || (temp > 50)) {
+            sprintf(err, "voltage must be between 0 and 50 V");
+            return -1;
+        }
+
         if (set_hv(temp)) {
             sprintf(err, "error setting the high voltage");
             return -1;

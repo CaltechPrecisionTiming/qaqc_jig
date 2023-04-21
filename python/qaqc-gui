@@ -151,6 +151,11 @@ def query(client, cmd):
 def hv_off(client):
     n_boards = int(n_boards_var.get())
 
+    try:
+        query(client, "hv_disable")
+    except Exception as e:
+        print_warning(str(e))
+
     # First, make sure all the HV relays are off
     for i in range(n_boards):
         for bus in BOARD_ADDRESSES[i]:
@@ -251,6 +256,11 @@ def take_data():
                     relay = 5 - relay
 
                 try:
+                    query(client, "set_hv %.2f" % float(hv.get()))
+                except Exception as e:
+                    print_warning(str(e))
+
+                try:
                     query(client, "hv_write %i %i on" % (bus, relay))
                 except Exception as e:
                     print_warning(str(e))
@@ -291,6 +301,11 @@ def take_data():
                     # Ordering for the board on left side is backwards from the
                     # board on the right side
                     relay = 5 - relay
+
+                try:
+                    query(client, "disable_hv")
+                except Exception as e:
+                    print_warning(str(e))
 
                 try:
                     query(client, "hv_write %i %i off" % (bus, relay))

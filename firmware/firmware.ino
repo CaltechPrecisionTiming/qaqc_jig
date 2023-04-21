@@ -11,6 +11,12 @@
 #include <limits.h>
 #include <SPI.h>
 
+/* The actual 3.3 V reference for the Teensy. */
+#define TEENSY_3V 3.3124
+
+/* The voltage dropped across the BAP65-02 diode. */
+#define BAP65_02_VOLTAGE_DROP 0.71
+
 #define ETHERNET
 
 #define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
@@ -368,6 +374,13 @@ double HV_R2 = 14e3;
 int set_hv(float value)
 {
     value = (value - 2.55)/0.986;
+    /* Add the voltage drop from the 300 + 50 ohm resistors. */
+    double r = 350 + 500e3/8.0;
+    double v = value;
+    double i = v/r;
+    value += i*350;
+    /* Add the voltage drop from the BAP65-02 diode. */
+    value += BAP65_02_VOLTAGE_DROP;
     float vref = (value+5)/(HV_R1/HV_R2 + 1);
     return set_dac(vref);
 }
@@ -689,7 +702,7 @@ double HV_R8 = 10e3;
  * > a reference voltage through an external resistor. */
 int get_bias_iread(double *value)
 {
-    *value = 5*analogRead(PIN_BIAS_IREAD)*(3.3/1023.0)/HV_R4;
+    *value = 5*analogRead(PIN_BIAS_IREAD)*(TEENSY_3V/1023.0)/HV_R4;
     return 0;
 }
 
@@ -710,14 +723,14 @@ int get_bias_iread(double *value)
  */
 int get_bias_vread(double *value)
 {
-    *value = analogRead(PIN_BIAS_VREAD)*(3.3/1023.0)*(HV_R5+HV_R6)/HV_R6;
+    *value = analogRead(PIN_BIAS_VREAD)*(TEENSY_3V/1023.0)*(HV_R5+HV_R6)/HV_R6;
     /* Subtract off the voltage drop from the 300 + 50 ohm resistors. */
     double r = 350 + 500e3/8.0;
     double v = *value;
     double i = v/r;
     *value -= i*350;
     /* Subtract off the voltage drop from the BAP65-02 diode. */
-    *value -= 1.0;
+    *value -= BAP65_02_VOLTAGE_DROP;
     return 0;
 }
 
@@ -739,14 +752,14 @@ int get_bias_vread(double *value)
  */
 int extmon_vread(double *value)
 {
-    *value = analogRead(PIN_EXTMON_UC)*(3.3/1023.0)*(HV_R7+HV_R8)/HV_R8;
+    *value = analogRead(PIN_EXTMON_UC)*(TEENSY_3V/1023.0)*(HV_R7+HV_R8)/HV_R8;
     /* Subtract off the voltage drop from the 300 + 50 ohm resistors. */
     double r = 350 + 500e3/8.0;
     double v = *value;
     double i = v/r;
     *value -= i*350;
     /* Subtract off the voltage drop from the BAP65-02 diode. */
-    //*value -= 1.0;
+    *value -= BAP65_02_VOLTAGE_DROP;
     return 0;
 }
 

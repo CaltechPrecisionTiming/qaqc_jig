@@ -97,6 +97,7 @@ def save(filename=None):
     #data['stepper_enable'] = stepper_enable.get()
     data['n_spe_events'] = n_spe_events.get()
     data['n_lyso_events'] = n_lyso_events.get()
+    data['upload'] = upload_enable.get()
     print("Saving GUI state from '%s'" % filename)
     with open(filename,'w') as f:
         json.dump(data,f)
@@ -131,6 +132,8 @@ def load(filename=None):
             n_spe_events.set(data['n_spe_events'])
         if 'n_lyso_events' in data:
             n_lyso_events.set(data['n_lyso_events'])
+        if 'upload_enable' in data:
+            upload_enable.set(data['upload_enable'])
         n_boards_changed()
 
 def on_closing():
@@ -324,7 +327,9 @@ def take_data():
 
         root, ext = splitext(filename)
         root_filename = "%s.root" % root
-        cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename, '-u']
+        cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename]
+        if upload_enable.get():
+            cmd += ['-u']
         if run_command(cmd):
             print_warning("Failed to analyze '%s'. Quitting..." % filename)
             return
@@ -561,6 +566,12 @@ if __name__ == '__main__':
     n_lyso_events.set(100000)
     n_lyso_events_menu_entry = tk.Entry(frame_menu, textvariable=n_lyso_events)
     n_lyso_events_menu_entry.grid(row=6,column=1)
+
+    upload_menu_label = tk.Label(frame_menu, text="Upload Results: ")
+    upload_menu_label.grid(row=7,column=0)
+    upload_enable = tk.IntVar(frame_menu, value=1)
+    upload_enable_checkbox = tk.Checkbutton(frame_menu, text=None, variable=upload_enable, onvalue=1, offvalue=0)
+    upload_enable_checkbox.grid(row=7,column=1)
 
     frame_menu.pack()
     frame_barcodes.pack()

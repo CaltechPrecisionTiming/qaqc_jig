@@ -1348,7 +1348,7 @@ int add_to_output_file(char *filename, char *group_name, float data[WF_SIZE][32]
     int ndims;
     hsize_t dims[2], extdims[2], maxdims[2];
     char dset_name[256];
-    char base_dset_name[256];
+    char base_dset_name[256+5];
     hsize_t start[2], count[2];
     int i, j, k;
     unsigned int filter_info;

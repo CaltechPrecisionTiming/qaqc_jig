@@ -1,9 +1,9 @@
 CREATE OR REPLACE FUNCTION pass(run_number bigint) RETURNS boolean AS $$
-    SELECT count(*) > 32 FROM data WHERE run = run_number and pc_per_kev*5850/spe > 2000 AND pc_per_kev*5850/spe < 3000 AND spe > 3 AND spe < 4;
+    SELECT count(*) > 32 FROM data WHERE run = run_number and pc_per_kev*5850/spe > 2000 AND pc_per_kev*5850/spe < 3000 AND spe > 2.5 AND spe < 3;
 $$ LANGUAGE SQL;
 
 CREATE OR REPLACE FUNCTION pass_channel(key_number bigint) RETURNS boolean AS $$
-    SELECT count(*) > 0 FROM data WHERE key = key_number and pc_per_kev*5850/spe > 2000 AND pc_per_kev*5850/spe < 3000 AND spe > 3 AND spe < 4;
+    SELECT count(*) > 0 FROM data WHERE key = key_number and pc_per_kev*5850/spe > 2000 AND pc_per_kev*5850/spe < 3000 AND spe > 2.5 AND spe < 3;
 $$ LANGUAGE SQL;
 
 CREATE TYPE inst AS ENUM (

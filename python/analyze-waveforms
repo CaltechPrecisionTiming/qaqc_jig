@@ -537,6 +537,7 @@ if __name__ == '__main__':
             # gamma peaks, whereas at 200% they are pretty hard to see.
             if 'lyso_charge' in ch_data[channel]:
                 selection = (charge[ch] > charge[neighbors[ch]]*2).all(axis=0)
+                selection = selection[:len(charge[ch])]
                 lyso_bins = get_bins(charge[ch][selection], cutoff=100)
                 hlyso = ROOT.TH1D("lyso_%s" % channel, "LYSO Charge Integral for %s" % channel, len(lyso_bins), lyso_bins[0], lyso_bins[-1])
                 for x in ch_data[channel]['lyso_charge'][selection]:

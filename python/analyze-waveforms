@@ -425,7 +425,7 @@ if __name__ == '__main__':
                 data['tec_a'] = f.attrs['tec_a']
                 data['tec_b'] = f.attrs['tec_b']
                 data['temp_a'] = f.attrs['temp_a']
-                data['temp_b'] = f.attrs['temp_a']
+                data['temp_b'] = f.attrs['temp_b']
             except KeyError as e:
                 data['tec_a'] = None
                 data['tec_b'] = None

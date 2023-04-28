@@ -287,6 +287,7 @@ def fit_lyso(h, model, fix_pars=True):
             xmin = x
             ymin = value
 
+    n = 0
     for i in range(1,h.GetNbinsX()-1)[::-1]:
         # We look for the peak by looping over the bins from the *right* to the
         # *left* and then looking for a peak and then for the distribution to
@@ -314,7 +315,12 @@ def fit_lyso(h, model, fix_pars=True):
             ymax = value
 
         if value < ymax*0.8:
-            break
+            n += 1
+
+            if n >= 2:
+                break
+        else:
+            n = 0
 
     if xmax is None:
         return None

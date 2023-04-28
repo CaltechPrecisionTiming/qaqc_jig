@@ -422,13 +422,13 @@ if __name__ == '__main__':
                 data['voltage'] = float(f.attrs['voltage'])
 
             try:
-                data['tec_resistance_a'] = f.attrs['tec_resistance_a']
-                data['tec_resistance_b'] = f.attrs['tec_resistance_b']
+                data['tec_a'] = f.attrs['tec_a']
+                data['tec_b'] = f.attrs['tec_b']
                 data['temp_a'] = f.attrs['temp_a']
                 data['temp_b'] = f.attrs['temp_a']
             except KeyError as e:
-                data['tec_resistance_a'] = None
-                data['tec_resistance_b'] = None
+                data['tec_a'] = None
+                data['tec_b'] = None
                 data['temp_a'] = None
                 data['temp_b'] = None
 

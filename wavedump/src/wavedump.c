@@ -2438,6 +2438,9 @@ int main(int argc, char *argv[])
         }
 	
         if (nread > 0) {
+            if (total_events + nread > nevents)
+                nread = nevents - total_events;
+
             printf("writing %i events to file\n", nread);
             if (add_to_output_file(output_filename, label, wfdata, bdata, nread, channel_mask, nsamples, &WDcfg, gzip_compression_level, channel_map)) {
                 fprintf(stderr, "failed to write events to file! quitting...\n");

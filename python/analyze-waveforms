@@ -644,7 +644,7 @@ if __name__ == '__main__':
         elif ch_data[channel]['spe'] is None:
             print('Failed to fit %s spe histogram!' % channel)
         else:
-            print('%s: %.2f' % (channel, ch_data[channel]["pc_per_kev"]*1000*4/ch_data[channel]["spe"]))
+            print('%s: %.2f' % (channel, ch_data[channel]["pc_per_kev"]*1000*ATTENUATION_FACTOR/ch_data[channel]["spe"]))
             
             ##################
             # Uploading Data

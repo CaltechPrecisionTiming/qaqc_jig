@@ -363,7 +363,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
 
     f1.SetParLimits(2, max(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1)
     f1.SetParLimits(3, max(zero_peak_end-offset, f1.GetParameter(3) - 1), f1.GetParameter(3) + 1)
-    f1.SetParLimits(4, 0, 0.5) 
+    f1.SetParLimits(4, 0, 10)
     f1.SetParLimits(5, 0, 0.5) 
     f1.SetParLimits(6, 0, 0.5)
 

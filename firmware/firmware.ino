@@ -344,6 +344,31 @@ float DAC_VREF = 2.048;
 double HV_R1 = 1e6;
 double HV_R2 = 14e3;
 
+int set_hv_correction(float value)
+{
+    int i;
+    float guess;
+    float readback;
+
+    guess = value;
+    for (i = 0; i < 10; i++) {
+        if (set_hv(guess)) return -1;
+        delay(10);
+        if (extmon_vread(&readback)) return -1;
+        guess = guess + value - readback;
+        if (fabs(guess - value) < 0.001) {
+            /* Good enough. */
+            break;
+        } else if (fabs(guess - value) > 10) {
+            /* We shouldn't have to set the voltage more than 10 volts. */
+            sprintf(err, "error setting hv: need to correct more than 10 volts");
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
 /* Set the DC DC boost converter output voltage to a given value.
  * Returns 0 on success, -1 on error.
  *

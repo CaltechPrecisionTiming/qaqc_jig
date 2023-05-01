@@ -289,7 +289,7 @@ int reset()
     pinMode(PIN_CS,OUTPUT);
     digitalWrite(PIN_CS,HIGH);
 
-    enable_dac();
+    disable_hv();
     return rv;
 }
 
@@ -457,6 +457,8 @@ int disable_hv(void)
 int set_dac(float value)
 {
     uint16_t code = (value/DAC_VREF)*16384;
+    enable_dac();
+    delay(DELAY);
     /* Set the HV dac pin select on (low). */
     digitalWrite(PIN_CS,LOW);
     SPI.beginTransaction(SPISettings(14000000, MSBFIRST, SPI_MODE1));

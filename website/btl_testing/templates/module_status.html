@@ -25,15 +25,16 @@
 	</div>
 	{% else %}
         <div class="row">
-            <div class="col-md-10">
-            </div>
-            <div class="col-md-2 text-right">
-                Results
-                <select id="limit">
-                    {% for i in [10,100,200,500,1000] %}
-                        <option {% if limit == i %}selected="selected" {% endif %}value="{{ i }}">{{ i }}</option>
-                    {% endfor %}
-                </select>
+            <div class="col-md-12">
+                <h1 class="text-center">Module {{ barcode }}</h1>
+                <div class="text-right">
+                    Results
+                    <select id="limit">
+                        {% for i in [10,100,200,500,1000] %}
+                            <option {% if limit == i %}selected="selected" {% endif %}value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
             </div>
         </div>
 	<div class="row">

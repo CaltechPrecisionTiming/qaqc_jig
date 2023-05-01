@@ -344,6 +344,34 @@ float DAC_VREF = 2.048;
 double HV_R1 = 1e6;
 double HV_R2 = 14e3;
 
+int set_hv_feedback(float value)
+{
+    int i;
+    float guess, readback;
+
+    guess = value;
+    for (i = 0; i < 10; i++) {
+        if (set_hv(guess)) return -1;
+        delay(10);
+        if (extmon_vread(&readback)) return -1;
+        guess -= readback - value;
+
+        if (guess > 50) {
+            sprintf(err, "error: next guess would be more than 50 volts! Is there a problem with the readback?");
+            return -1;
+        }
+
+        if (guess < 0) {
+            sprintf(err, "error: next guess would be less than 0 volts! Is there a problem with the readback?");
+            return -1;
+        }
+
+        if (fabs(readback-value) < 0.01) break;
+    }
+
+    return 0;
+}
+
 /* Set the DC DC boost converter output voltage to a given value.
  * Returns 0 on success, -1 on error.
  *
@@ -1122,7 +1150,7 @@ int do_command(char *cmd, float *value)
             return -1;
         }
 
-        if (set_hv(temp)) {
+        if (set_hv_feedback(temp)) {
             sprintf(err, "error setting the high voltage");
             return -1;
         }

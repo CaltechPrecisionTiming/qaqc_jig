@@ -686,7 +686,7 @@ if __name__ == '__main__':
     stop_button.pack()
 
     reanalyze_button = tk.Button(master=frame_buttons,text="Reanalyze Data", width=25, height=5, command=reanalyze_data)
-    button.pack()
+    reanalyze_button.pack()
 
     #stepper_enable = tk.IntVar(frame_settings, value=1)
     #stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)

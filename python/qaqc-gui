@@ -239,6 +239,7 @@ def take_data():
             return
 
         progress_bars[i]['value'] = 0
+        module_status[i].config(text="-")
 
     client = Client(ip_address.get())
 

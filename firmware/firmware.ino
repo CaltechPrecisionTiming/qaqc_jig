@@ -370,12 +370,12 @@ int set_hv_feedback(float value)
         guess -= readback - value;
 
         if (guess > 50) {
-            sprintf(err, "error: next guess would be more than 50 volts! Is there a problem with the readback?");
+            sprintf(err, "error: setpoint = %.2f V, guess = %.2f V, readback = %.2f V. Next guess would be more than 50 volts! Is there a problem with the readback?", value, guess, readback);
             return -1;
         }
 
         if (guess < 0) {
-            sprintf(err, "error: next guess would be less than 0 volts! Is there a problem with the readback?");
+            sprintf(err, "error: setpoint = %.2f V, guess = %.2f V, readback = %.2f V. Next guess would be less than 0 volts! Is there a problem with the readback?", value, guess, readback);
             return -1;
         }
 
@@ -1164,7 +1164,6 @@ int do_command(char *cmd, float *value)
         }
 
         if (set_hv_feedback(temp)) {
-            sprintf(err, "error setting the high voltage");
             return -1;
         }
     } else if (!strcmp(tokens[0], "disable_hv")) {

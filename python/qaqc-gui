@@ -306,11 +306,13 @@ def take_data():
                     query(client, "hv_write %i %i on" % (bus, relay))
                 except Exception as e:
                     print_warning(str(e))
+                    return
 
             try:
                 query(client, "set_hv %.2f" % float(hv.get()))
             except Exception as e:
                 print_warning(str(e))
+                return
 
             # Turn the attenuation off to take SPE data
             try:
@@ -334,6 +336,7 @@ def take_data():
                 voltage = query(client, "extmon_vread")
             except Exception as e:
                 print_warning(str(e))
+                return
 
             if run_command([WAVEDUMP_PROGRAM,'-t','self','-l','lyso','--channel-map',j % 2,'-n',n_lyso_events.get(),'-o',filename], progress_bar=i):
                 hv_off(client)
@@ -343,6 +346,7 @@ def take_data():
                 query(client, "disable_hv")
             except Exception as e:
                 print_warning(str(e))
+                return
 
             # Loop over left and right sides
             for k in range(2):
@@ -358,6 +362,7 @@ def take_data():
                     query(client, "hv_write %i %i off" % (bus, relay))
                 except Exception as e:
                     print_warning(str(e))
+                    return
 
         info = poll_single_module(client,i)
 

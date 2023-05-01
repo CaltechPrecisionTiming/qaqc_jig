@@ -196,6 +196,8 @@ def take_data():
             print_warning('Need to enter a barcode for module %i\n' % i)
             return
 
+        progress_bars[i]['value'] = 0
+
     client = Client(ip_address.get())
 
     # First, we try to get the stepper to the home position
@@ -325,14 +327,35 @@ def take_data():
             f.attrs['voltage'] = voltage
             f.attrs['institution'] = assembly_center.get()
 
+        module_status[i].config(text="Data taking done")
+
+    # Now, we analyze all the data
+    for i in range(12):
+        if not module_available[i].get():
+            entry.insert(tk.END, "Skipping module %i\n" % i)
+            continue
+
+        barcode = barcodes[i].get()
+        if barcode == '':
+            print_warning('Need to enter a barcode for module %i\n' % i)
+            return
+            
+        filename = 'module_%i.hdf5' % int(barcode)
+
+        entry.insert(tk.END, "Analyzing data for module %i\n" % int(barcode))
+        entry.yview(tk.END)
+        entry.update()
+
         root, ext = splitext(filename)
         root_filename = "%s.root" % root
         cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename]
         if upload_enable.get():
             cmd += ['-u']
-        if run_command(cmd):
-            print_warning("Failed to analyze '%s'. Quitting..." % filename)
-            return
+        if run_command(cmd,progress_bar=i):
+            module_status[i].config(text="Failed analysis")
+            continue
+
+        module_status[i].config(text="Data + analysis successful!")
 
 def poll_single_module(client, module):
     values = {}
@@ -506,6 +529,7 @@ if __name__ == '__main__':
     barcode_entries = []
     module_available = []
     module_checkbox = []
+    module_status = []
     for i in range(12):
         barcode_labels.append(tk.Label(frame_barcodes,text="Barcode %i: " % i))
         barcode_labels[-1].grid(row=i,column=0)
@@ -519,6 +543,8 @@ if __name__ == '__main__':
         progress_bar = ttk.Progressbar(frame_barcodes, orient='horizontal', mode='determinate', length=100)
         progress_bars.append(progress_bar)
         progress_bar.grid(row=i,column=3)
+        module_status.append(tk.Label(frame_barcodes,text="-"))
+        module_status[-1].grid(row=i,column=4)
 
     for i in range(11):
         barcode_entries[i].bind('<Return>', lambda x, i=i: barcode_entries[i+1].focus())

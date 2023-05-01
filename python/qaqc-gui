@@ -79,6 +79,7 @@ def run_command(cmd, progress_bar=None):
     if p.returncode != 0:
         print_warning(p.stderr.read().decode())
     stop_button['state'] = tk.DISABLED
+    stop_button.update()
     return p.returncode
 
 def save(filename=None):
@@ -173,6 +174,47 @@ STOP = False
 def stop():
     global stop
     stop = True
+
+def reanalyze_data():
+    # Make sure they entered the barcodes first.
+    for i in range(12):
+        if not module_available[i].get():
+            continue
+
+        barcode = barcodes[i].get()
+        if barcode == '':
+            print_warning('Need to enter a barcode for module %i\n' % i)
+            return
+
+        progress_bars[i]['value'] = 0
+
+    # Now, we analyze all the data
+    for i in range(12):
+        if not module_available[i].get():
+            entry.insert(tk.END, "Skipping module %i\n" % i)
+            continue
+
+        barcode = barcodes[i].get()
+        if barcode == '':
+            print_warning('Need to enter a barcode for module %i\n' % i)
+            return
+            
+        filename = 'module_%i.hdf5' % int(barcode)
+
+        entry.insert(tk.END, "Analyzing data for module %i\n" % int(barcode))
+        entry.yview(tk.END)
+        entry.update()
+
+        root, ext = splitext(filename)
+        root_filename = "%s.root" % root
+        cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename]
+        if upload_enable.get():
+            cmd += ['-u']
+        if run_command(cmd,progress_bar=i):
+            module_status[i].config(text="Failed analysis")
+            continue
+
+        module_status[i].config(text="Data + analysis successful!")
 
 def take_data():
     """
@@ -642,6 +684,9 @@ if __name__ == '__main__':
     stop_button = tk.Button(master=frame_buttons,text="Stop", width=25, height=5, command=stop)
     stop_button['state'] = tk.DISABLED
     stop_button.pack()
+
+    reanalyze_button = tk.Button(master=frame_buttons,text="Reanalyze Data", width=25, height=5, command=reanalyze_data)
+    button.pack()
 
     #stepper_enable = tk.IntVar(frame_settings, value=1)
     #stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)

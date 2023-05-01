@@ -496,7 +496,7 @@ if __name__ == '__main__':
 
                     charge.extend(integrate(x,y, a, b))
 
-                print('%i/%i' % (len(f[group][channel])),len(f[group][channel])))
+                print('%i/%i' % (len(f[group][channel]),len(f[group][channel])))
 
                 ch_data[channel]['%s_charge' % group] = np.array(charge)
                         

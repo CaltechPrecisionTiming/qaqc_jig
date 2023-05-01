@@ -359,12 +359,13 @@ double HV_R2 = 14e3;
 int set_hv_feedback(float value)
 {
     int i;
-    float guess, readback;
+    float guess;
+    double readback;
 
     guess = value;
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 2; i++) {
         if (set_hv(guess)) return -1;
-        delay(10);
+        delay(1000);
         if (extmon_vread(&readback)) return -1;
         guess -= readback - value;
 

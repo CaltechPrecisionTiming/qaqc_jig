@@ -344,6 +344,18 @@ float DAC_VREF = 2.048;
 double HV_R1 = 1e6;
 double HV_R2 = 14e3;
 
+/* Set the DC DC boost converter output voltage to a given value using a
+ * feedback loop. Returns 0 on success, -1 on error.
+ *
+ * This function was needed when we realized that the output voltage of the
+ * DC/DC boost converter depends on the current being drawn (which means it
+ * depends on the number of relays open).
+ *
+ * The strategy is simple: we first try to set the voltage using the correction
+ * factors determined by Lautaro (see the comments to set_hv()). Then, we
+ * correct this guess by the difference between the readback voltage and the
+ * value we want. We try this 10 times and quit early if the error is ever less
+ * than 10 mV. */
 int set_hv_feedback(float value)
 {
     int i;

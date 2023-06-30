@@ -354,7 +354,6 @@ def fit_spe(h, model, f_h=None, root_func=False):
     
     r = h.Fit(f1, 'SRB')
 
-    h.SetAxisRange(-4, 6, "X")
     h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
     h.Write()
 
@@ -373,7 +372,6 @@ def fit_spe(h, model, f_h=None, root_func=False):
         print("Fit error!")
         return None
     
-    h.SetAxisRange(-4, 6, "X")
     h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
     f1.Write()
     h.Write()

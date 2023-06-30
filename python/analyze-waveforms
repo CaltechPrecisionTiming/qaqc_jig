@@ -145,7 +145,7 @@ def get_bins(x, cutoff=None):
     if len(x) == 0:
         return np.arange(0,100,1)
     
-    bin_width = 2*iqr(x)/(len(x)**(1/3.0))
+    bin_width = 0.5 * iqr(x)/(len(x)**(1/3.0))
 
     if bin_width == 0:
         print('Zero bin width! Quitting...', file=sys.stderr)
@@ -236,7 +236,8 @@ def spe_baseline_subtraction(x, y, a, b, method=1):
 
     1: Cut events where the voltage is more than two standard
        devations below the baseline at the start or end of the integration
-       window to avoid half pulses.
+       window to avoid half pulses. Then, a uniform subtraction of the median
+       of the samples at the start and end of the integration window.
 
     2: Per sample median subtraction. This method is not good because the SPE
        signal gets diminished.
@@ -259,6 +260,7 @@ def spe_baseline_subtraction(x, y, a, b, method=1):
         # Cut events where the voltage signal is more than 2 standard
         # deviations away at the start or stop of the integration window.
         y = y[(y[:,a] > -2*std) & (y[:,b] > -2*std)]
+        y -= np.median(np.concatenate((y[:, np.argmin(np.abs(x-args.start_time))], y[:, np.argmin(np.abs(x-args.start_time))])))
     elif args.integration_method == 2:
         # `s` for samples
         s = y.T
@@ -549,7 +551,7 @@ if __name__ == '__main__':
 
             if 'spe_charge' in ch_data[channel]:
                 spe_bins = get_bins(ch_data[channel]['spe_charge'])
-                hspe = ROOT.TH1D("spe_%s" % channel, "LYSO Charge Integral for %s" % channel, len(spe_bins), spe_bins[0], spe_bins[-1])
+                hspe = ROOT.TH1D("spe_%s" % channel, "SPE Charge Integral for %s" % channel, len(spe_bins), spe_bins[0], spe_bins[-1])
                 for x in ch_data[channel]['spe_charge']:
                     hspe.Fill(x)
                 hspe.GetXaxis().SetTitle("Charge (pC)")

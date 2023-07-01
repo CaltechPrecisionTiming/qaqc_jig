@@ -370,7 +370,7 @@ if __name__ == '__main__':
             print("need to set BTL_DB_PASS environment variable!",file=sys.stderr)
             sys.exit(1)
 
-        print("Uploading results to the database...")
+        print("Making upload connection to the database...")
         conn = psycopg2.connect(dbname='btl_qa',
                                 user='btl',
                                 host=os.environ['BTL_DB_HOST'],
@@ -474,8 +474,9 @@ if __name__ == '__main__':
                 ##################
                 # Integrations
                 ##################
+                print('Integrating Signals...')
                 for i in range(0, len(f[group][channel]), args.chunks):
-                    print('%i/%i' % (i,len(f[group][channel])))
+                    # print('%i/%i' % (i,len(f[group][channel])))
                     x, y = convert_data(f, group, channel, i, i+args.chunks)
                     if group == 'lyso':
                         a, b = get_window(x,y, left=50, right=350)
@@ -498,7 +499,7 @@ if __name__ == '__main__':
 
                     charge.extend(integrate(x,y, a, b))
 
-                print('%i/%i' % (len(f[group][channel]),len(f[group][channel])))
+                # print('%i/%i' % (len(f[group][channel]),len(f[group][channel])))
 
                 ch_data[channel]['%s_charge' % group] = np.array(charge)
                         

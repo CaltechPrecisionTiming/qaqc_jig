@@ -474,7 +474,7 @@ if __name__ == '__main__':
                 ##################
                 # Integrations
                 ##################
-                print('Integrating Signals...')
+                print(f'Integrating {group} {channel}...')
                 for i in range(0, len(f[group][channel]), args.chunks):
                     # print('%i/%i' % (i,len(f[group][channel])))
                     x, y = convert_data(f, group, channel, i, i+args.chunks)

@@ -20,6 +20,10 @@ canvas = []
 # script.
 ATTENUATION_FACTOR = 5.85
 
+# Resistance of CAEN digitizer. Used to convert integrated voltage
+# signal to charge.
+CAEN_R = 50.0
+
 class Institution(Enum):
     """
     Note: This must be kept in sync with the values in btl_qa.sql.
@@ -124,11 +128,11 @@ def integrate(x, data, a, b):
     Integrate all waveforms in `data` with times `x`.
     """
     # i = v/r
-    # divide by 50 ohms to convert to a charge
+    # divide by `CAEN_R` to convert to a charge
     if np.ndim(data) == 2:
-        return -np.trapz(data[:,a:b],x=x[a:b])*1000/50.0
+        return -np.trapz(data[:,a:b],x=x[a:b])*1000/CAEN_R
     else:
-        return -np.trapz(data[a:b],x=x[a:b])*1000/50.0
+        return -np.trapz(data[a:b],x=x[a:b])*1000/CAEN_R
 
 def get_bins(x, cutoff=None):
     """
@@ -145,7 +149,7 @@ def get_bins(x, cutoff=None):
     if len(x) == 0:
         return np.arange(0,100,1)
     
-    bin_width = 0.5 * iqr(x)/(len(x)**(1/3.0))
+    bin_width = 2 * iqr(x)/(len(x)**(1/3.0))
 
     if bin_width == 0:
         print('Zero bin width! Quitting...', file=sys.stderr)

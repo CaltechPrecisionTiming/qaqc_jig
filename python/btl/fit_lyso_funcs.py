@@ -15,7 +15,6 @@ import ROOT
 from functools import lru_cache, wraps
 from scipy.special import erf
 import hashlib
-import sys
 
 # Single photoelectron charge in attenuated mode (nominal SPE charge/4)
 # Here we just use an approximate value instead of trying to get the actual
@@ -48,12 +47,11 @@ def memoize(fun):
         key = tuple(key)
         if key not in _cache:
             _cache[key] = fun(*args, **kwargs)
-        # print(f'_cache size: {sys.getsizeof(_cache)/(2**30)} GB')         
         return _cache[key]
 
     return cached_fun
 
-@lru_cache()
+@lru_cache(maxsize=None)
 def dn(E,Q,Z,A,forb=None):
     """
     This function, dn(E,Q,Z,forb) Calculates the branch antineutrino kinetic
@@ -127,8 +125,7 @@ SPECTRUM_395 = spectrum(ES,395)
 SPECTRUM_509 = norm.pdf(ES,509,1)
 SPECTRUM_597 = spectrum(ES,597)
 
-# print(f'p_e_fast info: {p_e_fast.cache_into()}')
-@lru_cache()
+@lru_cache(maxsize=None)
 def p_e_fast(p):
     return p[0]*SPECTRUM_88 + p[1]*SPECTRUM_202 + p[2]*SPECTRUM_290 + p[3]*SPECTRUM_307 + p[4]*SPECTRUM_395 + p[5]*SPECTRUM_509 + p[6]*SPECTRUM_597
 
@@ -230,9 +227,11 @@ class lyso_spectrum(object):
         p[8] - Constant for 597 keV spectrum
         """
         ps = tuple([p[i] for i in range(2,9)])
+        return likelihood_fast(x[0],p[0],p[1],ps,self.spe_charge)
+        
         # qs = np.linspace(0,1000,1000)
-
         # key = tuple(p[i] for i in range(9))
+
         # if key in CACHE:
         #     total_spectrum = CACHE[key]
         #     return np.interp(x[0],qs,total_spectrum)
@@ -242,7 +241,6 @@ class lyso_spectrum(object):
         # CACHE[key] = total_spectrum
 
         # return np.interp(x[0],qs,total_spectrum)
-        return likelihood_fast(x[0],p[0],p[1],ps,self.spe_charge)
 
 def get_lyso(x, p, spe_charge=SPE_CHARGE):
     model = lyso_spectrum(spe_charge)
@@ -273,7 +271,6 @@ def fit_lyso(h, model, fix_pars=True):
 
     Otherwise, returns None.
     """
-    print(f'CACHE size: {sys.getsizeof(CACHE)/2**30}')
     f = ROOT.TF1("%s_fit" % h.GetName(),model,0,1000,9)
     xmax = None
     ymax = 0

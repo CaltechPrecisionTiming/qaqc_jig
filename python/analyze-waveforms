@@ -344,6 +344,7 @@ if __name__ == '__main__':
     import psycopg2.extensions
     from btl import fit_spe_funcs
     from btl import fit_lyso_funcs
+    from btl import fit_511_funcs
 
     parser = ArgumentParser(description='Analyze SPE and LYSO charges')
     parser.add_argument('filename',help='input filename (hdf5 format)')
@@ -384,8 +385,13 @@ if __name__ == '__main__':
         cursor = conn.cursor()
 
     data = {}
-    ch_data = {}  
+    ch_data = {}
+    source = ''
     with h5py.File(args.filename,'r') as f:
+        if 'lyso' in f and 'sodium' in f:
+            print('Can not analyze file with lyso and sodium data!', file=sys.stdrr)
+            sys.exit(1)
+        
         root_f = ROOT.TFile(args.output, "recreate")
                 
         if args.upload:
@@ -446,9 +452,12 @@ if __name__ == '__main__':
             if args.group is not None and group != args.group:
                 continue
 
-            if group != 'lyso' and group != 'spe':
+            if group not in ('lyso', 'spe', 'sodium'):
                 print("Unknown group name: \"%s\". Skipping..." % group)
                 continue
+            
+            if group in ('lyso', 'sodium'):
+                source = group
 
             for channel in f[group]:
                 # All relevant channels from the scope and digitizer should
@@ -459,11 +468,6 @@ if __name__ == '__main__':
                 ch = int(channel[2:])
 
                 if not args.channel_mask & (1 << ch):
-                    continue
-                
-                # Only active channel is analyzed, unless it's `None`, in
-                # which case all channels are analyzed.
-                if args.active and channel != args.active:
                     continue
                 
                 if channel not in ch_data:
@@ -482,20 +486,20 @@ if __name__ == '__main__':
                 for i in range(0, len(f[group][channel]), args.chunks):
                     # print('%i/%i' % (i,len(f[group][channel])))
                     x, y = convert_data(f, group, channel, i, i+args.chunks)
-                    if group == 'lyso':
+                    if group == source:
                         a, b = get_window(x,y, left=50, right=350)
                         y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
                         if 'avg_pulse_y' in ch_data[channel]:
                             ch_data[channel]['avg_pulse_y'] = (ch_data[channel]['avg_pulse_count']*ch_data[channel]['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (ch_data[channel]['avg_pulse_count'] + len(y))
                             ch_data[channel]['avg_pulse_count'] += len(y)
-                            np.append(ch_data[channel]['lyso_rise_time'], get_rise_time(x, y))
-                            np.append(ch_data[channel]['lyso_fall_time'], get_fall_time(x, y))
+                            np.append(ch_data[channel][f'{group}_rise_time'], get_rise_time(x, y))
+                            np.append(ch_data[channel][f'{group}_fall_time'], get_fall_time(x, y))
                         else:
                             ch_data[channel]['avg_pulse_y'] = np.mean(y, axis=0)
                             ch_data[channel]['avg_pulse_count'] = len(y)
                             ch_data[channel]['avg_pulse_x'] = x
-                            ch_data[channel]['lyso_rise_time'] = get_rise_time(x, y)
-                            ch_data[channel]['lyso_fall_time'] = get_fall_time(x, y)
+                            ch_data[channel][f'{group}_rise_time'] = get_rise_time(x, y)
+                            ch_data[channel][f'{group}_fall_time'] = get_fall_time(x, y)
                         
                     elif group == 'spe':
                         a, b = get_spe_window(x, args.start_time, args.integration_time)
@@ -508,7 +512,7 @@ if __name__ == '__main__':
                 ch_data[channel]['%s_charge' % group] = np.array(charge)
                         
                 if args.plot or args.print_pdfs:
-                    if group == 'lyso':
+                    if group == source:
                         avg_y = ch_data[channel]['avg_pulse_y']
                     else:
                         # avg_y for the spe waveform is only used for
@@ -516,13 +520,13 @@ if __name__ == '__main__':
                         avg_y = np.mean(y, axis=0)
                     plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
                 
-        if len(list(len(ch_data[channel]['lyso_charge']) for channel in ch_data if 'lyso_charge' in ch_data[channel])) > 0:
-            charge = np.zeros((32,max(len(ch_data[channel]['lyso_charge']) for channel in ch_data if 'lyso_charge' in ch_data[channel])))
+        if len(list(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])) > 0:
+            charge = np.zeros((32,max(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])))
             for channel in ch_data:
-                if 'lyso_charge' not in ch_data[channel]:
+                if f'{source}_charge' not in ch_data[channel]:
                     continue
                 ch = int(channel[2:])
-                charge[ch,:len(ch_data[channel]['lyso_charge'])] = ch_data[channel]['lyso_charge']
+                charge[ch,:len(ch_data[channel][f'{source}_charge'])] = ch_data[channel][f'{source}_charge']
 
         neighbors = {}
         for i in range(32):
@@ -544,15 +548,15 @@ if __name__ == '__main__':
             # The factor of 200% could probably be optimized. I noticed that
             # with 100% it worked pretty well, but you could still see the
             # gamma peaks, whereas at 200% they are pretty hard to see.
-            if 'lyso_charge' in ch_data[channel]:
+            if f'{source}_charge' in ch_data[channel]:
                 selection = (charge[ch] > charge[neighbors[ch]]*2).all(axis=0)
                 selection = selection[:len(charge[ch])]
-                lyso_bins = get_bins(charge[ch][selection], cutoff=100)
-                hlyso = ROOT.TH1D("lyso_%s" % channel, "LYSO Charge Integral for %s" % channel, len(lyso_bins), lyso_bins[0], lyso_bins[-1])
-                for x in ch_data[channel]['lyso_charge'][selection]:
-                    hlyso.Fill(x)
-                hlyso.GetXaxis().SetTitle("Charge (pC)")
-                hlyso.Write()
+                source_bins = get_bins(charge[ch][selection], cutoff=100)
+                hsource = ROOT.TH1D(f"{source}_{channel}", f"{source.capitalize()}_Charge Integral for {channel}", len(source_bins), source_bins[0], source_bins[-1])
+                for x in ch_data[channel][f"{source}_charge"][selection]:
+                    hsource.Fill(x)
+                hsource.GetXaxis().SetTitle("Charge (pC)")
+                hsource.Write()
 
             if 'spe_charge' in ch_data[channel]:
                 spe_bins = get_bins(ch_data[channel]['spe_charge'])
@@ -565,15 +569,21 @@ if __name__ == '__main__':
             ##################
             # Preparing Data for Upload
             ##################
+            print('NaN test:')
+            for i in range(len(ch_data[channel]['lyso_rise_time'])):
+                print(f'[{i}]: {float(np.median(ch_data[channel]["lyso_rise_time"][i]))}')
+                # print(f'[{i}]: {float(np.median(ch_data[channel]["lyso_rise_time"][:i]))}')
             if args.upload:
+                # Assume lyso data if uploading because of earlier checks.
                 if 'lyso_charge' in ch_data[channel]:
                     ch_data[channel]['lyso_rise_time'] = float(np.median(ch_data[channel]['lyso_rise_time']))
+                    print(f'Data in question: {ch_data[channel]["lyso_rise_time"]}')
                     ch_data[channel]['lyso_fall_time'] = float(np.median(ch_data[channel]['lyso_rise_time']))
                     ch_data[channel]['avg_pulse_x'] = list(map(float,ch_data[channel]['avg_pulse_x']))
                     ch_data[channel]['avg_pulse_y'] = list(map(float,ch_data[channel]['avg_pulse_y']))
-                    lyso_bincenters = (lyso_bins[1:] + lyso_bins[:-1])/2
-                    ch_data[channel]['lyso_charge_histogram_y'] = list(map(float,np.histogram(ch_data[channel]['lyso_charge'][selection],bins=lyso_bins)[0]))
-                    ch_data[channel]['lyso_charge_histogram_x'] = list(map(float,lyso_bincenters))
+                    source_bincenters = (source_bins[1:] + source_bins[:-1])/2
+                    ch_data[channel]['lyso_charge_histogram_y'] = list(map(float,np.histogram(ch_data[channel]['lyso_charge'][selection],bins=source_bins)[0]))
+                    ch_data[channel]['lyso_charge_histogram_x'] = list(map(float,source_bincenters))
                 else:
                     ch_data[channel]['lyso_rise_time'] = None
                     ch_data[channel]['lyso_fall_time'] = None
@@ -605,39 +615,40 @@ if __name__ == '__main__':
                     ch_data[channel]['spe_fit_par_errors'] = None
                     ch_data[channel]['spe'] = None
                 plot_hist(hspe, pdf=args.print_pdfs, filename=args.filename)
-
-            if 'lyso_charge' in ch_data[channel]:
-                print('Fitting LYSO %s!' % channel)
-                if 'spe_charge' in ch_data[channel] and spe_fit_pars is not None:
-                    model = fit_lyso_funcs.lyso_spectrum(spe_fit_pars[0][3]/ATTENUATION_FACTOR)
-                else:
-                    model = fit_lyso_funcs.lyso_spectrum()
-
-                if hlyso.GetEntries() == 0:
-                    # I think this can happen if the channel is not plugged in.
-                    lyso_fit_pars = None
-                else:
-                    if ch in (7,8,23,24):
-                        # These channels are in the middle of a module and next
-                        # to an unpowered bar so we can't cut coincidences
-                        # properly, i.e. the charge distribution will have both
-                        # crosstalk and gammas from neighboring unpowered bars.
-                        # Therefore, we don't fix the gamma peak parameters
-                        # when doing these fits.
-                        lyso_fit_pars = fit_lyso_funcs.fit_lyso(hlyso, model, fix_pars=False)
+            
+            source_fit_pars = None
+            if f'{source}_charge' in ch_data[channel]:
+                if source == 'lyso':
+                    print('Fitting LYSO %s!' % channel)
+                    if 'spe_charge' in ch_data[channel] and spe_fit_pars is not None:
+                        model = fit_lyso_funcs.lyso_spectrum(spe_fit_pars[0][3]/ATTENUATION_FACTOR)
                     else:
-                        lyso_fit_pars = fit_lyso_funcs.fit_lyso(hlyso, model)
+                        model = fit_lyso_funcs.lyso_spectrum()
 
-                if lyso_fit_pars is not None:
-                    ch_data[channel]['lyso_fit_pars'] = lyso_fit_pars[0]
-                    ch_data[channel]['lyso_fit_par_errors'] = lyso_fit_pars[1]
-                    ch_data[channel]['pc_per_kev'] = lyso_fit_pars[0][0]
-                else:
-                    ch_data[channel]['lyso_fit_pars'] = None
-                    ch_data[channel]['lyso_fit_par_errors'] = None
-                    ch_data[channel]['pc_per_kev'] = None
-                plot_hist(hlyso, pdf=args.print_pdfs, filename=args.filename)
+                    if hsource.GetEntries() != 0:
+                        if ch in (7,8,23,24):
+                            # These channels are in the middle of a module and next
+                            # to an unpowered bar so we can't cut coincidences
+                            # properly, i.e. the charge distribution will have both
+                            # crosstalk and gammas from neighboring unpowered bars.
+                            # Therefore, we don't fix the gamma peak parameters
+                            # when doing these fits.
+                            source_fit_pars = fit_lyso_funcs.fit_lyso(hsource, model, fix_pars=False)
+                        else:
+                            source_fit_pars = fit_lyso_funcs.fit_lyso(hsource, model)
 
+                    if source_fit_pars is not None:
+                        ch_data[channel][f'{source}_fit_pars'] = source_fit_pars[0]
+                        ch_data[channel][f'{source}_fit_par_errors'] = source_fit_pars[1]
+                        ch_data[channel]['pc_per_kev'] = source_fit_pars[0][0]
+                    else:
+                        ch_data[channel][f'{source}_fit_pars'] = None
+                        ch_data[channel][f'{source}_fit_par_errors'] = None
+                        ch_data[channel]['pc_per_kev'] = None
+                    plot_hist(hsource, pdf=args.print_pdfs, filename=args.filename)
+                if source == 'sodium':
+                    # TODO
+                    pass
                 
             
     ##################
@@ -645,11 +656,11 @@ if __name__ == '__main__':
     ##################
     for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
         if 'pc_per_kev' not in ch_data[channel]:
-            print('Mising lyso data for %s!' % channel)
+            print('Mising source data for %s!' % channel)
         elif 'spe' not in ch_data[channel]:
             print('Missing SPE data for %s!' % channel)
         elif ch_data[channel]['pc_per_kev'] is None:
-            print('Failed to fit %s lyso histogram!' % channel)
+            print(f'Failed to fit {channel} {source} histogram!')
         elif ch_data[channel]['spe'] is None:
             print('Failed to fit %s spe histogram!' % channel)
         else:
@@ -659,7 +670,7 @@ if __name__ == '__main__':
             # Uploading Data
             ##################
             if args.upload:
-                result = cursor.execute("INSERT INTO data (channel, barcode, pc_per_kev, spe, lyso_rise_time, lyso_fall_time, lyso_charge_histogram_x, lyso_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run, spe_fit_pars, lyso_fit_pars, spe_fit_par_errors, lyso_fit_par_errors) VALUES (%(channel)s, %(barcode)s, %(pc_per_kev)s, %(spe)s, %(lyso_rise_time)s, %(lyso_fall_time)s, %(lyso_charge_histogram_x)s, %(lyso_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s, %(spe_fit_pars)s, %(lyso_fit_pars)s, %(spe_fit_par_errors)s, %(lyso_fit_par_errors)s)", ch_data[channel])
+                result = cursor.execute("INSERT INTO data (channel, barcode, pc_per_kev, spe, lyso_rise_time, lyso_fall_time, lyso_charge_histogram_x, lyso_charge_histogram_y, spe_charge_histogram_x, spe_charge_histogram_y, avg_pulse_x, avg_pulse_y, run, spe_fit_pars, lyso_fit_pars, spe_fit_par_errors, lyso_fit_par_errors) VALUES ('%(channel)s, %(barcode)s, %(pc_per_kev)s, %(spe)s, %(lyso_rise_time)s, %(lyso_fall_time)s, %(lyso_charge_histogram_x)s, %(lyso_charge_histogram_y)s, %(spe_charge_histogram_x)s, %(spe_charge_histogram_y)s, %(avg_pulse_x)s, %(avg_pulse_y)s, %(run)s, %(spe_fit_pars)s, %(lyso_fit_pars)s, %(spe_fit_par_errors)s, %(lyso_fit_par_errors)s)", ch_data[channel])
 
     x = array('d')
     y = array('d')
@@ -669,24 +680,24 @@ if __name__ == '__main__':
     spe_err = array('d')
     yerr = array('d')
     for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
-        if 'lyso_fit_pars' not in ch_data[channel]:
+        if f'{source}_fit_pars' not in ch_data[channel]:
             continue
         if 'spe_fit_pars' not in ch_data[channel]:
             continue
-        lyso_fit_pars = ch_data[channel]['lyso_fit_pars']
+        source_fit_pars = ch_data[channel][f'{source}_fit_pars']
         spe_fit_pars = ch_data[channel]['spe_fit_pars']
-        lyso_fit_par_errors = ch_data[channel]['lyso_fit_par_errors']
+        source_fit_par_errors = ch_data[channel][f'{source}_fit_par_errors']
         spe_fit_par_errors = ch_data[channel]['spe_fit_par_errors']
-        if lyso_fit_pars is not None and spe_fit_pars is not None:
+        if source_fit_pars is not None and spe_fit_pars is not None:
             x.append(int(channel[2:]))
-            y.append(lyso_fit_pars[0]*ATTENUATION_FACTOR*1000/spe_fit_pars[3])
-            pc_per_kev.append(lyso_fit_pars[0])
-            pc_per_kev_err.append(lyso_fit_par_errors[0])
+            y.append(source_fit_pars[0]*ATTENUATION_FACTOR*1000/spe_fit_pars[3])
+            pc_per_kev.append(source_fit_pars[0])
+            pc_per_kev_err.append(source_fit_par_errors[0])
             spe.append(spe_fit_pars[3])
             spe_err.append(spe_fit_par_errors[3])
-            dlyso = lyso_fit_par_errors[0]/lyso_fit_pars[0]
+            dsource = source_fit_par_errors[0]/source_fit_pars[0]
             dspe = spe_fit_par_errors[3]/spe_fit_pars[3]
-            dtotal = np.sqrt(dlyso**2 + dspe**2)
+            dtotal = np.sqrt(dsource**2 + dspe**2)
             yerr.append(y[-1]*dtotal)
 
     if len(x) > 0:

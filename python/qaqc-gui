@@ -34,6 +34,8 @@ ASSEMBLY_CENTERS = [
 
 NUMBER_OF_BOARDS = [str(i) for i in range(1,5)]
 
+SOURCES = ['LYSO', 'Sodium']
+
 BOARD_ADDRESSES = {
     0: [0,1],
     1: [2,3],
@@ -90,6 +92,7 @@ def save(filename=None):
         filename = join(expanduser("~"),".qaqc_gui.settings")
     data = {}
     data['assembly_center'] = assembly_center.get()
+    data['source'] = source.get()
     data['n_boards'] = int(n_boards_var.get())
     data['barcodes'] = [barcode.get() for barcode in barcodes]
     data['module_available'] = [available.get() for available in module_available]
@@ -97,7 +100,7 @@ def save(filename=None):
     data['ip_address'] = ip_address.get()
     #data['stepper_enable'] = stepper_enable.get()
     data['n_spe_events'] = n_spe_events.get()
-    data['n_lyso_events'] = n_lyso_events.get()
+    data['n_source_events'] = n_source_events.get()
     data['upload'] = upload_enable.get()
     print("Saving GUI state from '%s'" % filename)
     with open(filename,'w') as f:
@@ -115,6 +118,8 @@ def load(filename=None):
             data = json.load(f)
         if 'assembly_center' in data:
             assembly_center.set(data['assembly_center'])
+        if 'source' in data:
+            source.set(data['source'])
         if 'n_boards' in data:
             n_boards_var.set(str(data['n_boards']))
         if 'barcodes' in data:
@@ -131,8 +136,8 @@ def load(filename=None):
         #    stepper_enable.set(data['stepper_enable'])
         if 'n_spe_events' in data:
             n_spe_events.set(data['n_spe_events'])
-        if 'n_lyso_events' in data:
-            n_lyso_events.set(data['n_lyso_events'])
+        if 'n_source_events' in data:
+            n_source_events.set(data['n_source_events'])
         if 'upload_enable' in data:
             upload_enable.set(data['upload_enable'])
         n_boards_changed()
@@ -326,7 +331,7 @@ def take_data():
                 hv_off(client)
                 return
 
-            # Turn the attenuation on to take lyso data
+            # Turn the attenuation on to take source data
             try:
                 query(client, "set_attenuation on")
             except Exception as e:
@@ -339,7 +344,7 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            if run_command([WAVEDUMP_PROGRAM,'-t','self','-l','lyso','--channel-map',j % 2,'-n',n_lyso_events.get(),'-o',filename], progress_bar=i):
+            if run_command([WAVEDUMP_PROGRAM,'-t','self','-l',source.get().lower(),'--channel-map',j % 2,'-n',n_source_events.get(),'-o',filename], progress_bar=i):
                 hv_off(client)
                 return
 
@@ -571,6 +576,9 @@ if __name__ == '__main__':
     assembly_center = tk.StringVar(frame_menu)
     assembly_center.set(ASSEMBLY_CENTERS[0])
 
+    source = tk.StringVar(frame_menu)
+    source.set(SOURCES[0])
+
     barcode_labels = []
     barcodes = []
     progress_bars = []
@@ -603,6 +611,12 @@ if __name__ == '__main__':
     assembly_center_menu = tk.OptionMenu(frame_menu, assembly_center, *ASSEMBLY_CENTERS)
     assembly_center_menu.grid(row=0,column=1)
 
+    source_label = tk.Label(frame_menu, text="Source: ")
+    source_label.grid(row=1,column=0)
+
+    source_menu = tk.OptionMenu(frame_menu, source, *SOURCES)
+    source_menu.grid(row=1,column=1)
+
     n_boards_label = tk.Label(frame_menu,text="Number of Boards: ")
     n_boards_label.grid(row=2,column=0)
 
@@ -634,12 +648,12 @@ if __name__ == '__main__':
     n_spe_events_menu_entry = tk.Entry(frame_menu, textvariable=n_spe_events)
     n_spe_events_menu_entry.grid(row=5,column=1)
 
-    n_lyso_events_menu_label = tk.Label(frame_menu, text="Number of LYSO Events: ")
-    n_lyso_events_menu_label.grid(row=6,column=0)
-    n_lyso_events = tk.IntVar(frame_menu)
-    n_lyso_events.set(100000)
-    n_lyso_events_menu_entry = tk.Entry(frame_menu, textvariable=n_lyso_events)
-    n_lyso_events_menu_entry.grid(row=6,column=1)
+    n_source_events_menu_label = tk.Label(frame_menu, text="Number of Source Events: ")
+    n_source_events_menu_label.grid(row=6,column=0)
+    n_source_events = tk.IntVar(frame_menu)
+    n_source_events.set(100000)
+    n_source_events_menu_entry = tk.Entry(frame_menu, textvariable=n_source_events)
+    n_source_events_menu_entry.grid(row=6,column=1)
 
     upload_menu_label = tk.Label(frame_menu, text="Upload Results: ")
     upload_menu_label.grid(row=7,column=0)

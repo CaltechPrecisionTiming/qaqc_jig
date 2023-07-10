@@ -4,6 +4,9 @@ import numpy as np
 import sys
 import ROOT
 
+# Na-22 gamma ray energy.
+GAMMA_E = 511 # keV
+
 def ROOT_peaks(h, width=4, height=0.05, options=""):
     """
     Finds peaks in hisogram `h`. `height` is measured as a fraction of the
@@ -13,6 +16,9 @@ def ROOT_peaks(h, width=4, height=0.05, options=""):
     Returns an array of the peak locations, sorted in charge order, lowest to
     highest `x_pos`, and the location of the highest peak:
     (`x_pos`, `highest_peak`)
+
+    See ROOT TSpectrum documentation for peak finding details:
+    https://root.cern.ch/root/htmldoc/guides/spectrum/Spectrum.html#processing-and-visualization-functions
     """
     spec = ROOT.TSpectrum()
     highest_peak = None
@@ -24,17 +30,6 @@ def ROOT_peaks(h, width=4, height=0.05, options=""):
     ind = np.argsort(x_pos)
     x_pos = x_pos[ind]
     return (x_pos, highest_peak)
-
-# def peaks(h, height=None, threshold=None, distance=None, prominence=None, width=None, wlen=None, rel_height=None, plateau_size=None):
-#     hist = []
-#     for i in range(0, h.GetNbinsX()+2):
-#         hist.append(h.GetBinContent(i))
-#     hist = np.array(hist)
-#     # https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.find_peaks.html#scipy.signal.find_peaks
-#     extrema = find_peaks(hist, height=height, threshold=threshold, distance=distance, prominence=prominence, width=width, wlen=wlen, rel_height=rel_height, plateau_size=plateau_size)
-#     ind = np.argsort(extrema)
-#     extrema = extrema[ind]
-#     return extrema
 
 def fit_511(h):
     """
@@ -58,52 +53,33 @@ def fit_511(h):
        that is above a threshold proportioanl to the number of
        entries is the one we take as the 511 peak. Most of the time,
        this just means we're taking the peak with the largest charge.
-    
-    Older than June 2022:
-         Peak searching using the TSpectrum class. See ROOT
-         documentation for details.
-         https://root.cern.ch/root/htmldoc/guides/spectrum/Spectrum.html#processing-and-visualization-functions
-
-         *** depending on the overvoltage the peak dimension with
-         respect to the noise makes changes needed on the second
-         value. A more efficient way would be to create a bisection
-         and stop it when it detects only the 2 biggest peaks.
-         The number of found peaks and their positions are written into
-         the members fNpeaks and fPositionX 
-         Search(const TH1 * hin, Double_t sigma = 2, Option_t * option = "", Double_t threshold = 0.05)
-         Peaks with amplitude < th*Amax are discarded. If too small ->
-         detects peaks after the 511 peak. The code right now detects
-         the last peak (that doesn't have a huge width) as the 511
-         peak. Other option is to iterate through the y positions and
-         keep always the latest peak with an increase over the
-         previous ones? first derivative with respect to max/min
-         closest to zero       
     """
     win = 0.2 * h.GetStdDev()
     # The highest peak
-    peak = ROOT_peaks(h, width=2, height=0.05, options="nobackground")[1] 
-    f1 = ROOT.TF1("f1","gaus", peak-win, peak+win)
-    r = h.Fit(f1, 'ILMSR+')
+    peak = ROOT_peaks(h, width=2, height=0.05, options="nobackground")[1]
+    # Gaussian fit
+    f = ROOT.TF1(f"{h.GetName()}_fit",f"[2]*exp(-0.5*((x-[0]*{GAMMA_E})/[1])**2)", peak-win, peak+win)
+    r = h.Fit(f, 'ILMSR+')
     r = r.Get()
     
     # x_pos = ROOT_peaks(h, width=2, height=0.05, options="nobackground")[0] 
     # print("Peak charge full list:")
     # print(x_pos)
-    # f1 = None
+    # f = None
     # for i in range(len(x_pos)-1, -1, -1):
     #     peak = x_pos[i]
     #     if peak < x_pos[0] + 0.01*h.GetStdDev():
     #         # All the remaining peaks will be closer to `x_pos[0]`.
     #         break
     #     print(f'Fitting this peak! {peak}')
-    #     f1 = ROOT.TF1("f1","gaus", peak-win, peak+win)
-    #     r = h.Fit(f1, 'ILMSR+')
+    #     f = ROOT.TF1("f","gaus", peak-win, peak+win)
+    #     r = h.Fit(f, 'ILMSR+')
     #     r = r.Get()
-    #     if f1.GetParameter(1) < x_pos[0]:
+    #     if f.GetParameter(1) < x_pos[0]:
     #         # Impossible that this is the 511 peak 
-    #         f1 = None
+    #         f = None
     #         continue
-    #     if not r.IsValid() or f1.GetParameter(2) > 150 or np.abs(x_pos[i] - f1.GetParameter(1)) > 50:
+    #     if not r.IsValid() or f.GetParameter(2) > 150 or np.abs(x_pos[i] - f.GetParameter(1)) > 50:
     #         # Not impossible that this is the 511 peak, but there might be a
     #         # better peak later in the loop
     #         continue
@@ -111,8 +87,6 @@ def fit_511(h):
     #         # Found the 511 peak!
     #         break
     
+    f.Write()
     h.Write()
-    if f1 == None:
-        return None
-    else:
-        return (f1.GetParameter(1), f1.GetParError(1))
+    return [f.GetParameter(i) for i in range(3)], [f.GetParError(i) for i in range(3)]

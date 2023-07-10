@@ -386,7 +386,7 @@ if __name__ == '__main__':
 
     data = {}
     ch_data = {}
-    source = ''
+    source = None
     with h5py.File(args.filename,'r') as f:
         if 'lyso' in f and 'sodium' in f:
             print('Can not analyze file with lyso and sodium data!', file=sys.stdrr)
@@ -456,7 +456,7 @@ if __name__ == '__main__':
                 print("Unknown group name: \"%s\". Skipping..." % group)
                 continue
             
-            if group in ('lyso', 'sodium'):
+            if group != 'spe':
                 source = group
 
             for channel in f[group]:
@@ -470,8 +470,7 @@ if __name__ == '__main__':
                 if not args.channel_mask & (1 << ch):
                     continue
                 
-                if channel not in ch_data:
-                    ch_data[channel] = {'channel': int(channel[2:])}
+                ch_data[channel] = {'channel': ch}
                 
                 if args.upload:
                     ch_data[channel]['run'] = run
@@ -631,19 +630,18 @@ if __name__ == '__main__':
                             source_fit_pars = fit_lyso_funcs.fit_lyso(hsource, model, fix_pars=False)
                         else:
                             source_fit_pars = fit_lyso_funcs.fit_lyso(hsource, model)
-
-                    if source_fit_pars is not None:
-                        ch_data[channel][f'{source}_fit_pars'] = source_fit_pars[0]
-                        ch_data[channel][f'{source}_fit_par_errors'] = source_fit_pars[1]
-                        ch_data[channel]['pc_per_kev'] = source_fit_pars[0][0]
-                    else:
-                        ch_data[channel][f'{source}_fit_pars'] = None
-                        ch_data[channel][f'{source}_fit_par_errors'] = None
-                        ch_data[channel]['pc_per_kev'] = None
-                    plot_hist(hsource, pdf=args.print_pdfs, filename=args.filename)
                 if source == 'sodium':
-                    # TODO
-                    pass
+                    print('Fitting sodium %s!' % channel)
+                    source_fit_pars = fit_511_funcs.fit_511(hsource)
+                if source_fit_pars is not None:
+                    ch_data[channel][f'{source}_fit_pars'] = source_fit_pars[0]
+                    ch_data[channel][f'{source}_fit_par_errors'] = source_fit_pars[1]
+                    ch_data[channel]['pc_per_kev'] = source_fit_pars[0][0]
+                else:
+                    ch_data[channel][f'{source}_fit_pars'] = None
+                    ch_data[channel][f'{source}_fit_par_errors'] = None
+                    ch_data[channel]['pc_per_kev'] = None
+                plot_hist(hsource, pdf=args.print_pdfs, filename=args.filename)
                 
             
     ##################

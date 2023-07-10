@@ -569,10 +569,6 @@ if __name__ == '__main__':
             ##################
             # Preparing Data for Upload
             ##################
-            print('NaN test:')
-            for i in range(len(ch_data[channel]['lyso_rise_time'])):
-                print(f'[{i}]: {float(np.median(ch_data[channel]["lyso_rise_time"][i]))}')
-                # print(f'[{i}]: {float(np.median(ch_data[channel]["lyso_rise_time"][:i]))}')
             if args.upload:
                 # Assume lyso data if uploading because of earlier checks.
                 if 'lyso_charge' in ch_data[channel]:

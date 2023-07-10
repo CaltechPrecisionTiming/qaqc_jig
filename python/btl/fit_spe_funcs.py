@@ -274,7 +274,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
             xmax = x
             ymax = value
 
-        # Depeding on binning, this may break too early
+        # Depending on binning, this may break too early
         # if value < ymax*0.8:
         #     break
 

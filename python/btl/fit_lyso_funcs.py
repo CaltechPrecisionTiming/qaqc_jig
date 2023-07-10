@@ -97,10 +97,6 @@ def dn(E,Q,Z,A,forb=None):
     # Branch Spectrum
     return forbiddenness*F*(np.sqrt(np.power(e,2)+2*e*511)*np.power(Q-e,2)*(e+511))
 
-# Global dictionary used to speed up the calculation when the ROOT TF1 is
-# called multiple times with the same parameter
-CACHE = {}
-
 # Small number to avoid divide by zeros
 EPSILON = 1e-10
 
@@ -226,20 +222,8 @@ class lyso_spectrum(object):
         p[7] - Constant for 509 keV gamma
         p[8] - Constant for 597 keV spectrum
         """
-        qs = np.linspace(0,1000,1000)
-
-        key = tuple(p[i] for i in range(9))
-        if key in CACHE:
-            total_spectrum = CACHE[key]
-            return np.interp(x[0],qs,total_spectrum)
-
         ps = tuple([p[i] for i in range(2,9)])
-
-        total_spectrum = likelihood_fast(qs[:,np.newaxis],p[0],p[1],ps,self.spe_charge)
-
-        CACHE[key] = total_spectrum
-
-        return np.interp(x[0],qs,total_spectrum)
+        return likelihood_fast(x[0],p[0],p[1],ps,self.spe_charge)
 
 def get_lyso(x, p, spe_charge=SPE_CHARGE):
     model = lyso_spectrum(spe_charge)

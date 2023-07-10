@@ -20,6 +20,10 @@ canvas = []
 # script.
 ATTENUATION_FACTOR = 5.85
 
+# Resistance of CAEN digitizer. Used to convert integrated voltage
+# signal to charge.
+CAEN_R = 50.0
+
 class Institution(Enum):
     """
     Note: This must be kept in sync with the values in btl_qa.sql.
@@ -124,11 +128,11 @@ def integrate(x, data, a, b):
     Integrate all waveforms in `data` with times `x`.
     """
     # i = v/r
-    # divide by 50 ohms to convert to a charge
+    # divide by `CAEN_R` to convert to a charge
     if np.ndim(data) == 2:
-        return -np.trapz(data[:,a:b],x=x[a:b])*1000/50.0
+        return -np.trapz(data[:,a:b],x=x[a:b])*1000/CAEN_R
     else:
-        return -np.trapz(data[a:b],x=x[a:b])*1000/50.0
+        return -np.trapz(data[a:b],x=x[a:b])*1000/CAEN_R
 
 def get_bins(x, cutoff=None):
     """
@@ -240,6 +244,7 @@ def spe_baseline_subtraction(x, y, a, b, method=1):
 
     2: Per sample median subtraction. This method is not good because the SPE
        signal gets diminished.
+
     3: Delete all trials that have an SPE between `ma` and `mb`. Subtract off
        the median between `ma` and `mb` on a per event basis.
 
@@ -368,7 +373,7 @@ if __name__ == '__main__':
             print("need to set BTL_DB_PASS environment variable!",file=sys.stderr)
             sys.exit(1)
 
-        print("Uploading results to the database...")
+        print("Making upload connection to the database...")
         conn = psycopg2.connect(dbname='btl_qa',
                                 user='btl',
                                 host=os.environ['BTL_DB_HOST'],
@@ -472,8 +477,8 @@ if __name__ == '__main__':
                 ##################
                 # Integrations
                 ##################
+                print(f'Integrating {group} {channel}...')
                 for i in range(0, len(f[group][channel]), args.chunks):
-                    print('%i/%i' % (i,len(f[group][channel])))
                     x, y = convert_data(f, group, channel, i, i+args.chunks)
                     if group == 'lyso':
                         a, b = get_window(x,y, left=50, right=350)
@@ -495,8 +500,6 @@ if __name__ == '__main__':
                         y = spe_baseline_subtraction(x, y, a, b, method=args.integration_method)
 
                     charge.extend(integrate(x,y, a, b))
-
-                print('%i/%i' % (len(f[group][channel]),len(f[group][channel])))
 
                 ch_data[channel]['%s_charge' % group] = np.array(charge)
                         
@@ -549,7 +552,7 @@ if __name__ == '__main__':
 
             if 'spe_charge' in ch_data[channel]:
                 spe_bins = get_bins(ch_data[channel]['spe_charge'])
-                hspe = ROOT.TH1D("spe_%s" % channel, "LYSO Charge Integral for %s" % channel, len(spe_bins), spe_bins[0], spe_bins[-1])
+                hspe = ROOT.TH1D("spe_%s" % channel, "SPE Charge Integral for %s" % channel, len(spe_bins), spe_bins[0], spe_bins[-1])
                 for x in ch_data[channel]['spe_charge']:
                     hspe.Fill(x)
                 hspe.GetXaxis().SetTitle("Charge (pC)")
@@ -560,8 +563,8 @@ if __name__ == '__main__':
             ##################
             if args.upload:
                 if 'lyso_charge' in ch_data[channel]:
-                    ch_data[channel]['lyso_rise_time'] = float(np.median(ch_data[channel]['lyso_rise_time']))
-                    ch_data[channel]['lyso_fall_time'] = float(np.median(ch_data[channel]['lyso_rise_time']))
+                    ch_data[channel]['lyso_rise_time'] = float(np.nanmedian(ch_data[channel]['lyso_rise_time']))
+                    ch_data[channel]['lyso_fall_time'] = float(np.nanmedian(ch_data[channel]['lyso_rise_time']))
                     ch_data[channel]['avg_pulse_x'] = list(map(float,ch_data[channel]['avg_pulse_x']))
                     ch_data[channel]['avg_pulse_y'] = list(map(float,ch_data[channel]['avg_pulse_y']))
                     lyso_bincenters = (lyso_bins[1:] + lyso_bins[:-1])/2

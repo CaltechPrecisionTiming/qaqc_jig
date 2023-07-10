@@ -31,6 +31,8 @@ def iqr(h):
 
 def analyze_filter_data(h, f_h):
     """
+    ---THIS IS AN OUTDATED PROCEDURE---
+    
     Fits the filtered charge histogram `f_h` with a gaussian, and gets the mean
     and standard  deviation of this gaussian: `f_m` and `f_std`.
     
@@ -73,6 +75,8 @@ def analyze_filter_data(h, f_h):
         count += 1
     
     if diff > 0.001:
+        # This might occur of the fit "bounces around" the acutal peak, so we
+        # start the offset at the average mean. 
         offset = np.mean(means)
         if offset-win < h.GetMinimum() or offset+win > h.GetMaximum():
             print('Filtered data could not find first peak!')
@@ -226,16 +230,11 @@ def fit_spe(h, model, f_h=None, root_func=False):
     1. We use a 7 parameter model to fit the SPE charge histogram.
        See `vinogradov_model` in this module for an explanation.
     
-    2. Each SPE histogram should have a corresponding filtered
-       charge histogram. It's created the same way, except with the
-       signal passed through a digital high pass filter. See
-       `analyze-waveforms` to see how this is done.
-    
-    3. From the filtered histogram, we estimate the voltage
-       offset, std. of the noise, std. of the zero peak, and the
-       overall scale (see `analyze_filter_data` in this module).
-    
-    4. We estimate the average number of SPEs in the integration
+    2. We find the location of the peak corresponding to zero SPE events by
+       fitting a gaussian to the lowest charge peak we find in the histogram.
+       This gives us an estimate of the offset and background noise parameters.i
+
+    3. We estimate the average number of SPEs in the integration
        window (`l`) as follows:
        4.1. Count all the entries in the zero peak
        4.2. Divide by total entries, giving probability that there
@@ -244,10 +243,10 @@ def fit_spe(h, model, f_h=None, root_func=False):
             Since a poisson distribution only depends on its mean,
             having P(no SPEs) gives us `l`.
     
-    5. The SPE charge (mu) is estimated using this equation:
+    4. The SPE charge (mu) is estimated using this equation:
        h.GetMean() = P(no SPEs)*(offset) + P(1 SPE)*(mu + offset) + P(2 SPEs)*(2*mu + offset) + ...
     
-    6. Two fits are preformed. The first fit keeps several
+    5. Two fits are preformed. The first fit keeps several
        parameters fixed so that we get distinguishable peaks. The
        second fit releases most parameters to preform a final, clean
        fit of everything. Exactly which parameters get fixed or
@@ -256,21 +255,12 @@ def fit_spe(h, model, f_h=None, root_func=False):
 
     If the fit is successful, returns the list of fit parameters, otherwise
     returns None.
-
-    Older than June 2022:
-        *** we could set a threshold/break to find when the Y axis /charge goes above a certain values from the smallest X to set the first value (-0.4 as of the time of this comment)
     """
-    filter_output = None
+    offset = D_OFFSET
+    raw_spread = D_ZERO_PEAK_SPREAD
+    scale = h.GetEntries()*0.075
     if f_h:
-        print('Using filtered data!')
-        filter_output = analyze_filter_data(h, f_h)
-    if filter_output == None:
-        offset = D_OFFSET
-        noise_spread = D_NOISE_SPREAD
-        raw_spread = D_ZERO_PEAK_SPREAD
-        scale = h.GetEntries()*0.075
-    else:
-        offset, noise_spread, raw_spread, scale = filter_output
+        print('Ignoring filtered data; outdated procedure')
 
     # Try to guess the offset by looking for the highest peak less than zero
     xmax = None
@@ -284,8 +274,9 @@ def fit_spe(h, model, f_h=None, root_func=False):
             xmax = x
             ymax = value
 
-        if value < ymax*0.8:
-            break
+        # Depending on binning, this may break too early
+        # if value < ymax*0.8:
+        #     break
 
     if xmax is None:
         return None
@@ -309,7 +300,6 @@ def fit_spe(h, model, f_h=None, root_func=False):
     # `l`, short for lambda, which is the average number of PEs measured in the
     # integration window.
     zero_peak_end = offset + 2 * raw_spread
-    print(f'zero_peak_end: {zero_peak_end}')
     num_zero = h.Integral(0, get_bin_num(h, zero_peak_end))
     prob_zero = num_zero / h.GetEntries()
     if prob_zero <= 0 or prob_zero >= 1:
@@ -354,7 +344,6 @@ def fit_spe(h, model, f_h=None, root_func=False):
     
     r = h.Fit(f1, 'SRB')
 
-    h.SetAxisRange(-4, 6, "X")
     h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
     h.Write()
 
@@ -373,7 +362,6 @@ def fit_spe(h, model, f_h=None, root_func=False):
         print("Fit error!")
         return None
     
-    h.SetAxisRange(-4, 6, "X")
     h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
     f1.Write()
     h.Write()

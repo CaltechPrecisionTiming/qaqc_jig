@@ -344,7 +344,11 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            if run_command([WAVEDUMP_PROGRAM,'-t','self','-l',source.get().lower(),'--channel-map',j % 2,'-n',n_source_events.get(),'-o',filename], progress_bar=i):
+            cmd = [WAVEDUMP_PROGRAM,'-t','self','-l',source.get().lower(),'--channel-map',j % 2,'-n',n_source_events.get(),'-o',filename]
+            if source.get().lower() == 'sodium':
+                cmd += ['--threshold']
+                cmd += [-0.05]
+            if run_command(cmd, progress_bar=i):
                 hv_off(client)
                 return
 

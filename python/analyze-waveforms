@@ -455,10 +455,8 @@ if __name__ == '__main__':
             if group not in ('lyso', 'spe', 'sodium'):
                 print("Unknown group name: \"%s\". Skipping..." % group)
                 continue
-            
             if group != 'spe':
                 source = group
-
             for channel in f[group]:
                 # All relevant channels from the scope and digitizer should
                 # be in this format: 'ch<channel number>'.
@@ -470,7 +468,8 @@ if __name__ == '__main__':
                 if not args.channel_mask & (1 << ch):
                     continue
                 
-                ch_data[channel] = {'channel': ch}
+                if channel not in ch_data:
+                    ch_data[channel] = {'channel': ch}
                 
                 if args.upload:
                     ch_data[channel]['run'] = run
@@ -483,7 +482,6 @@ if __name__ == '__main__':
                 ##################
                 print(f'Integrating {group} {channel}...')
                 for i in range(0, len(f[group][channel]), args.chunks):
-                    # print('%i/%i' % (i,len(f[group][channel])))
                     x, y = convert_data(f, group, channel, i, i+args.chunks)
                     if group == source:
                         a, b = get_window(x,y, left=50, right=350)
@@ -506,10 +504,7 @@ if __name__ == '__main__':
 
                     charge.extend(integrate(x,y, a, b))
 
-                # print('%i/%i' % (len(f[group][channel]),len(f[group][channel])))
-
                 ch_data[channel]['%s_charge' % group] = np.array(charge)
-                        
                 if args.plot or args.print_pdfs:
                     if group == source:
                         avg_y = ch_data[channel]['avg_pulse_y']
@@ -518,22 +513,22 @@ if __name__ == '__main__':
                         # plotting
                         avg_y = np.mean(y, axis=0)
                     plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
-                
-        if len(list(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])) > 0:
-            charge = np.zeros((32,max(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])))
-            for channel in ch_data:
-                if f'{source}_charge' not in ch_data[channel]:
-                    continue
-                ch = int(channel[2:])
-                charge[ch,:len(ch_data[channel][f'{source}_charge'])] = ch_data[channel][f'{source}_charge']
+        if True: # source == 'lyso':    
+            if len(list(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])) > 0:
+                charge = np.zeros((32,max(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])))
+                for channel in ch_data:
+                    if f'{source}_charge' not in ch_data[channel]:
+                        continue
+                    ch = int(channel[2:])
+                    charge[ch,:len(ch_data[channel][f'{source}_charge'])] = ch_data[channel][f'{source}_charge']
 
-        neighbors = {}
-        for i in range(32):
-            neighbors[i] = []
-            if (i + 1) % 8 > i % 8:
-                neighbors[i].append(i+1)
-            if (i - 1) % 8 < i % 8:
-                neighbors[i].append(i-1)
+            neighbors = {}
+            for i in range(32):
+                neighbors[i] = []
+                if (i + 1) % 8 > i % 8:
+                    neighbors[i].append(i+1)
+                if (i - 1) % 8 < i % 8:
+                    neighbors[i].append(i-1)
 
         for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
             ch = int(channel[2:])
@@ -548,10 +543,18 @@ if __name__ == '__main__':
             # with 100% it worked pretty well, but you could still see the
             # gamma peaks, whereas at 200% they are pretty hard to see.
             if f'{source}_charge' in ch_data[channel]:
-                selection = (charge[ch] > charge[neighbors[ch]]*2).all(axis=0)
-                selection = selection[:len(charge[ch])]
-                source_bins = get_bins(charge[ch][selection], cutoff=100)
-                hsource = ROOT.TH1D(f"{source}_{channel}", f"{source.capitalize()}_Charge Integral for {channel}", len(source_bins), source_bins[0], source_bins[-1])
+                if source == 'lyso':
+                    selection = (charge[ch] > charge[neighbors[ch]]*2).all(axis=0)
+                    selection = selection[:len(charge[ch])]
+                    source_bins = get_bins(charge[ch][selection], cutoff=100)
+                if source == 'sodium':
+                    selection = (charge[ch] > charge[neighbors[ch]]*2).all(axis=0)
+                    selection = selection[:len(charge[ch])]
+                    source_bins = get_bins(charge[ch][selection], cutoff=100)
+                    # selection = np.array([True]*len(ch_data[channel][f"{source}_charge"]))
+                    # source_bins = get_bins(ch_data[channel][f"{source}_charge"])
+            
+                hsource = ROOT.TH1D(f"{source}_{channel}", f"{source.capitalize()} Charge Integral for {channel}", len(source_bins), source_bins[0], source_bins[-1])
                 for x in ch_data[channel][f"{source}_charge"][selection]:
                     hsource.Fill(x)
                 hsource.GetXaxis().SetTitle("Charge (pC)")

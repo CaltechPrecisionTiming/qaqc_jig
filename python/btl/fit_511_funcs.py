@@ -54,13 +54,30 @@ def fit_511(h):
        entries is the one we take as the 511 peak. Most of the time,
        this just means we're taking the peak with the largest charge.
     """
-    win = 0.2 * h.GetStdDev()
+    win = 100 # 0.2 * h.GetStdDev()
     # The highest peak
     peak = ROOT_peaks(h, width=2, height=0.05, options="nobackground")[1]
-    # Gaussian fit
-    f = ROOT.TF1(f"{h.GetName()}_fit",f"[2]*exp(-0.5*((x-[0]*{GAMMA_E})/[1])**2)", peak-win, peak+win)
-    r = h.Fit(f, 'ILMSR+')
-    r = r.Get()
+
+    # Just for debugging, should handle this case better
+    if peak == None:
+        return None
+    # Gaussian + linear background
+    f = ROOT.TF1(f"{h.GetName()}_fit",f"[2]*exp(-0.5*((x-[0]*{GAMMA_E})/[1])**2 + [3]*x + [4])", 0, 1000)
+    f.SetParameter(0, peak/GAMMA_E)
+    f.SetParameter(1, win/2)
+    f.SetParameter(2, h.GetBinContent(h.FindBin(peak)))
+    r = h.Fit(f, 'ILMSRB', '', peak-win, peak+win)
+    h.Write()
+    # Secondary fit that limits the range to +/-1.5 sigma. This makes the
+    # Gaussian + linear background approximation more accurate. 
+    r = h.Fit(f, 'ILMSRB', '', GAMMA_E*f.GetParameter(0) - 1.5*f.GetParameter(1), GAMMA_E*f.GetParameter(0) + 1.5*f.GetParameter(1))
+    f.Write()
+    h.Write()
+    try:
+        if not r.Get().IsValid():
+            return None
+    except Exception as e:
+        return None
     
     # x_pos = ROOT_peaks(h, width=2, height=0.05, options="nobackground")[0] 
     # print("Peak charge full list:")
@@ -87,6 +104,4 @@ def fit_511(h):
     #         # Found the 511 peak!
     #         break
     
-    f.Write()
-    h.Write()
-    return [f.GetParameter(i) for i in range(3)], [f.GetParError(i) for i in range(3)]
+    return [f.GetParameter(i) for i in range(5)], [f.GetParError(i) for i in range(5)]

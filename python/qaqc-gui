@@ -347,7 +347,7 @@ def take_data():
             cmd = [WAVEDUMP_PROGRAM,'-t','self','-l',source.get().lower(),'--channel-map',j % 2,'-n',n_source_events.get(),'-o',filename]
             if source.get().lower() == 'sodium':
                 cmd += ['--threshold']
-                cmd += [-0.05]
+                cmd += [-0.2]
             if run_command(cmd, progress_bar=i):
                 hv_off(client)
                 return

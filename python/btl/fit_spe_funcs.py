@@ -274,6 +274,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
             xmax = x
             ymax = value
 
+        # Depending on binning, this may break too early
         # if value < ymax*0.8:
         #     break
 
@@ -299,7 +300,6 @@ def fit_spe(h, model, f_h=None, root_func=False):
     # `l`, short for lambda, which is the average number of PEs measured in the
     # integration window.
     zero_peak_end = offset + 2 * raw_spread
-    # print(f'zero_peak_end: {zero_peak_end}')
     num_zero = h.Integral(0, get_bin_num(h, zero_peak_end))
     prob_zero = num_zero / h.GetEntries()
     if prob_zero <= 0 or prob_zero >= 1:

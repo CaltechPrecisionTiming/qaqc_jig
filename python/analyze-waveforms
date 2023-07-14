@@ -240,11 +240,11 @@ def spe_baseline_subtraction(x, y, a, b, method=1):
 
     1: Cut events where the voltage is more than two standard
        devations below the baseline at the start or end of the integration
-       window to avoid half pulses. Then, a uniform subtraction of the median
-       of the samples at the start and end of the integration window.
+       window to avoid half pulses.
 
     2: Per sample median subtraction. This method is not good because the SPE
        signal gets diminished.
+
     3: Delete all trials that have an SPE between `ma` and `mb`. Subtract off
        the median between `ma` and `mb` on a per event basis.
 
@@ -264,7 +264,6 @@ def spe_baseline_subtraction(x, y, a, b, method=1):
         # Cut events where the voltage signal is more than 2 standard
         # deviations away at the start or stop of the integration window.
         y = y[(y[:,a] > -2*std) & (y[:,b] > -2*std)]
-        y -= np.median(np.concatenate((y[:, np.argmin(np.abs(x-args.start_time))], y[:, np.argmin(np.abs(x-args.start_time))])))
     elif args.integration_method == 2:
         # `s` for samples
         s = y.T

@@ -512,22 +512,22 @@ if __name__ == '__main__':
                         # plotting
                         avg_y = np.mean(y, axis=0)
                     plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
-        if True: # source == 'lyso':    
-            if len(list(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])) > 0:
-                charge = np.zeros((32,max(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])))
-                for channel in ch_data:
-                    if f'{source}_charge' not in ch_data[channel]:
-                        continue
-                    ch = int(channel[2:])
-                    charge[ch,:len(ch_data[channel][f'{source}_charge'])] = ch_data[channel][f'{source}_charge']
+        
+        if len(list(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])) > 0:
+            charge = np.zeros((32,max(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])))
+            for channel in ch_data:
+                if f'{source}_charge' not in ch_data[channel]:
+                    continue
+                ch = int(channel[2:])
+                charge[ch,:len(ch_data[channel][f'{source}_charge'])] = ch_data[channel][f'{source}_charge']
 
-            neighbors = {}
-            for i in range(32):
-                neighbors[i] = []
-                if (i + 1) % 8 > i % 8:
-                    neighbors[i].append(i+1)
-                if (i - 1) % 8 < i % 8:
-                    neighbors[i].append(i-1)
+        neighbors = {}
+        for i in range(32):
+            neighbors[i] = []
+            if (i + 1) % 8 > i % 8:
+                neighbors[i].append(i+1)
+            if (i - 1) % 8 < i % 8:
+                neighbors[i].append(i-1)
 
         for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
             ch = int(channel[2:])
@@ -543,9 +543,9 @@ if __name__ == '__main__':
             # gamma peaks, whereas at 200% they are pretty hard to see.
             if f'{source}_charge' in ch_data[channel]:
                 selection = np.array((charge[ch] > charge[neighbors[ch]]*2).all(axis=0)) & np.array(charge[ch] > 50)
-                source_bins = get_bins(charge[ch][selection], cutoff=100)
+                selection = selection[:len(ch_data[channel][f'{source}_charge'])]
+                source_bins = get_bins(ch_data[channel][f'{source}_charge'][selection], cutoff=100)
                 hsource = ROOT.TH1D(f"{source}_{channel}", f"{source.capitalize()} Charge Integral for {channel}", len(source_bins), source_bins[0], source_bins[-1])
-                selection = selection[:len(ch_data[channel][f"{source}_charge"])]
                 for x in ch_data[channel][f"{source}_charge"][selection]:
                     hsource.Fill(x)
                 hsource.GetXaxis().SetTitle("Charge (pC)")

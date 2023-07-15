@@ -7,7 +7,7 @@ import ROOT
 # Na-22 gamma ray energy.
 GAMMA_E = 511 # keV
 
-def ROOT_peaks(h, width=4, height=0.05, options=""):
+def ROOT_peaks(h, width=10, height=0.05, options=""):
     """
     Finds peaks in hisogram `h`. `height` is measured as a fraction of the
     highest peak.  Peaks lower than `<highest peak>*height` will not be
@@ -54,23 +54,30 @@ def fit_511(h):
        entries is the one we take as the 511 peak. Most of the time,
        this just means we're taking the peak with the largest charge.
     """
-    win = 100 # 0.2 * h.GetStdDev()
-    # The highest peak
-    peak = ROOT_peaks(h, width=2, height=0.05, options="nobackground")[1]
-
-    # Just for debugging, should handle this case better
+    win = 100
+    # FIXME: May want to tweak these peak finding parameters. Having `width=10`
+    # seems too small, but if it's made bigger, the peak-finding algorithm
+    # struggles to find the 511 keV peak. 
+    # `peak` is the charge of the tallest peak in the spectrum.
+    peak = ROOT_peaks(h, width=10, height=0.05, options="nobackground")[1]
+    
+    # `ROOT_peaks` should find at least one peak, ideally the 511 keV peak.
     if peak == None:
         return None
+
     # Gaussian + linear background
     f = ROOT.TF1(f"{h.GetName()}_fit",f"[2]*exp(-0.5*((x-[0]*{GAMMA_E})/[1])**2 + [3]*x + [4])", 0, 1000)
+    
     f.SetParameter(0, peak/GAMMA_E)
     f.SetParameter(1, win/2)
+    f.SetParLimits(1, 0, 1e9)
     f.SetParameter(2, h.GetBinContent(h.FindBin(peak)))
+    
     r = h.Fit(f, 'ILMSRB', '', peak-win, peak+win)
     h.Write()
-    # Secondary fit that limits the range to +/-1.5 sigma. This makes the
+    # Secondary fit that limits the range to +/-1 sigma. This makes the
     # Gaussian + linear background approximation more accurate. 
-    r = h.Fit(f, 'ILMSRB', '', GAMMA_E*f.GetParameter(0) - 1.5*f.GetParameter(1), GAMMA_E*f.GetParameter(0) + 1.5*f.GetParameter(1))
+    r = h.Fit(f, 'ILMSRB', '', GAMMA_E*f.GetParameter(0) - f.GetParameter(1), GAMMA_E*f.GetParameter(0) + f.GetParameter(1))
     f.Write()
     h.Write()
     try:

@@ -301,7 +301,7 @@ def fit_lyso(h, model, fix_pars=True):
         if value < ymax*0.8:
             n += 1
 
-            if n >= 2:
+            if n >= 4:
                 break
         else:
             n = 0

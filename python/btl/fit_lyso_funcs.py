@@ -275,7 +275,7 @@ def fit_lyso(h, model, fix_pars=True):
     for i in range(1,h.GetNbinsX()-1)[::-1]:
         # We look for the peak by looping over the bins from the *right* to the
         # *left* and then looking for a peak and then for the distribution to
-        # go below 90% of this peak (I just picked the 90% number as a guess
+        # go below 80% of this peak (I just picked the 80% number as a guess
         # and it seems to work well, but this could be tweaked). The reason for
         # this is that channels 7, 8, 23, and 24 are in the middle of the
         # module and next to a bar which is not powered, so we can't properly
@@ -301,7 +301,7 @@ def fit_lyso(h, model, fix_pars=True):
         if value < ymax*0.8:
             n += 1
 
-            if n >= 4:
+            if n >= 5:
                 break
         else:
             n = 0

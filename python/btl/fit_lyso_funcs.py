@@ -26,7 +26,7 @@ SPE_CHARGE = 1.0 # pC
 # FIXME: Should actually measure this
 SPE_ERROR = 0.01 # pC
 
-ES = np.linspace(1,1000,250)
+ES = np.linspace(1,1000,1e3)
 
 def memoize(fun):
     _cache = {}
@@ -202,7 +202,7 @@ def likelihood_fast(q,avg_y,dy,p,spe_charge=SPE_CHARGE):
     since we do the second integral analytically.
     """
     integral = integral_fast(q,avg_y,dy,spe_charge)
-    return np.trapz(p_e_fast(p)*integral,dx=ES[1]-ES[0],axis=-1)/(2*dy)
+    return np.trapz(p_e_fast(p)*integral,dx=ES[1]-ES[0],axis=-1)/(2*dy*avg_y)
 
 class lyso_spectrum(object):
     def __init__(self, spe_charge=SPE_CHARGE):

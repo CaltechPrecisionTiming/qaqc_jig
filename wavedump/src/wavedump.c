@@ -1656,7 +1656,7 @@ void print_help()
 {
     fprintf(stderr, "usage: wavedump -o [OUTPUT] -n [NUMBER] [CONFIG_FILE]\n"
     "  -t, --trigger Type of trigger: \"software\", \"external\", or \"self\".\n"
-    "  -l, --label   Name of hdf5 group to write data to (lyso, sodium, spe)\n"
+    "  -l, --label   Name of hdf5 group to write data to (lyso, sodium, spe, ...)\n"
     "  --threshold   Trigger threshold (volts) (default: -0.05)\n"
     "  --gzip-compression-level\n"
     "                gzip compression level (default: 0)\n"
@@ -1770,7 +1770,7 @@ WaveDumpConfig_t get_default_settings() {
     return WDcfg;
 }
 
-/* Returns the settings for the sodium or LYSO data. The only difference with
+/* Returns the settings for the external source or LYSO data. The only difference with
  * the SPE settings is that we set the offset such that we get more negative
  * range.
  *

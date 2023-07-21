@@ -24,6 +24,10 @@ ATTENUATION_FACTOR = 5.85
 # signal to charge.
 CAEN_R = 50.0
 
+# Radioactive sources with their gamma energies in keV. 'lyso' maps to `None`
+# because we fit more than one gamma line.
+SOURCES = {'lyso': None, 'sodium': 511, 'cesium': 662}
+
 class Institution(Enum):
     """
     Note: This must be kept in sync with the values in btl_qa.sql.
@@ -155,9 +159,9 @@ def get_bins(x, cutoff=None):
         print('Zero bin width! Quitting...', file=sys.stderr)
         sys.exit(1)
 
-    min = np.percentile(orig_x,1)
-    max = np.percentile(x,99)
-    return np.arange(min,max,bin_width)
+    first = np.percentile(orig_x,1)
+    last = np.percentile(x,99)
+    return np.arange(first,last,bin_width)
 
 def chunks(lst, n):
     """
@@ -343,9 +347,9 @@ if __name__ == '__main__':
     import psycopg2.extensions
     from btl import fit_spe_funcs
     from btl import fit_lyso_funcs
-    from btl import fit_511_funcs
+    from btl import fit_gamma_funcs
 
-    parser = ArgumentParser(description='Analyze SPE and source (LYSO or sodium) charges')
+    parser = ArgumentParser(description='Analyze SPE and source (LYSO or external source) charges')
     parser.add_argument('filename',help='input filename (hdf5 format)')
     parser.add_argument('-o','--output', default='delete_me.root', help='output file name')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
@@ -386,14 +390,18 @@ if __name__ == '__main__':
     ch_data = {}
     source = None
     with h5py.File(args.filename,'r') as f:
-        if 'lyso' in f and 'sodium' in f:
-            print('Can not analyze file with lyso and sodium data!', file=sys.stdrr)
+        if len(SOURCES.keys() & set(f)) > 1:
+            print('Can not analyze file with more than one source!', file=sys.stdrr)
             sys.exit(1)
-        
+        if len(SOURCES.keys() & set(f)) == 1:
+            source = list(SOURCES.keys() & set(f))[0]
+        # If there is no source in the data set, then we can still analyze SPE
+        # data.
+
         root_f = ROOT.TFile(args.output, "recreate")
                 
         if args.upload:
-            if 'lyso' not in dict(f):
+            if source != 'lyso':
                 print("Missing lyso data!", file=sys.stderr)
                 sys.exit(1)
             if 'spe' not in dict(f):
@@ -450,11 +458,9 @@ if __name__ == '__main__':
             if args.group is not None and group != args.group:
                 continue
 
-            if group not in ('lyso', 'spe', 'sodium'):
+            if group not in SOURCES and group != 'spe':
                 print("Unknown group name: \"%s\". Skipping..." % group)
                 continue
-            if group != 'spe':
-                source = group
             for channel in f[group]:
                 # All relevant channels from the scope and digitizer should
                 # be in this format: 'ch<channel number>'.
@@ -606,7 +612,7 @@ if __name__ == '__main__':
             source_fit_pars = None
             if f'{source}_charge' in ch_data[channel]:
                 if source == 'lyso':
-                    print('Fitting LYSO %s!' % channel)
+                    print(f'Fitting LYSO {ch}')
                     if 'spe_charge' in ch_data[channel] and spe_fit_pars is not None:
                         model = fit_lyso_funcs.lyso_spectrum(spe_fit_pars[0][3]/ATTENUATION_FACTOR)
                     else:
@@ -623,9 +629,9 @@ if __name__ == '__main__':
                             source_fit_pars = fit_lyso_funcs.fit_lyso(hsource, model, fix_pars=False)
                         else:
                             source_fit_pars = fit_lyso_funcs.fit_lyso(hsource, model)
-                if source == 'sodium':
-                    print('Fitting sodium %s!' % channel)
-                    source_fit_pars = fit_511_funcs.fit_511(hsource)
+                else:
+                    print(f'Fitting {source} {ch}!')
+                    source_fit_pars = fit_gamma_funcs.fit_gamma(hsource, SOURCES[source])
                 if source_fit_pars is not None:
                     ch_data[channel][f'{source}_fit_pars'] = source_fit_pars[0]
                     ch_data[channel][f'{source}_fit_par_errors'] = source_fit_pars[1]

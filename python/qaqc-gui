@@ -34,7 +34,8 @@ ASSEMBLY_CENTERS = [
 
 NUMBER_OF_BOARDS = [str(i) for i in range(1,5)]
 
-SOURCES = ['LYSO', 'Sodium']
+# These sources should be kept the same as those in `analyze-waveforms`.
+SOURCES = ['LYSO', 'Sodium', 'Cesium']
 
 BOARD_ADDRESSES = {
     0: [0,1],
@@ -345,7 +346,7 @@ def take_data():
                 return
 
             cmd = [WAVEDUMP_PROGRAM,'-t','self','-l',source.get().lower(),'--channel-map',j % 2,'-n',n_source_events.get(),'-o',filename]
-            if source.get().lower() == 'sodium':
+            if source.get().lower() != 'lyso':
                 cmd += ['--threshold']
                 cmd += [-0.2]
             if run_command(cmd, progress_bar=i):

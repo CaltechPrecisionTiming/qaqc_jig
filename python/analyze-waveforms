@@ -26,7 +26,7 @@ CAEN_R = 50.0
 
 # Radioactive sources with their gamma energies in keV. 'lyso' maps to `None`
 # because we fit more than one gamma line.
-SOURCES = {'lyso': None, 'sodium': 511, 'cesium': 662}
+SOURCES = {'lyso': None, 'sodium': 511, 'cesium': 662, 'cobalt': 122}
 
 class Institution(Enum):
     """
@@ -547,9 +547,17 @@ if __name__ == '__main__':
             # with 100% it worked pretty well, but you could still see the
             # gamma peaks, whereas at 200% they are pretty hard to see.
             if f'{source}_charge' in ch_data[channel]:
-                selection = np.array((charge[ch] > charge[neighbors[ch]]*2).all(axis=0)) & np.array(charge[ch] > 50)
+                no_crosstalk = np.array((charge[ch] > charge[neighbors[ch]]*2).all(axis=0))
+                if source != 'cobalt':
+                    cut = 50
+                else:
+                    cut = 0
+
+                events = np.array(charge[ch] > cut)
+                selection = no_crosstalk & events
                 selection = selection[:len(ch_data[channel][f'{source}_charge'])]
-                source_bins = get_bins(ch_data[channel][f'{source}_charge'][selection], cutoff=100)
+                    
+                source_bins = get_bins(ch_data[channel][f'{source}_charge'][selection], cutoff=cut)
                 hsource = ROOT.TH1D(f"{source}_{channel}", f"{source.capitalize()} Charge Integral for {channel}", len(source_bins), source_bins[0], source_bins[-1])
                 for x in ch_data[channel][f"{source}_charge"][selection]:
                     hsource.Fill(x)

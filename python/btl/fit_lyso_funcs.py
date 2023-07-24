@@ -329,21 +329,13 @@ def fit_lyso(h, model, fix_pars=True):
    
     f.SetParameter(2, 0)
     f.SetParLimits(2, -100, 100)
-
-    f.SetParameter(3,0.25*h.GetEntries()/dx)
-    f.SetParLimits(3,0,1e9)
-    f.SetParameter(4,0)
-    f.SetParLimits(4,0,1e9)
-    f.SetParameter(5,0.25*h.GetEntries()/dx)
-    f.SetParLimits(5,0,1e9)
-    f.SetParameter(6,0)
-    f.SetParLimits(6,0,1e9)
-    f.SetParameter(7,0.25*h.GetEntries()/dx)
-    f.SetParLimits(7,0,1e9)
-    f.SetParameter(8,0)
-    f.SetParLimits(8,0,1e9)
-    f.SetParameter(9,0.25*h.GetEntries()/dx)
-    f.SetParLimits(9,0,1e9)
+    
+    for i in (3, 5, 7, 9):
+        f.SetParameter(i,0.25*h.GetEntries()/dx)
+        f.SetParLimits(i,0,1e9)
+    for i in (4, 6, 8):
+        f.SetParameter(i,0)
+        f.SetParLimits(i,0,1e9)
 
     # Right now we don't fit for the single gammas since they should mostly be
     # cut out since we only include events where the given channel has more
@@ -363,7 +355,7 @@ def fit_lyso(h, model, fix_pars=True):
     # Now we float all the parameters
     f.ReleaseParameter(0)
     f.ReleaseParameter(1)
-    f.ReleaseParameter(2)
+    # f.ReleaseParameter(2)
     fr = h.Fit(f,"S","",pc_per_kev*150,800)
     try:
         if not fr.Get().IsValid():

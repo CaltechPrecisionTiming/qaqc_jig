@@ -546,23 +546,28 @@ if __name__ == '__main__':
             # The factor of 200% could probably be optimized. I noticed that
             # with 100% it worked pretty well, but you could still see the
             # gamma peaks, whereas at 200% they are pretty hard to see.
+            cut = 50
             if f'{source}_charge' in ch_data[channel]:
                 no_crosstalk = np.array((charge[ch] > charge[neighbors[ch]]*2).all(axis=0))
-                if source != 'cobalt':
-                    cut = 50
-                else:
-                    cut = 0
-
                 events = np.array(charge[ch] > cut)
                 selection = no_crosstalk & events
                 selection = selection[:len(ch_data[channel][f'{source}_charge'])]
-                    
-                source_bins = get_bins(ch_data[channel][f'{source}_charge'][selection], cutoff=cut)
+                source_bins = get_bins(ch_data[channel][f'{source}_charge'][selection])
                 hsource = ROOT.TH1D(f"{source}_{channel}", f"{source.capitalize()} Charge Integral for {channel}", len(source_bins), source_bins[0], source_bins[-1])
                 for x in ch_data[channel][f"{source}_charge"][selection]:
                     hsource.Fill(x)
                 hsource.GetXaxis().SetTitle("Charge (pC)")
                 hsource.Write()
+
+            if source != 'lyso':
+                offset_selection = np.array(charge[ch] > -cut) & np.array(charge[ch] < cut) # & no_crosstalk
+                offset_selection = offset_selection[:len(ch_data[channel][f'{source}_charge'])]
+                offset_bins = get_bins(ch_data[channel][f'{source}_charge'][offset_selection])
+                hoffset = ROOT.TH1D(f"{source}_{channel}_offset", f"Offset {source.capitalize()} Charge Integral for {channel}", len(offset_bins), offset_bins[0], offset_bins[-1])
+                for x in ch_data[channel][f"{source}_charge"][offset_selection]:
+                    hoffset.Fill(x)
+                hoffset.GetXaxis().SetTitle("Charge (pC)")
+                hoffset.Write()
 
             if 'spe_charge' in ch_data[channel]:
                 spe_bins = get_bins(ch_data[channel]['spe_charge'])
@@ -639,7 +644,7 @@ if __name__ == '__main__':
                             source_fit_pars = fit_lyso_funcs.fit_lyso(hsource, model)
                 else:
                     print(f'Fitting {source} {ch}!')
-                    source_fit_pars = fit_gamma_funcs.fit_gamma(hsource, SOURCES[source])
+                    source_fit_pars = fit_gamma_funcs.fit_gamma(hsource, hoffset, SOURCES[source])
                 if source_fit_pars is not None:
                     ch_data[channel][f'{source}_fit_pars'] = source_fit_pars[0]
                     ch_data[channel][f'{source}_fit_par_errors'] = source_fit_pars[1]

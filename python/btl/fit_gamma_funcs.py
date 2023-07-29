@@ -29,7 +29,7 @@ def ROOT_peaks(h, width=10, height=0.05, options=""):
     x_pos = x_pos[ind]
     return (x_pos, highest_peak)
 
-def fit_gamma(h, hoffset, eng):
+def fit_gamma(h, eng, offset=0, offset_sigma=10):
     """
     Finds the full energy gamma peak (with energy `eng`) in the ROOT histogram
     `h`, and fits it with a Gausssian. Returns the fit parameters, with the
@@ -37,13 +37,6 @@ def fit_gamma(h, hoffset, eng):
     
     Also fits the peak corresponding to 0 keV events to measure any offset.
     """
-    # First we find the offset peak.
-    offset = hoffset.GetBinCenter(hoffset.GetMaximumBin())
-    offset_pars = fit_offset(hoffset, offset)
-    if offset_pars is None:
-        return None
-    offset = offset_pars[0][0]
-    offset_sigma = offset_pars[0][1]
     
     # Now we find the full energy peak. We don't use `GetMaximumBin` because we
     # want our estimate of the full energy peak to be sufficiently far away
@@ -83,12 +76,13 @@ def fit_gamma(h, hoffset, eng):
     # return [f.GetParameter(i) for i in range(5)], [f.GetParError(i) for i in range(5)]
     return [f.GetParameter(i) for i in range(3)], [f.GetParError(i) for i in range(3)]
 
-def fit_offset(h, peak):
+def fit_offset(h):
     """
     Fits the peak corresponding to 0 keV events to measure any offset.
     
     Returns the fit parameters.
     """
+    peak = h.GetBinCenter(h.GetMaximumBin())
     sigma = 10
     # FIXME: Gaussian noise model is just a guess. However, we really only need
     # the average noise, which a narrow Gaussian can roughly estimate.
@@ -99,8 +93,8 @@ def fit_offset(h, peak):
     
     r = h.Fit(f, FIT_OPTIONS, '', peak-sigma, peak+sigma)
     h.Write()
-    # Secondary fit that we limit to +/-1.5 sigma. 
-    r = h.Fit(f, FIT_OPTIONS, '', f.GetParameter(1) - 1.5*abs(f.GetParameter(2)), f.GetParameter(1) + 1.5*abs(f.GetParameter(2)))
+    # Secondary fit that we limit to +/-1 sigma. 
+    r = h.Fit(f, FIT_OPTIONS, '', f.GetParameter(1) - abs(f.GetParameter(2)), f.GetParameter(1) + abs(f.GetParameter(2)))
     f.Write()
     h.Write()
 

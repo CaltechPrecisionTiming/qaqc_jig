@@ -205,8 +205,9 @@ def likelihood_fast(q,avg_y,dy,p,spe_charge=SPE_CHARGE):
     return np.trapz(p_e_fast(p)*integral,dx=ES[1]-ES[0],axis=-1)/(2*dy*avg_y)
 
 class lyso_spectrum(object):
-    def __init__(self, spe_charge=SPE_CHARGE):
+    def __init__(self, spe_charge=SPE_CHARGE, offset=0):
         self.spe_charge = spe_charge
+        self.offset = offset
 
     def __call__(self, x, p):
         """
@@ -214,17 +215,16 @@ class lyso_spectrum(object):
 
         p[0] - Average Light yield (pC/keV)
         p[1] - Fractional difference between light yield at center and side
-        p[2] - Offset (expected pC at 0 keV)
-        p[3] - Constant for 88 keV spectrum
-        p[4] - Constant for 202 keV gamma
-        p[5] - Constant for 290 keV spectrum
-        p[6] - Constant for 307 keV gamma
-        p[7] - Constant for 395 keV spectrum
-        p[8] - Constant for 509 keV gamma
-        p[9] - Constant for 597 keV spectrum
+        p[2] - Constant for 88 keV spectrum
+        p[3] - Constant for 202 keV gamma
+        p[4] - Constant for 290 keV spectrum
+        p[5] - Constant for 307 keV gamma
+        p[6] - Constant for 395 keV spectrum
+        p[7] - Constant for 509 keV gamma
+        p[8] - Constant for 597 keV spectrum
         """
-        ps = tuple([p[i] for i in range(3,10)])
-        return likelihood_fast(x[0]-p[2],p[0],p[1],ps,self.spe_charge)
+        ps = tuple([p[i] for i in range(2,9)])
+        return likelihood_fast(x[0]-self.offset,p[0],p[1],ps,self.spe_charge)
 
 def get_lyso(x, p, spe_charge=SPE_CHARGE):
     model = lyso_spectrum(spe_charge)
@@ -245,18 +245,17 @@ def fit_lyso(h, model, fix_pars=True):
     If the fit is successful, returns a list of the fit parameters:
         p[0] - Average Light yield (pC/keV)
         p[1] - Fractional difference between light yield at center and side
-        p[2] - Offset (expected pC at 0 keV)
-        p[3] - Constant for 88 keV spectrum
-        p[4] - Constant for 202 keV gamma
-        p[5] - Constant for 290 keV spectrum
-        p[6] - Constant for 307 keV gamma
-        p[7] - Constant for 395 keV spectrum
-        p[8] - Constant for 509 keV gamma
-        p[9] - Constant for 597 keV spectrum
+        p[2] - Constant for 88 keV spectrum
+        p[3] - Constant for 202 keV gamma
+        p[4] - Constant for 290 keV spectrum
+        p[5] - Constant for 307 keV gamma
+        p[6] - Constant for 395 keV spectrum
+        p[7] - Constant for 509 keV gamma
+        p[8] - Constant for 597 keV spectrum
 
     Otherwise, returns None.
     """
-    f = ROOT.TF1("%s_fit" % h.GetName(),model,0,1000,10)
+    f = ROOT.TF1("%s_fit" % h.GetName(),model,0,1000,9)
     xmax = None
     ymax = 0
     xmin = None
@@ -326,14 +325,13 @@ def fit_lyso(h, model, fix_pars=True):
     f.SetParLimits(0,0.1,10)
     f.SetParameter(1,0.1)
     f.SetParLimits(1,0.01,0.2)
-   
-    f.SetParameter(2, 0)
-    f.SetParLimits(2, -100, 100)
     
-    for i in (3, 5, 7, 9):
+    # Gamma + beta spectra
+    for i in (2, 4, 6, 8):
         f.SetParameter(i,0.25*h.GetEntries()/dx)
         f.SetParLimits(i,0,1e9)
-    for i in (4, 6, 8):
+    # Just gamma spectra
+    for i in (3, 5, 7):
         f.SetParameter(i,0)
         f.SetParLimits(i,0,1e9)
 
@@ -341,13 +339,12 @@ def fit_lyso(h, model, fix_pars=True):
     # cut out since we only include events where the given channel has more
     # charge than it's neighbors and it makes the fit more complicated.
     if fix_pars:
-        f.FixParameter(4,0)
-        f.FixParameter(6,0)
+        f.FixParameter(3,0)
+        f.FixParameter(5,0)
 
     # Run the first fit only floating the normalization constants
     f.FixParameter(0,xmax/300)
     f.FixParameter(1,0.1)
-    f.FixParameter(2, 0)
     fr = h.Fit(f,"S","",pc_per_kev*150,800)
     h.GetXaxis().SetRangeUser(xmin,800)
     h.Write()
@@ -355,7 +352,6 @@ def fit_lyso(h, model, fix_pars=True):
     # Now we float all the parameters
     f.ReleaseParameter(0)
     f.ReleaseParameter(1)
-    # f.ReleaseParameter(2)
     fr = h.Fit(f,"S","",pc_per_kev*150,800)
     try:
         if not fr.Get().IsValid():
@@ -365,7 +361,7 @@ def fit_lyso(h, model, fix_pars=True):
     h.GetXaxis().SetRangeUser(xmin,800)
     f.Write()
     h.Write()
-    return [f.GetParameter(i) for i in range(10)], [f.GetParError(i) for i in range(10)]
+    return [f.GetParameter(i) for i in range(9)], [f.GetParError(i) for i in range(9)]
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt

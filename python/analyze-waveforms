@@ -558,9 +558,11 @@ if __name__ == '__main__':
                     hsource.Fill(x)
                 hsource.GetXaxis().SetTitle("Charge (pC)")
                 hsource.Write()
-
-            if source != 'lyso':
-                offset_selection = np.array(charge[ch] > -cut) & np.array(charge[ch] < cut) # & no_crosstalk
+                
+                # Offset histogram
+                no_events = np.array(charge[ch] > -cut) & np.array(charge[ch] < cut)
+                no_neighbor_events = np.array((charge[neighbors[ch]] < cut).all(axis=0))
+                offset_selection = no_events & no_neighbor_events
                 offset_selection = offset_selection[:len(ch_data[channel][f'{source}_charge'])]
                 offset_bins = get_bins(ch_data[channel][f'{source}_charge'][offset_selection])
                 hoffset = ROOT.TH1D(f"{source}_{channel}_offset", f"Offset {source.capitalize()} Charge Integral for {channel}", len(offset_bins), offset_bins[0], offset_bins[-1])
@@ -608,6 +610,7 @@ if __name__ == '__main__':
             ##################
             # Fitting Histogram
             ##################
+
             if 'spe_charge' in ch_data[channel]:
                 print('Fitting SPE %s!' % channel)
                 model = fit_spe_funcs.vinogradov_model()
@@ -622,14 +625,23 @@ if __name__ == '__main__':
                     ch_data[channel]['spe'] = None
                 plot_hist(hspe, pdf=args.print_pdfs, filename=args.filename)
             
+            offset_pars = fit_gamma_funcs.fit_offset(hoffset) 
+            if offset_pars is not None:
+                print('Using offset data!')
+                offset = offset_pars[0][0]
+                offset_sigma = offset_pars[0][1]
+            else:
+                print(f'WARNING: Could not measure the offset in ch{ch}. Defaulting to zero offset.')
+                offset = 0
+                offset_sigma = 10
             source_fit_pars = None
             if f'{source}_charge' in ch_data[channel]:
                 if source == 'lyso':
                     print(f'Fitting LYSO {ch}')
                     if 'spe_charge' in ch_data[channel] and spe_fit_pars is not None:
-                        model = fit_lyso_funcs.lyso_spectrum(spe_fit_pars[0][3]/ATTENUATION_FACTOR)
+                        model = fit_lyso_funcs.lyso_spectrum(spe_charge=spe_fit_pars[0][3]/ATTENUATION_FACTOR, offset=offset)
                     else:
-                        model = fit_lyso_funcs.lyso_spectrum()
+                        model = fit_lyso_funcs.lyso_spectrum(offset=offset)
 
                     if hsource.GetEntries() != 0:
                         if ch in (7,8,23,24):
@@ -644,7 +656,7 @@ if __name__ == '__main__':
                             source_fit_pars = fit_lyso_funcs.fit_lyso(hsource, model)
                 else:
                     print(f'Fitting {source} {ch}!')
-                    source_fit_pars = fit_gamma_funcs.fit_gamma(hsource, hoffset, SOURCES[source])
+                    source_fit_pars = fit_gamma_funcs.fit_gamma(hsource, SOURCES[source], offset=offset, offset_sigma=offset_sigma)
                 if source_fit_pars is not None:
                     ch_data[channel][f'{source}_fit_pars'] = source_fit_pars[0]
                     ch_data[channel][f'{source}_fit_par_errors'] = source_fit_pars[1]

@@ -2395,7 +2395,7 @@ int main(int argc, char *argv[])
         if (NumEvents > WF_SIZE)
             NumEvents = WF_SIZE;
         printf("got %i events\n", NumEvents);
-	    printf("%i / %i\n", total_events + NumEvents, nevents);
+        printf("%i / %i\n", total_events + NumEvents, nevents);
 
         /* Analyze data */
         nread = 0;

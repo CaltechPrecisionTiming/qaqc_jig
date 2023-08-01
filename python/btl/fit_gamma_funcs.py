@@ -34,8 +34,6 @@ def fit_gamma(h, eng, offset=0, offset_sigma=10):
     Finds the full energy gamma peak (with energy `eng`) in the ROOT histogram
     `h`, and fits it with a Gausssian. Returns the fit parameters, with the
     first parameter being pC per keV.
-    
-    Also fits the peak corresponding to 0 keV events to measure any offset.
     """
     
     # Now we find the full energy peak. We don't use `GetMaximumBin` because we
@@ -108,6 +106,4 @@ def fit_offset(h):
     # 0: scale
     par_order = (1, 2, 0)
     return [f.GetParameter(i) for i in par_order], [f.GetParError(i) for i in par_order]
-
-
 

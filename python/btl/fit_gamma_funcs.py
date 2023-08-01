@@ -42,7 +42,7 @@ def fit_gamma(h, eng, offset=0, offset_sigma=10):
     # want our estimate of the full energy peak to be sufficiently far away
     # from the offset peak.
     peak_bin = None
-    for i in range(h.FindBin(offset + 3*offset_sigma), h.GetNbinsX()):
+    for i in range(max(1, h.FindBin(offset + 3*offset_sigma)), h.GetNbinsX()):
         if peak_bin is None or h.GetBinContent(i) > h.GetBinContent(peak_bin):
             peak_bin = i
     if peak_bin is None:

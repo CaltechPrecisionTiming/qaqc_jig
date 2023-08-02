@@ -11,6 +11,7 @@ Date: March 21, 2023
 from __future__ import division
 import numpy as np
 from scipy.stats import norm
+from scipy import constants
 import ROOT
 from functools import lru_cache, wraps
 from scipy.special import erf
@@ -27,6 +28,9 @@ SPE_CHARGE = 1.0 # pC
 SPE_ERROR = 0.01 # pC
 
 ES = np.linspace(1,1000,1e3)
+
+# Small number to avoid divide by zeros
+EPSILON = 1e-10
 
 def memoize(fun):
     _cache = {}
@@ -97,8 +101,26 @@ def dn(E,Q,Z,A,forb=None):
     # Branch Spectrum
     return forbiddenness*F*(np.sqrt(np.power(e,2)+2*e*511)*np.power(Q-e,2)*(e+511))
 
-# Small number to avoid divide by zeros
-EPSILON = 1e-10
+def analytic_spectrum(T, offset):
+    """
+    Analytic calculation of the beta particle energy spectrum. Follows the
+    definitions on the Wikipedia page:
+    https://en.wikipedia.org/wiki/Beta_decay#Beta_emission_spectrum
+    """
+    CL = 1 # forbiddenness constant. TODO: learn more about this.
+    Z = 72 # charge of Hafnium daughter nucleus
+    m_e = 511 # electron rest mass, keV
+    E = T + m_e # total beta particle energy
+    p = (1/constants.c)*np.sqrt(E**2 + m_e**2) # momentum of beta particle
+    Q = 593 # Endpoint (total energy released)
+    
+    if Q <= T:
+        # Q is upper bound for T
+        return 0
+    # TODO: Finish this function. Although, it may not be needed.
+    return 0
+
+
 
 @memoize
 def spectrum(es, offset):

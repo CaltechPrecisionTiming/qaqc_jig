@@ -293,6 +293,8 @@ def fit_lyso(h, model, fix_pars=True):
         if xmin is None or value < ymin:
             xmin = x
             ymin = value
+    if xmin is None:
+        return None
 
     n = 0
     for i in range(1,h.GetNbinsX()-1)[::-1]:

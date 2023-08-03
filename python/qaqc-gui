@@ -346,9 +346,12 @@ def take_data():
                 return
 
             cmd = [WAVEDUMP_PROGRAM,'-t','self','-l',source.get().lower(),'--channel-map',j % 2,'-n',n_source_events.get(),'-o',filename]
+            cmd += ['--threshold']
             if source.get().lower() in ('sodium', 'cesium'):
-                cmd += ['--threshold']
-                cmd += [-0.2]
+                # -0.2V worked well when the bias was set to 42V
+                cmd += [voltage*(-0.2/42)]
+            else:
+                cmd += [voltage*(-0.05/42)]
             if run_command(cmd, progress_bar=i):
                 hv_off(client)
                 return

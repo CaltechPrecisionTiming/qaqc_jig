@@ -520,6 +520,7 @@ if __name__ == '__main__':
         
         if len(list(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])) > 0:
             charge = np.zeros((32,max(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])))
+            charge -= 1e9
             for channel in ch_data:
                 if f'{source}_charge' not in ch_data[channel]:
                     continue
@@ -533,6 +534,17 @@ if __name__ == '__main__':
                 neighbors[i].append(i+1)
             if (i - 1) % 8 < i % 8:
                 neighbors[i].append(i-1)
+        
+        trigger_ch = np.zeros((4, charge.shape[-1]), dtype=int)
+        trigger_charge = np.zeros((4, charge.shape[-1]))
+        # Loop over each trigger group
+        # 0: ch0-7
+        # 1: ch8-15
+        # 2: ch16-23
+        # 3: ch24-31
+        for i in range(4):
+            trigger_ch[i] = np.argmax(charge[8*i:8*(i+1),:], axis=0) + 8*i
+            trigger_charge[i] = charge[trigger_ch[i], range(len(trigger_ch[i]))]
 
         for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
             ch = int(channel[2:])
@@ -546,11 +558,13 @@ if __name__ == '__main__':
             # The factor of 200% could probably be optimized. I noticed that
             # with 100% it worked pretty well, but you could still see the
             # gamma peaks, whereas at 200% they are pretty hard to see.
-            cut = 50
+            # cut = 50
+            cut = np.min(trigger_charge[ch//8, trigger_charge[ch//8] > 0])
             if f'{source}_charge' in ch_data[channel]:
-                no_crosstalk = np.array((charge[ch] > charge[neighbors[ch]]*2).all(axis=0))
-                events = np.array(charge[ch] > cut)
-                selection = no_crosstalk & events
+                # no_crosstalk = np.array((charge[ch] > charge[neighbors[ch]]*2).all(axis=0))
+                # events = np.array(charge[ch] > cut)
+                # selection = no_crosstalk & events
+                selection = np.array(charge[ch] >= trigger_charge[ch//8])
                 selection = selection[:len(ch_data[channel][f'{source}_charge'])]
                 source_bins = get_bins(ch_data[channel][f'{source}_charge'][selection])
                 hsource = ROOT.TH1D(f"{source}_{channel}", f"{source.capitalize()} Charge Integral for {channel}", len(source_bins), source_bins[0], source_bins[-1])
@@ -560,7 +574,7 @@ if __name__ == '__main__':
                 hsource.Write()
                 
                 # Offset histogram
-                no_events = np.array(charge[ch] > -cut) & np.array(charge[ch] < cut)
+                no_events = np.array(charge[ch] > -50) & np.array(charge[ch] < cut)
                 no_neighbor_events = np.array((charge[neighbors[ch]] < cut).all(axis=0))
                 offset_selection = no_events & no_neighbor_events
                 offset_selection = offset_selection[:len(ch_data[channel][f'{source}_charge'])]
@@ -578,6 +592,16 @@ if __name__ == '__main__':
                     hspe.Fill(x)
                 hspe.GetXaxis().SetTitle("Charge (pC)")
                 hspe.Write()
+            
+            ##################
+            # Finding Crosstalk
+            ##################
+            ch_data[channel]['ct'] = {}
+            # Loop over channels in trigger group:
+            for ct_ch in range(8*(ch//8), 8*(ch//8 + 1)):
+                if f'ch{ct_ch}' in ch_data:
+                    ch_data[channel]['ct'][f'ch{ct_ch}'] = charge[ct_ch, trigger_ch[ch//8] == ch]
+                    ch_data[channel['ct_ratio'][f'ch{ct_ch}'] = ch_data[channel]['ct'][f'ch{ct_ch}'] / charge[ch, trigger_ch[ch//8] == ch]
 
             ##################
             # Preparing Data for Upload
@@ -735,6 +759,19 @@ if __name__ == '__main__':
         g.SetTitle("SPE Fit Results; Channel; SPE Charge (pC)")
         g.SetName("spe")
         g.Write()
+    
+    ##################
+    # Crosstalk Analysis
+    ##################
+    # Loop over each trigger group
+    ct_matrix = [[None]*32]*32
+    for channel in ch_data:
+        ch = int(channel[2:])
+        for ct_channel in ch_data:
+            ct_ch = int(ct_channel[2:])
+            if ch//8 == ct_ch//8:
+                ct_matrix[ch, ct_ch] = np.mean(ch_data[f'ch{ch}']['ct_ratio'][f'ch{ct_ch}'])
+    print(np.array(ct_matrix))
 
     root_f.Close()
 

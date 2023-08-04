@@ -347,11 +347,17 @@ def take_data():
 
             cmd = [WAVEDUMP_PROGRAM,'-t','self','-l',source.get().lower(),'--channel-map',j % 2,'-n',n_source_events.get(),'-o',filename]
             cmd += ['--threshold']
+            # FIXME: breakdown voltage should be input by user. Hard-coding
+            # this is just for testing.
+            breakdown = 37.8
+            over = voltage - breakdown
             if source.get().lower() in ('sodium', 'cesium'):
                 # -0.2V worked well when the bias was set to 42V
-                cmd += [voltage*(-0.2/42)]
+                # cmd += [over*(-0.2/(42-breakdown))]
+                cmd += [over*(-0.05/(42-breakdown))]
             else:
-                cmd += [voltage*(-0.05/42)]
+                cmd += [over*(-0.05/(42-breakdown))]
+            print(f'Trigger: {cmd[-1]}')
             if run_command(cmd, progress_bar=i):
                 hv_off(client)
                 return

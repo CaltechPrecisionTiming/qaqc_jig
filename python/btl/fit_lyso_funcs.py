@@ -330,7 +330,7 @@ def fit_lyso(h, model, fix_pars=True):
                 break
         else:
             n = 0
-
+    xmax = h.GetBinCenter(h.GetMaximumBin())
     if xmax is None:
         return None
 

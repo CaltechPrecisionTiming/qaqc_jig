@@ -518,14 +518,14 @@ if __name__ == '__main__':
                         avg_y = np.mean(y, axis=0)
                     plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
         
-        if len(list(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])) > 0:
-            charge = np.zeros((32,max(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])))
-            charge -= 1e9
-            for channel in ch_data:
-                if f'{source}_charge' not in ch_data[channel]:
-                    continue
-                ch = int(channel[2:])
-                charge[ch,:len(ch_data[channel][f'{source}_charge'])] = ch_data[channel][f'{source}_charge']
+        # if len(list(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])) > 0:
+        #     charge = np.zeros((32,max(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])))
+        #     charge -= 1e9
+        #     for channel in ch_data:
+        #         if f'{source}_charge' not in ch_data[channel]:
+        #             continue
+        #         ch = int(channel[2:])
+        #         charge[ch,:len(ch_data[channel][f'{source}_charge'])] = ch_data[channel][f'{source}_charge']
 
         neighbors = {}
         for i in range(32):
@@ -535,17 +535,30 @@ if __name__ == '__main__':
             if (i - 1) % 8 < i % 8:
                 neighbors[i].append(i-1)
         
-        trigger_ch = np.zeros((4, charge.shape[-1]), dtype=int)
-        trigger_charge = np.zeros((4, charge.shape[-1]))
+        # trigger_ch = np.zeros((4, charge.shape[-1]), dtype=int)
+        group_charges = np.full(4, None)
+        trigger_charge = np.full(4, None)
         # Loop over each trigger group
         # 0: ch0-7
         # 1: ch8-15
         # 2: ch16-23
         # 3: ch24-31
         for i in range(4):
-            trigger_ch[i] = np.argmax(charge[8*i:8*(i+1),:], axis=0) + 8*i
-            trigger_charge[i] = charge[trigger_ch[i], range(len(trigger_ch[i]))]
-
+            group_charges[i] = np.array([ch_data[f'ch{ch}'][f'{source}_charge'] for ch in range(8*i, 8*(i+1)) if f'ch{ch}' in ch_data])
+            if len(group_charges[i]) > 0:
+                trigger_charge[i] = np.max(group_charges[i], axis=0)
+            # trigger_ch[i] = np.argmax(charge[8*i:8*(i+1),:], axis=0) + 8*i
+            # trigger_charge[i] = charge[trigger_ch[i], range(len(trigger_ch[i]))]
+        
+        ########
+        bins = get_bins(trigger_charge[0])
+        htrig = ROOT.TH1D(f"trig_{source}_1", f"Trigger Charge Integral", len(bins), bins[0], bins[-1])
+        for x in trigger_charge[0]:
+            htrig.Fill(x)
+        htrig.GetXaxis().SetTitle("Charge (pC)")
+        htrig.Write()
+        ########
+        
         for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
             ch = int(channel[2:])
             ##################
@@ -559,25 +572,41 @@ if __name__ == '__main__':
             # with 100% it worked pretty well, but you could still see the
             # gamma peaks, whereas at 200% they are pretty hard to see.
             # cut = 50
-            cut = np.min(trigger_charge[ch//8, trigger_charge[ch//8] > 0])
+            cut = np.min(trigger_charge[ch//8])
+            
+            # print statements for debugging
+            print(f'Cut: {cut}')
+            
             if f'{source}_charge' in ch_data[channel]:
                 # no_crosstalk = np.array((charge[ch] > charge[neighbors[ch]]*2).all(axis=0))
                 # events = np.array(charge[ch] > cut)
                 # selection = no_crosstalk & events
-                selection = np.array(charge[ch] >= trigger_charge[ch//8])
-                selection = selection[:len(ch_data[channel][f'{source}_charge'])]
-                source_bins = get_bins(ch_data[channel][f'{source}_charge'][selection])
+                
+                print(f'Mean trigger charge: {np.mean(trigger_charge[ch//8])}')
+
+                selection = np.array(ch_data[channel][f'{source}_charge'] >= trigger_charge[ch//8])
+                event_charges = ch_data[channel][f'{source}_charge'][selection]
+                
+                # selection = np.array(charge[ch] >= trigger_charge[ch//8])
+                # selection = selection[:len(ch_data[channel][f'{source}_charge'])]
+                source_bins = get_bins(event_charges)
                 hsource = ROOT.TH1D(f"{source}_{channel}", f"{source.capitalize()} Charge Integral for {channel}", len(source_bins), source_bins[0], source_bins[-1])
-                for x in ch_data[channel][f"{source}_charge"][selection]:
+                for x in event_charges:
                     hsource.Fill(x)
                 hsource.GetXaxis().SetTitle("Charge (pC)")
                 hsource.Write()
                 
                 # Offset histogram
-                no_events = np.array(charge[ch] > -50) & np.array(charge[ch] < cut)
-                no_neighbor_events = np.array((charge[neighbors[ch]] < cut).all(axis=0))
+                no_events = np.array(ch_data[channel][f'{source}_charge'] < cut)
+                no_neighbor_events = np.full(len(ch_data[channel][f'{source}_charge']), True)
+                for neighbor in neighbors[ch]:
+                    if f'ch{neighbor}' in ch_data:
+                        no_neighbor_events = no_neighbor_events & np.array(ch_data[f'ch{neighbor}'][f'{source}_charge'] < cut)
+                
+                # no_neighbor_events = np.array((charge[neighbors[ch]] < cut).all(axis=0))
+                
                 offset_selection = no_events & no_neighbor_events
-                offset_selection = offset_selection[:len(ch_data[channel][f'{source}_charge'])]
+                # offset_selection = offset_selection[:len(ch_data[channel][f'{source}_charge'])]
                 offset_bins = get_bins(ch_data[channel][f'{source}_charge'][offset_selection])
                 hoffset = ROOT.TH1D(f"{source}_{channel}_offset", f"Offset {source.capitalize()} Charge Integral for {channel}", len(offset_bins), offset_bins[0], offset_bins[-1])
                 for x in ch_data[channel][f"{source}_charge"][offset_selection]:
@@ -597,11 +626,12 @@ if __name__ == '__main__':
             # Finding Crosstalk
             ##################
             ch_data[channel]['ct'] = {}
+            ch_data[channel]['ct_ratio'] = {}
             # Loop over channels in trigger group:
             for ct_ch in range(8*(ch//8), 8*(ch//8 + 1)):
                 if f'ch{ct_ch}' in ch_data:
-                    ch_data[channel]['ct'][f'ch{ct_ch}'] = charge[ct_ch, trigger_ch[ch//8] == ch]
-                    ch_data[channel['ct_ratio'][f'ch{ct_ch}'] = ch_data[channel]['ct'][f'ch{ct_ch}'] / charge[ch, trigger_ch[ch//8] == ch]
+                    ch_data[channel]['ct'][f'ch{ct_ch}'] = ch_data[f'ch{ct_ch}'][f'{source}_charge'][selection]
+                    ch_data[channel]['ct_ratio'][f'ch{ct_ch}'] = ch_data[channel]['ct'][f'ch{ct_ch}'] / event_charges
 
             ##################
             # Preparing Data for Upload
@@ -764,13 +794,13 @@ if __name__ == '__main__':
     # Crosstalk Analysis
     ##################
     # Loop over each trigger group
-    ct_matrix = [[None]*32]*32
+    ct_matrix = np.full((32, 32), None)
     for channel in ch_data:
         ch = int(channel[2:])
         for ct_channel in ch_data:
             ct_ch = int(ct_channel[2:])
             if ch//8 == ct_ch//8:
-                ct_matrix[ch, ct_ch] = np.mean(ch_data[f'ch{ch}']['ct_ratio'][f'ch{ct_ch}'])
+                ct_matrix[ch, ct_ch] = np.mean(ch_data[channel]['ct_ratio'][ct_channel])
     print(np.array(ct_matrix))
 
     root_f.Close()

@@ -530,10 +530,9 @@ if __name__ == '__main__':
         neighbors = {}
         for i in range(32):
             neighbors[i] = []
-            if (i + 1) % 8 > i % 8:
-                neighbors[i].append(i+1)
-            if (i - 1) % 8 < i % 8:
-                neighbors[i].append(i-1)
+            for j in range(i-2, i+3):
+                if j != i and j//8 == i//8:
+                    neighbors[i].append(j)
         
         # trigger_ch = np.zeros((4, charge.shape[-1]), dtype=int)
         group_charges = np.full(4, None)
@@ -552,7 +551,7 @@ if __name__ == '__main__':
         
         ########
         bins = get_bins(trigger_charge[0])
-        htrig = ROOT.TH1D(f"trig_{source}_1", f"Trigger Charge Integral", len(bins), bins[0], bins[-1])
+        htrig = ROOT.TH1D(f"trig_{source}_1", f"Trigger Charge Integral", len(bins), np.min(trigger_charge[0]), bins[-1])
         for x in trigger_charge[0]:
             htrig.Fill(x)
         htrig.GetXaxis().SetTitle("Charge (pC)")
@@ -572,8 +571,8 @@ if __name__ == '__main__':
             # with 100% it worked pretty well, but you could still see the
             # gamma peaks, whereas at 200% they are pretty hard to see.
             # cut = 50
-            cut = np.min(trigger_charge[ch//8])
-            
+            # cut = np.min(trigger_charge[ch//8])
+            cut = np.percentile(trigger_charge[ch//8], 1) 
             # print statements for debugging
             print(f'Cut: {cut}')
             

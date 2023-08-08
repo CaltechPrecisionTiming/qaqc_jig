@@ -518,15 +518,6 @@ if __name__ == '__main__':
                         avg_y = np.mean(y, axis=0)
                     plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs)
         
-        # if len(list(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])) > 0:
-        #     charge = np.zeros((32,max(len(ch_data[channel][f'{source}_charge']) for channel in ch_data if f'{source}_charge' in ch_data[channel])))
-        #     charge -= 1e9
-        #     for channel in ch_data:
-        #         if f'{source}_charge' not in ch_data[channel]:
-        #             continue
-        #         ch = int(channel[2:])
-        #         charge[ch,:len(ch_data[channel][f'{source}_charge'])] = ch_data[channel][f'{source}_charge']
-
         neighbors = {}
         for i in range(32):
             neighbors[i] = []
@@ -534,7 +525,6 @@ if __name__ == '__main__':
                 if j != i and j//8 == i//8:
                     neighbors[i].append(j)
         
-        # trigger_ch = np.zeros((4, charge.shape[-1]), dtype=int)
         group_charges = np.full(4, None)
         trigger_charge = np.full(4, None)
         # Loop over each trigger group
@@ -546,48 +536,19 @@ if __name__ == '__main__':
             group_charges[i] = np.array([ch_data[f'ch{ch}'][f'{source}_charge'] for ch in range(8*i, 8*(i+1)) if f'ch{ch}' in ch_data])
             if len(group_charges[i]) > 0:
                 trigger_charge[i] = np.max(group_charges[i], axis=0)
-            # trigger_ch[i] = np.argmax(charge[8*i:8*(i+1),:], axis=0) + 8*i
-            # trigger_charge[i] = charge[trigger_ch[i], range(len(trigger_ch[i]))]
-        
-        ########
-        bins = get_bins(trigger_charge[0])
-        htrig = ROOT.TH1D(f"trig_{source}_1", f"Trigger Charge Integral", len(bins), np.min(trigger_charge[0]), bins[-1])
-        for x in trigger_charge[0]:
-            htrig.Fill(x)
-        htrig.GetXaxis().SetTitle("Charge (pC)")
-        htrig.Write()
-        ########
         
         for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
             ch = int(channel[2:])
             ##################
             # Creating Histogram
             ##################
-            # Try to get only events in which the entire beta decay and gammas
-            # happen in a single crystal. To do this, we select only events in
-            # which the charge in the current channel is greater than 200% of
-            # it's neighbors charge (i.e. the neighbor only has crosstalk).
-            # The factor of 200% could probably be optimized. I noticed that
-            # with 100% it worked pretty well, but you could still see the
-            # gamma peaks, whereas at 200% they are pretty hard to see.
-            # cut = 50
-            # cut = np.min(trigger_charge[ch//8])
             cut = np.percentile(trigger_charge[ch//8], 1) 
-            # print statements for debugging
-            print(f'Cut: {cut}')
-            
             if f'{source}_charge' in ch_data[channel]:
-                # no_crosstalk = np.array((charge[ch] > charge[neighbors[ch]]*2).all(axis=0))
-                # events = np.array(charge[ch] > cut)
-                # selection = no_crosstalk & events
-                
-                print(f'Mean trigger charge: {np.mean(trigger_charge[ch//8])}')
-
+                # It's important to remove crosstalk, especially for the LYSO
+                # spectra where we shouldn't see any gamma peaks from adjacent
+                # channels.
                 selection = np.array(ch_data[channel][f'{source}_charge'] >= trigger_charge[ch//8])
                 event_charges = ch_data[channel][f'{source}_charge'][selection]
-                
-                # selection = np.array(charge[ch] >= trigger_charge[ch//8])
-                # selection = selection[:len(ch_data[channel][f'{source}_charge'])]
                 source_bins = get_bins(event_charges)
                 hsource = ROOT.TH1D(f"{source}_{channel}", f"{source.capitalize()} Charge Integral for {channel}", len(source_bins), source_bins[0], source_bins[-1])
                 for x in event_charges:
@@ -601,11 +562,7 @@ if __name__ == '__main__':
                 for neighbor in neighbors[ch]:
                     if f'ch{neighbor}' in ch_data:
                         no_neighbor_events = no_neighbor_events & np.array(ch_data[f'ch{neighbor}'][f'{source}_charge'] < cut)
-                
-                # no_neighbor_events = np.array((charge[neighbors[ch]] < cut).all(axis=0))
-                
                 offset_selection = no_events & no_neighbor_events
-                # offset_selection = offset_selection[:len(ch_data[channel][f'{source}_charge'])]
                 offset_bins = get_bins(ch_data[channel][f'{source}_charge'][offset_selection])
                 hoffset = ROOT.TH1D(f"{source}_{channel}_offset", f"Offset {source.capitalize()} Charge Integral for {channel}", len(offset_bins), offset_bins[0], offset_bins[-1])
                 for x in ch_data[channel][f"{source}_charge"][offset_selection]:
@@ -620,17 +577,6 @@ if __name__ == '__main__':
                     hspe.Fill(x)
                 hspe.GetXaxis().SetTitle("Charge (pC)")
                 hspe.Write()
-            
-            ##################
-            # Finding Crosstalk
-            ##################
-            ch_data[channel]['ct'] = {}
-            ch_data[channel]['ct_ratio'] = {}
-            # Loop over channels in trigger group:
-            for ct_ch in range(8*(ch//8), 8*(ch//8 + 1)):
-                if f'ch{ct_ch}' in ch_data:
-                    ch_data[channel]['ct'][f'ch{ct_ch}'] = ch_data[f'ch{ct_ch}'][f'{source}_charge'][selection]
-                    ch_data[channel]['ct_ratio'][f'ch{ct_ch}'] = ch_data[channel]['ct'][f'ch{ct_ch}'] / event_charges
 
             ##################
             # Preparing Data for Upload
@@ -663,7 +609,6 @@ if __name__ == '__main__':
             ##################
             # Fitting Histogram
             ##################
-
             if 'spe_charge' in ch_data[channel]:
                 print('Fitting SPE %s!' % channel)
                 model = fit_spe_funcs.vinogradov_model()
@@ -719,11 +664,26 @@ if __name__ == '__main__':
                     ch_data[channel][f'{source}_fit_par_errors'] = None
                     ch_data[channel]['pc_per_kev'] = None
                 plot_hist(hsource, pdf=args.print_pdfs, filename=args.filename)
+            
+            ##################
+            # Finding Crosstalk
+            ##################
+            ch_data[channel]['ct'] = {}
+            ch_data[channel]['ct_ratio'] = {}
+            # Loop over channels in trigger group:
+            for ct_ch in range(8*(ch//8), 8*(ch//8 + 1)):
+                if f'ch{ct_ch}' in ch_data:
+                    # Here, we subtract the offset with the intention to make
+                    # the crosstalk ratio positive. Note: later in the code we
+                    # gain calibrate using the SPE charges.
+                    ch_data[channel]['ct'][f'ch{ct_ch}'] = ch_data[f'ch{ct_ch}'][f'{source}_charge'][selection] - offset
+                    ch_data[channel]['ct_ratio'][f'ch{ct_ch}'] = ch_data[channel]['ct'][f'ch{ct_ch}'] / (event_charges - offset)
                 
             
     ##################
     # Reviewing Data
     ##################
+    success = np.full(32, False)
     for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
         if 'pc_per_kev' not in ch_data[channel]:
             print('Mising source data for %s!' % channel)
@@ -735,6 +695,7 @@ if __name__ == '__main__':
             print('Failed to fit %s spe histogram!' % channel)
         else:
             print('%s: %.2f' % (channel, ch_data[channel]["pc_per_kev"]*1000*ATTENUATION_FACTOR/ch_data[channel]["spe"]))
+            success[int(channel[2:])] = True
             
             ##################
             # Uploading Data
@@ -753,25 +714,24 @@ if __name__ == '__main__':
     spe_err = array('d')
     yerr = array('d')
     for channel in sorted(ch_data, key=lambda channel: int(channel[2:])):
-        if f'{source}_fit_pars' not in ch_data[channel]:
-            continue
-        if 'spe_fit_pars' not in ch_data[channel]:
+        ch = int(channel[2:])
+        if not success[ch]:
             continue
         source_fit_pars = ch_data[channel][f'{source}_fit_pars']
         spe_fit_pars = ch_data[channel]['spe_fit_pars']
         source_fit_par_errors = ch_data[channel][f'{source}_fit_par_errors']
         spe_fit_par_errors = ch_data[channel]['spe_fit_par_errors']
-        if source_fit_pars is not None and spe_fit_pars is not None:
-            x.append(int(channel[2:]))
-            y.append(source_fit_pars[0]*ATTENUATION_FACTOR*1000/spe_fit_pars[3])
-            pc_per_kev.append(source_fit_pars[0])
-            pc_per_kev_err.append(source_fit_par_errors[0])
-            spe.append(spe_fit_pars[3])
-            spe_err.append(spe_fit_par_errors[3])
-            dsource = source_fit_par_errors[0]/source_fit_pars[0]
-            dspe = spe_fit_par_errors[3]/spe_fit_pars[3]
-            dtotal = np.sqrt(dsource**2 + dspe**2)
-            yerr.append(y[-1]*dtotal)
+        
+        x.append(ch)
+        y.append(source_fit_pars[0]*ATTENUATION_FACTOR*1000/spe_fit_pars[3])
+        pc_per_kev.append(source_fit_pars[0])
+        pc_per_kev_err.append(source_fit_par_errors[0])
+        spe.append(spe_fit_pars[3])
+        spe_err.append(spe_fit_par_errors[3])
+        dsource = source_fit_par_errors[0]/source_fit_pars[0]
+        dspe = spe_fit_par_errors[3]/spe_fit_pars[3]
+        dtotal = np.sqrt(dsource**2 + dspe**2)
+        yerr.append(y[-1]*dtotal)
 
     if len(x) > 0:
         g = ROOT.TGraphErrors(len(x),x,y,0,yerr)
@@ -793,14 +753,15 @@ if __name__ == '__main__':
     # Crosstalk Analysis
     ##################
     # Loop over each trigger group
-    ct_matrix = np.full((32, 32), None)
+    ct_matrix = np.full((32, 32), -1000.0)
     for channel in ch_data:
         ch = int(channel[2:])
         for ct_channel in ch_data:
             ct_ch = int(ct_channel[2:])
-            if ch//8 == ct_ch//8:
-                ct_matrix[ch, ct_ch] = np.mean(ch_data[channel]['ct_ratio'][ct_channel])
-    print(np.array(ct_matrix))
+            if ch//8 == ct_ch//8 and success[ch] and success[ct_ch]:
+                ct_matrix[ch, ct_ch] = np.mean(ch_data[channel]['ct_ratio'][ct_channel] / ch_data[ct_channel]['spe'] * ch_data[channel]['spe'])
+    matrix = ROOT.TMatrixD(32, 32, ct_matrix)
+    matrix.Write(name='crosstalk_matrix')
 
     root_f.Close()
 

@@ -93,7 +93,8 @@ def save(filename=None):
     data['n_boards'] = int(n_boards_var.get())
     data['barcodes'] = [barcode.get() for barcode in barcodes]
     data['module_available'] = [available.get() for available in module_available]
-    data['hv'] = hv.get()
+    data['ov'] = ov.get()
+    data['data_path'] = data_path.get()
     data['ip_address'] = ip_address.get()
     #data['stepper_enable'] = stepper_enable.get()
     data['n_spe_events'] = n_spe_events.get()
@@ -123,8 +124,10 @@ def load(filename=None):
         if 'module_available' in data:
             for i, available in enumerate(data['module_available']):
                 module_available[i].set(available)
-        if 'hv' in data:
-            hv.set(data['hv'])
+        if 'ov' in data:
+            ov.set(data['ov'])
+        if 'data_path' in data:
+            data_path.set(data['data_path'])            
         if 'ip_address' in data:
             ip_address.set(data['ip_address'])
         #if 'stepper_enable' in data:
@@ -199,7 +202,7 @@ def reanalyze_data():
             print_warning('Need to enter a barcode for module %i\n' % i)
             return
             
-        filename = 'module_%i.hdf5' % int(barcode)
+        filename = '%s/module_%i_Vov%.2f_Nspe%d_Nlyso%d.hdf5' % (data_path.get(),int(barcode),float(ov.get()),int(n_spe_events.get()),int(n_lyso_events.get()))
 
         entry.insert(tk.END, "Analyzing data for module %i\n" % int(barcode))
         entry.yview(tk.END)
@@ -266,13 +269,21 @@ def take_data():
         if not module_available[i].get():
             entry.insert(tk.END, "Skipping module %i\n" % i)
             continue
-
+        
         barcode = barcodes[i].get()
         if barcode == '':
             print_warning('Need to enter a barcode for module %i\n' % i)
             return
-            
-        filename = 'module_%i.hdf5' % int(barcode)
+
+        vbd = vbds[i].get()
+        if vbd == '':
+            print_warning('Need to enter a Vbd for module %i\n' % i)
+            return
+
+        hv = float(vbd)+float(ov.get())
+        print('Setting absolute bias voltage %.2f for module %i\n' %(hv,i) )
+        
+        filename = '%s/module_%i_Vov%.2f_Nspe%d_Nlyso%d.hdf5' % (data_path.get(),int(barcode),float(ov.get()),int(n_spe_events.get()),int(n_lyso_events.get()))
 
         if exists(filename):
             print("deleting %s" % filename)
@@ -310,7 +321,7 @@ def take_data():
                     return
 
             try:
-                query(client, "set_hv %.2f" % float(hv.get()))
+                query(client, "set_hv %.2f" % hv )
             except Exception as e:
                 print_warning(str(e))
                 return
@@ -388,7 +399,7 @@ def take_data():
             print_warning('Need to enter a barcode for module %i\n' % i)
             return
             
-        filename = 'module_%i.hdf5' % int(barcode)
+        filename = '%s/module_%i_Vov%.2f_Nspe%d_Nlyso%d.hdf5' % (data_path.get(),int(barcode),float(ov.get()),int(n_spe_events.get()),int(n_lyso_events.get()))
 
         entry.insert(tk.END, "Analyzing data for module %i\n" % int(barcode))
         entry.yview(tk.END)
@@ -573,8 +584,11 @@ if __name__ == '__main__':
 
     barcode_labels = []
     barcodes = []
-    progress_bars = []
     barcode_entries = []
+    vbd_labels = []
+    vbds = []
+    vbd_entries = []
+    progress_bars = []
     module_available = []
     module_checkbox = []
     module_status = []
@@ -584,15 +598,20 @@ if __name__ == '__main__':
         barcodes.append(tk.StringVar(frame_menu))
         barcode_entries.append(tk.Entry(frame_barcodes,textvariable=barcodes[-1]))
         barcode_entries[-1].grid(row=i,column=1)
+        vbd_labels.append(tk.Label(frame_barcodes,text="Vbd %i (V): " % i))
+        vbd_labels[-1].grid(row=i,column=2)
+        vbds.append(tk.StringVar(frame_menu))
+        vbd_entries.append(tk.Entry(frame_barcodes,textvariable=vbds[-1]))
+        vbd_entries[-1].grid(row=i,column=3)
         module_available.append(tk.IntVar(frame_barcodes, value=1))
         checkbox = tk.Checkbutton(frame_barcodes, text='Present', variable=module_available[-1], onvalue=1, offvalue=0)
         module_checkbox.append(checkbox)
-        checkbox.grid(row=i,column=2)
+        checkbox.grid(row=i,column=4)
         progress_bar = ttk.Progressbar(frame_barcodes, orient='horizontal', mode='determinate', length=100)
         progress_bars.append(progress_bar)
-        progress_bar.grid(row=i,column=3)
+        progress_bar.grid(row=i,column=5)
         module_status.append(tk.Label(frame_barcodes,text="-"))
-        module_status[-1].grid(row=i,column=4)
+        module_status[-1].grid(row=i,column=6)
 
     for i in range(11):
         barcode_entries[i].bind('<Return>', lambda x, i=i: barcode_entries[i+1].focus())
@@ -614,12 +633,12 @@ if __name__ == '__main__':
 
     n_boards_changed()
 
-    hv_menu_label = tk.Label(frame_menu, text="HV (V): ")
-    hv_menu_label.grid(row=3,column=0)
-    hv = tk.StringVar(frame_menu)
-    hv_menu_entry = tk.Entry(frame_menu, textvariable=hv)
-    hv_menu_entry.grid(row=3,column=1)
-
+    ov_menu_label = tk.Label(frame_menu, text="OV (V): ")
+    ov_menu_label.grid(row=3,column=0)
+    ov = tk.StringVar(frame_menu)
+    ov_menu_entry = tk.Entry(frame_menu, textvariable=ov)
+    ov_menu_entry.grid(row=3,column=1)
+    
     ip_address_menu_label = tk.Label(frame_menu, text="IP Address: ")
     ip_address_menu_label.grid(row=4,column=0)
     ip_address = tk.StringVar(frame_menu)
@@ -627,26 +646,33 @@ if __name__ == '__main__':
     ip_address_menu_entry = tk.Entry(frame_menu, textvariable=ip_address)
     ip_address_menu_entry.grid(row=4,column=1)
 
+    data_path_menu_label = tk.Label(frame_menu, text="Data path: ")
+    data_path_menu_label.grid(row=5,column=0)
+    data_path = tk.StringVar(frame_menu)
+    data_path.set('/home/cern_user/qaqc_jig/data/')
+    data_path_menu_entry = tk.Entry(frame_menu, textvariable=data_path)
+    data_path_menu_entry.grid(row=5,column=1)
+    
     n_spe_events_menu_label = tk.Label(frame_menu, text="Number of SPE Events: ")
-    n_spe_events_menu_label.grid(row=5,column=0)
+    n_spe_events_menu_label.grid(row=6,column=0)
     n_spe_events = tk.IntVar(frame_menu)
     n_spe_events.set(100000)
     n_spe_events_menu_entry = tk.Entry(frame_menu, textvariable=n_spe_events)
-    n_spe_events_menu_entry.grid(row=5,column=1)
+    n_spe_events_menu_entry.grid(row=6,column=1)
 
     n_lyso_events_menu_label = tk.Label(frame_menu, text="Number of LYSO Events: ")
-    n_lyso_events_menu_label.grid(row=6,column=0)
+    n_lyso_events_menu_label.grid(row=7,column=0)
     n_lyso_events = tk.IntVar(frame_menu)
     n_lyso_events.set(100000)
     n_lyso_events_menu_entry = tk.Entry(frame_menu, textvariable=n_lyso_events)
-    n_lyso_events_menu_entry.grid(row=6,column=1)
-
+    n_lyso_events_menu_entry.grid(row=7,column=1)
+    
     upload_menu_label = tk.Label(frame_menu, text="Upload Results: ")
-    upload_menu_label.grid(row=7,column=0)
-    upload_enable = tk.IntVar(frame_menu, value=1)
+    upload_menu_label.grid(row=8,column=0)
+    upload_enable = tk.IntVar(frame_menu, value=0)
     upload_enable_checkbox = tk.Checkbutton(frame_menu, text=None, variable=upload_enable, onvalue=1, offvalue=0)
-    upload_enable_checkbox.grid(row=7,column=1)
-
+    upload_enable_checkbox.grid(row=8,column=1)
+    
     frame_menu.pack()
     frame_barcodes.pack()
 

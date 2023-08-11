@@ -98,6 +98,7 @@ def save(filename=None):
     data['barcodes'] = [barcode.get() for barcode in barcodes]
     data['module_available'] = [available.get() for available in module_available]
     data['hv'] = hv.get()
+    data['trigger'] = trigger.get()
     data['ip_address'] = ip_address.get()
     #data['stepper_enable'] = stepper_enable.get()
     data['n_spe_events'] = n_spe_events.get()
@@ -131,6 +132,8 @@ def load(filename=None):
                 module_available[i].set(available)
         if 'hv' in data:
             hv.set(data['hv'])
+        if 'trigger' in data:
+            trigger.set(data['trigger'])
         if 'ip_address' in data:
             ip_address.set(data['ip_address'])
         #if 'stepper_enable' in data:
@@ -345,19 +348,7 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            cmd = [WAVEDUMP_PROGRAM,'-t','self','-l',source.get().lower(),'--channel-map',j % 2,'-n',n_source_events.get(),'-o',filename]
-            cmd += ['--threshold']
-            # FIXME: breakdown voltage should be input by user. Hard-coding
-            # this is just for testing.
-            breakdown = 37.8
-            over = voltage - breakdown
-            if source.get().lower() in ('sodium', 'cesium'):
-                # -0.2V worked well when the bias was set to 42V
-                # cmd += [over*(-0.2/(42-breakdown))]
-                cmd += [over*(-0.05/(42-breakdown))]
-            else:
-                cmd += [over*(-0.05/(42-breakdown))]
-            print(f'Trigger: {cmd[-1]}')
+            cmd = [WAVEDUMP_PROGRAM,'-t','self','-l',source.get().lower(),'--channel-map',j % 2,'-n',n_source_events.get(),'-o',filename,'--threshold',trigger.get()]
             if run_command(cmd, progress_bar=i):
                 hv_off(client)
                 return
@@ -648,32 +639,38 @@ if __name__ == '__main__':
     hv_menu_entry = tk.Entry(frame_menu, textvariable=hv)
     hv_menu_entry.grid(row=3,column=1)
 
+    trigger_menu_label = tk.Label(frame_menu, text="Trigger Threshold (V): ")
+    trigger_menu_label.grid(row=4,column=0)
+    trigger = tk.StringVar(frame_menu)
+    trigger_menu_entry = tk.Entry(frame_menu, textvariable=trigger)
+    trigger_menu_entry.grid(row=4,column=1)
+
     ip_address_menu_label = tk.Label(frame_menu, text="IP Address: ")
-    ip_address_menu_label.grid(row=4,column=0)
+    ip_address_menu_label.grid(row=5,column=0)
     ip_address = tk.StringVar(frame_menu)
     ip_address.set('192.168.1.177')
     ip_address_menu_entry = tk.Entry(frame_menu, textvariable=ip_address)
-    ip_address_menu_entry.grid(row=4,column=1)
+    ip_address_menu_entry.grid(row=5,column=1)
 
     n_spe_events_menu_label = tk.Label(frame_menu, text="Number of SPE Events: ")
-    n_spe_events_menu_label.grid(row=5,column=0)
+    n_spe_events_menu_label.grid(row=6,column=0)
     n_spe_events = tk.IntVar(frame_menu)
     n_spe_events.set(100000)
     n_spe_events_menu_entry = tk.Entry(frame_menu, textvariable=n_spe_events)
-    n_spe_events_menu_entry.grid(row=5,column=1)
+    n_spe_events_menu_entry.grid(row=6,column=1)
 
     n_source_events_menu_label = tk.Label(frame_menu, text="Number of Source Events: ")
-    n_source_events_menu_label.grid(row=6,column=0)
+    n_source_events_menu_label.grid(row=7,column=0)
     n_source_events = tk.IntVar(frame_menu)
     n_source_events.set(100000)
     n_source_events_menu_entry = tk.Entry(frame_menu, textvariable=n_source_events)
-    n_source_events_menu_entry.grid(row=6,column=1)
+    n_source_events_menu_entry.grid(row=7,column=1)
 
     upload_menu_label = tk.Label(frame_menu, text="Upload Results: ")
-    upload_menu_label.grid(row=7,column=0)
+    upload_menu_label.grid(row=8,column=0)
     upload_enable = tk.IntVar(frame_menu, value=1)
     upload_enable_checkbox = tk.Checkbutton(frame_menu, text=None, variable=upload_enable, onvalue=1, offvalue=0)
-    upload_enable_checkbox.grid(row=7,column=1)
+    upload_enable_checkbox.grid(row=8,column=1)
 
     frame_menu.pack()
     frame_barcodes.pack()

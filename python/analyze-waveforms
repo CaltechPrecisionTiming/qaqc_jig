@@ -401,6 +401,7 @@ if __name__ == '__main__':
         root_f = ROOT.TFile(args.output, "recreate")
                 
         if args.upload:
+            # Database is only built for LYSO data
             if source != 'lyso':
                 print("Missing lyso data!", file=sys.stderr)
                 sys.exit(1)
@@ -556,7 +557,7 @@ if __name__ == '__main__':
                 hsource.GetXaxis().SetTitle("Charge (pC)")
                 hsource.Write()
                 
-                # Offset histogram
+                # Offset histogram, for measuring the pedestal
                 no_events = np.array(ch_data[channel][f'{source}_charge'] < cut)
                 no_neighbor_events = np.full(len(ch_data[channel][f'{source}_charge']), True)
                 for neighbor in neighbors[ch]:
@@ -564,7 +565,7 @@ if __name__ == '__main__':
                         no_neighbor_events = no_neighbor_events & np.array(ch_data[f'ch{neighbor}'][f'{source}_charge'] < cut)
                 offset_selection = no_events & no_neighbor_events
                 offset_bins = get_bins(ch_data[channel][f'{source}_charge'][offset_selection])
-                hoffset = ROOT.TH1D(f"{source}_{channel}_offset", f"Offset {source.capitalize()} Charge Integral for {channel}", len(offset_bins), offset_bins[0], offset_bins[-1])
+                hoffset = ROOT.TH1D(f"{source}_{channel}_pedestal", f"Pedestal {source.capitalize()} Charge Integral for {channel}", len(offset_bins), offset_bins[0], offset_bins[-1])
                 for x in ch_data[channel][f"{source}_charge"][offset_selection]:
                     hoffset.Fill(x)
                 hoffset.GetXaxis().SetTitle("Charge (pC)")
@@ -625,11 +626,10 @@ if __name__ == '__main__':
             
             offset_pars = fit_gamma_funcs.fit_offset(hoffset) 
             if offset_pars is not None:
-                print('Using offset data!')
                 offset = offset_pars[0][0]
                 offset_sigma = offset_pars[0][1]
             else:
-                print(f'WARNING: Could not measure the offset in ch{ch}. Defaulting to zero offset.')
+                print(f'WARNING: Could not measure the pedestal in ch{ch}. Defaulting to zero pedestal.')
                 offset = 0
                 offset_sigma = 10
             source_fit_pars = None

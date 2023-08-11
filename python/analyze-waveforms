@@ -391,7 +391,7 @@ if __name__ == '__main__':
     source = None
     with h5py.File(args.filename,'r') as f:
         if len(SOURCES.keys() & set(f)) > 1:
-            print('Can not analyze file with more than one source!', file=sys.stdrr)
+            print('Can not analyze file with more than one source!', file=sys.stderr)
             sys.exit(1)
         if len(SOURCES.keys() & set(f)) == 1:
             source = list(SOURCES.keys() & set(f))[0]

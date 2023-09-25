@@ -1,0 +1,394 @@
+#!/usr/bin/env python3
+"""
+Creates charge histograms from hdf5 files made from `wavedump` or
+`acquire-waveforms`.
+"""
+
+from __future__ import print_function, division
+import h5py
+import numpy as np
+from scipy import signal
+import os
+import sys
+from enum import Enum
+from array import array
+
+canvas = []
+
+# How much does the attenuator attenuate the signal relative to the no
+# attenuation path. This can be calculated using the pi_pad_calculator.py
+# script.
+ATTENUATION_FACTOR = 5.85
+
+# Resistance of CAEN digitizer. Used to convert integrated voltage
+# signal to charge.
+CAEN_R = 50.0
+
+
+
+def iqr(x):
+    return np.percentile(x,75) - np.percentile(x,25)
+
+def get_threshold_crossing(x, data, threshold=0.4, rising=True):
+    """
+    Returns the times at which the waveforms in `x` cross `threshold*100`% of
+    their minimum value.
+    
+    WARNING: In cases where a pulse is cut off at the start/end of an event, this function produces a runtime warning.
+    """
+    data = np.asarray(data)
+    argmin = np.argmin(data,axis=-1)
+    thresholds = threshold*data[np.arange(data.shape[0]),argmin]
+    if rising:
+        il = data.shape[1]-np.argmax(((np.arange(data.shape[1]) < argmin[:,np.newaxis]) & (data > thresholds[:,np.newaxis]))[:,::-1],axis=-1)-1
+        ir = il + 1
+        ir[ir >= data.shape[1]] = data.shape[1]-1
+        i = np.arange(data.shape[0])
+    else:
+        ir = np.argmax(((np.arange(data.shape[1]) > argmin[:,np.newaxis]) & (data > thresholds[:,np.newaxis])),axis=-1)
+        il = ir - 1
+        il[il < 0] = 0
+        i = np.arange(data.shape[0])
+    return x[il] + (thresholds-data[i,il])*(x[ir]-x[il])/(data[i,ir]-data[i,il])
+
+def get_rise_time(x, data):
+    t10 = get_threshold_crossing(x, data, 0.1)
+    t90 = get_threshold_crossing(x, data, 0.9)
+    return t90 - t10
+
+def get_fall_time(x, data):
+    t10 = get_threshold_crossing(x, data, 0.1, rising=False)
+    t90 = get_threshold_crossing(x, data, 0.9, rising=False)
+    return t10 - t90
+
+def get_times(x, data, baseline=10):
+    """
+    Returns the times at which the waveforms in `x` cross 40% of their minimum
+    value.
+    """
+    data = np.asarray(data)
+    # Get the first 10 ns of every waveform to calculate the noise level
+    noise = iqr(data[:,np.where(x < x[0] + baseline)[0]])
+    # Get events with a pulse
+    pulses = np.min(data,axis=-1) < -noise*5
+    # Select events with pulses. If there are no matches (which might be the
+    # case for the triggering channel), then don't apply the selection.
+    if np.count_nonzero(pulses):
+        data = data[pulses]
+    argmin = np.argmin(data,axis=-1)
+    threshold = 0.4*data[np.arange(data.shape[0]),argmin]
+    return x[data.shape[1]-np.argmax(((np.arange(data.shape[1]) < argmin[:,np.newaxis]) & (data > threshold[:,np.newaxis]))[:,::-1],axis=-1)-1]
+
+def get_window(x, data, left=1, right=10):
+    """
+    Returns the indices start and stop over which you should integrate the
+    waveforms in `x`. The window is found by calculating the median hit time
+    for all pulses in `x` and then going back `left` ns and forward `right` ns.
+    """
+    data = np.asarray(data)
+    t = get_times(x,data)
+    mean_hit_time = np.median(t)
+    a, b = np.searchsorted(x,[mean_hit_time-left,mean_hit_time+right])
+    if a < 0:
+        a = 0
+    if b > len(x) - 1:
+        b = len(x) - 1
+    return a, b
+
+def get_spe_window(x, start, integration_time):
+    """
+    Returns the indicies over which the SPE analysis should be integrated.
+
+    `start` and `integration_time` are in nanoseconds, not indexes.
+    `start` is relative to the trigger, so `start = 0` is not the first sample,
+    but rather the time the trigger fired.
+    """
+    time_per_index = x[1] - x[0]
+    a = int(np.abs(x - start).argmin())
+    if a >= len(x) - 1:
+        print('SPE integration start time exceeds the acquisition window! Quitting...', file=sys.stderr)
+        sys.exit(1)
+    b = int(np.round(a + integration_time / time_per_index))
+    if b > len(x) - 1:
+        print('SPE integration time is too long! Quitting...', file=sys.stderr)
+        sys.exit(1)
+    return (a,b)
+
+def integrate(x, data, a, b):
+    """
+    Integrate all waveforms in `data` with times `x`.
+    """
+    # i = v/r
+    # divide by `CAEN_R` to convert to a charge
+    if np.ndim(data) == 2:
+        return -np.trapz(data[:,a:b],x=x[a:b])*1000/CAEN_R
+    else:
+        return -np.trapz(data[a:b],x=x[a:b])*1000/CAEN_R
+
+def chunks(lst, n):
+    """
+    Yield successive n-sized chunks from lst.
+    """
+    for i in range(0, len(lst), n):
+        yield (i,i + n)
+
+def convert_data(f, group, channel, start, stop):
+    """
+    Reads data from opened hdf5 file `f`. Gets the events from `start` to
+    `stop` in the dataset `channel`.
+    """    
+    if 'data_source' in f[group].attrs:
+        if f[group].attrs['data_source'] == b'CAEN':
+            
+            xinc = 1/(f[group].attrs['drs4_frequency'] * 10**6)
+            points = f[group].attrs['record_length']
+            x = np.linspace(0, xinc * points, int(points)) - xinc * points * (1 - f[group].attrs['post_trigger']/100)
+            
+            # While `y` is measured in volts, it's only relatively. We could
+            # use the DC offset to determine the absolute voltage, but the
+            # DC offset isn't well defined. Setting it to about 22000 (DAC
+            # units) means approximately no offset is added, but not
+            # exactly. This shouldn't matter much because we use a baseline
+            # subtraction method anyways.
+            y = f[group][channel][start:stop]/2**12
+    elif 'yinc' in dict(f[channel].attrs):
+        # FIXME: All of the code below assumes that the datasets are in no
+        # group. `acquire-waveforms` should be updated first if we want to
+        # be able to use this function for oscilloscope data. 
+        x = f[channel].attrs['xorg'] + np.linspace(0,f[channel].attrs['xinc']*f[channel].attrs['points'],int(f[channel].attrs['points']))
+        # FIXME: I believe the else block in this if/else statement was for
+        # a type of hdf5 format that we no longer use.
+        if True: # ':WAVeform:FORMat' in dict(f['settings'].attrs) and f['settings'].attrs[':WAVeform:FORMat'] != 'ASC':
+            # convert word values -> voltages if the data was saved in a non-ascii format
+            y = f[channel][start:stop]*f[channel].attrs['yinc'] + f[channel].attrs['yorg']
+        else:
+            y = f[channel][start:stop]
+    else:
+        # In older versions of the code, I stored xorg, xinc, etc.
+        # in the main HDF5 group and not on a per channel basis
+        x = f.attrs['xorg'] + np.linspace(0,f.attrs['xinc']*f.attrs['points'],int(f.attrs['points']))
+
+        if ':WAVeform:FORMat' in dict(f['settings'].attrs) and f['settings'].attrs[':WAVeform:FORMat'] != 'ASC':
+            # convert word values -> voltages if the data was saved in a non-ascii format
+            y = f[channel][start:stop]*f.attrs['yinc'] + f.attrs['yorg']
+        else:
+            y = f[channel][start:stop]
+    return x*1e9, y
+
+def low_filter_SPE(x, y):
+    """
+    Returns `y` through a low pass filter. Edit the cutoff frequency by
+    modifying the filter defined below.
+    """
+    filter_order = 2
+    nyquist = (0.5 * (x[1] - x[0]))**(-1)
+    cutoff = 5**(-1)
+    b, a = signal.butter(filter_order, min(1, cutoff/nyquist), btype='lowpass', output='ba')
+    filter_data = signal.lfilter(b, a, y)
+    return filter_data
+
+def high_filter_SPE(x, y):
+    """
+    Returns `y` through a high pass filter. Edit the cutoff frequency by
+    modifying the filter defined below.
+    """
+    filter_order = 2
+    nyquist = (0.5 * (x[1] - x[0]))**(-1)
+    cutoff = 5**(-1)  # Cut off frequency for the filter measured in inverse nanoseconds
+    b, a = signal.butter(filter_order, min(1, cutoff/nyquist), btype='highpass', output='ba')
+    filter_data = signal.lfilter(b, a, y)
+    return filter_data
+
+def spe_baseline_subtraction(x, y, a, b, method=1):
+    """ 
+    INTEGRATION METHODS
+    0: Only per event median subtraction (preformed in every method).
+
+    1: Cut events where the voltage is more than two standard
+       devations below the baseline at the start or end of the integration
+       window to avoid half pulses.
+
+    2: Per sample median subtraction. This method is not good because the SPE
+       signal gets diminished.
+
+    3: Delete all trials that have an SPE between `ma` and `mb`. Subtract off
+       the median between `ma` and `mb` on a per event basis.
+
+    4: Same as 3, except no trials are deleted. Trials that have an SPE between
+       `ma` and `mb` get reduced by the total median between `ma` and `mb` of
+       events that don't have an SPE in this range.
+    """ 
+    high_filter_y = high_filter_SPE(x, y)
+    
+    # Integration Method 0, per event median subtraction:
+    y -= np.median(y[:,x < args.start_time], axis=-1)[:, np.newaxis]
+
+    # Get a rough approximation of the standard deviation of the noise.
+    std = np.std(y[:,x < args.start_time])
+
+    if args.integration_method == 1:  # Default 
+        # Cut events where the voltage signal is more than 2 standard
+        # deviations away at the start or stop of the integration window.
+        y = y[(y[:,a] > -2*std) & (y[:,b] > -2*std)]
+    elif args.integration_method == 2:
+        # `s` for samples
+        s = y.T
+        s_mask = s > -10*iqr(high_filter_y.flatten())
+        good_s = [s[i, s_mask[i]] for i in range(len(s))]
+        print('average number of good samples: %.2f' % np.mean([len(sub) for sub in good_s]))
+        sample_medians = np.array([np.median(sub) for sub in good_s])
+        y -= sample_medians
+    elif args.integration_method == 3:
+        ma = -25
+        mb = 200
+        SPE_trials = np.min(y[:, np.logical_and(x >= ma, x < mb)], axis=-1) < -2 * iqr(high_filter_y[:, np.logical_and(x >= ma, x < mb)].flatten())
+        SPE_trials_idx = [i for i in range(len(y)) if SPE_trials[i]]
+        y = np.delete(y, SPE_trials_idx, axis=0)
+        # Subtract off the median between `ma` and `mb` per event
+        y -= np.median(y[:, np.logical_and(x >= ma, x < mb)], axis=-1)[:, np.newaxis]  # per event median subtraction
+        if len(y) == 0:
+            print('All trials were removed')
+    elif args.integration_method == 4:
+        ma = -25
+        mb = 200
+        m_mask = np.logical_and(x>=ma, x<mb)
+        no_SPE_trials_mask = np.min(y[:, m_mask], axis=-1) > -2 * iqr(high_filter_y[:, m_mask].flatten())
+        y -= np.array([np.median(y[i, m_mask]) if no_SPE_trials_mask[i] else np.median((y[no_SPE_trials_mask, :])[:, m_mask]) for i in range(len(y))])[:, np.newaxis]
+    elif args.integration_method != 0:
+        print('Not a valid integration method. Defaulting to integration method 0')
+    return y
+
+def plot_time_volt(x, y, channel, data_type, a, b, avg_y=None, pdf=False, filename=None):
+    plt.figure()
+    plt.subplot(2,1,1)
+    plt.plot(x,y[:100].T)
+    plt.xlabel("Time (ns)")
+    plt.ylabel("Voltage (V)")
+    plt.axvline(x[a])
+    plt.axvline(x[b])
+    plt.subplot(2,1,2)
+    if avg_y is not None:
+        plt.plot(x,avg_y)
+    else:
+        plt.plot(x, np.median(y, axis=0))
+    plt.xlabel("Time (ns)")
+    plt.ylabel("Voltage (V)")
+    plt.axvline(x[a])
+    plt.axvline(x[b])
+    plt.suptitle("%s %s" % (data_type, channel))
+    if args.print_pdfs:
+        if not filename:
+            print('No filename specified; can not print pdf!')
+        else:
+            root, ext = os.path.splitext(filename)
+            plt.savefig(os.path.join(args.print_pdfs, "%s_%s_%s_TimeVolt.pdf" % (root,data_type,channel)))
+
+
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+    import ROOT
+    from ROOT import gROOT
+    import matplotlib.pyplot as plt
+    import psycopg2
+    import psycopg2.extensions
+    from btl import fit_spe_funcs
+    from btl import fit_lyso_funcs
+
+    parser = ArgumentParser(description='Integrate SPE and LYSO charges')
+    parser.add_argument('filename',help='input filename (hdf5 format)')
+    parser.add_argument('-o','--output', default='delete_me.hdf5', help='output file name')
+    parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
+    parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
+    parser.add_argument('-t', '--integration-time', default=150, type=float, help='SPE integration length in nanoseconds.')
+    parser.add_argument('-s', '--start-time',  default=50, type=float, help='start time of the SPE integration in nanoseconds.')
+    parser.add_argument('--active', default=None, help='Only take data from a single channel. If not specified, all channels are analyzed.')
+    parser.add_argument("--print-pdfs", default=None, type=str, help="Folder to save pdfs in.")
+    parser.add_argument('--integration-method', type=int, default=1, help='Select a method of integration. Methods described in __main__')
+    parser.add_argument('--channel-mask', type=lambda x: int(x,0), default=0xffffffff, help='channel mask')
+    parser.add_argument('-g', '--group', type=str, default=None, help='which group to analyze')
+    args = parser.parse_args()
+    
+    if not args.plot:
+        # Disables the canvas from ever popping up
+        gROOT.SetBatch()
+    
+    data = {}
+    ch_data = {}  
+    with h5py.File(args.filename,'r') as f:
+        with h5py.File(args.output, 'w') as fout:
+            
+            for group in f:
+                if args.group is not None and group != args.group:
+                    continue
+                
+                if group != 'lyso' and group != 'spe':
+                    print("Unknown group name: \"%s\". Skipping..." % group)
+                    continue
+                
+                for channel in f[group]:
+                    # All relevant channels from the scope and digitizer should
+                    # be in this format: 'ch<channel number>'.
+                    if not channel.startswith('ch'):
+                        continue
+                    
+                    ch = int(channel[2:])
+                    
+                    if not args.channel_mask & (1 << ch):
+                        continue
+                    
+                    # Only active channel is analyzed, unless it's `None`, in
+                    # which case all channels are analyzed.
+                    if args.active and channel != args.active:
+                        continue
+                    
+                    if channel not in ch_data:
+                        ch_data[channel] = {}
+                    
+                    charge = []
+                    
+                    ##################
+                    # Integrations 
+                    ##################
+                    print(f'Integrating {group} {channel}...')
+                    for i in range(0, len(f[group][channel]), args.chunks):
+                        x, y = convert_data(f, group, channel, i, i+args.chunks)
+                        if group == 'lyso':
+                            a, b = get_window(x,y, left=50, right=350)
+                            y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
+                            if 'avg_pulse_y' in ch_data[channel]:
+                                ch_data[channel]['avg_pulse_y'] = (ch_data[channel]['avg_pulse_count']*ch_data[channel]['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (ch_data[channel]['avg_pulse_count'] + len(y))
+                                ch_data[channel]['avg_pulse_count'] += len(y)
+                                np.append(ch_data[channel]['lyso_rise_time'], get_rise_time(x, y))
+                                np.append(ch_data[channel]['lyso_fall_time'], get_fall_time(x, y))
+                            else:
+                                ch_data[channel]['avg_pulse_y'] = np.mean(y, axis=0)
+                                ch_data[channel]['avg_pulse_count'] = len(y)
+                                ch_data[channel]['avg_pulse_x'] = x
+                                ch_data[channel]['lyso_rise_time'] = get_rise_time(x, y)
+                                ch_data[channel]['lyso_fall_time'] = get_fall_time(x, y)
+                            
+                        elif group == 'spe':
+                            a, b = get_spe_window(x, args.start_time, args.integration_time)
+                            y = spe_baseline_subtraction(x, y, a, b, method=args.integration_method)
+                        
+                        charge.extend(integrate(x,y, a, b))
+                    
+                    ch_data[channel]['%s_charge' % group] = np.array(charge)
+                    
+                    if args.plot or args.print_pdfs:
+                        if group == 'lyso':
+                            avg_y = ch_data[channel]['avg_pulse_y']
+                        else:
+                            # avg_y for the spe waveform is only used for
+                            # plotting
+                            avg_y = np.mean(y, axis=0)
+                        plot_time_volt(x, y, channel, group, a, b, avg_y=avg_y, pdf=args.print_pdfs, filename=args.filename)
+
+            for outer_key, inner_dict in ch_data.items():
+                group = fout.create_group(outer_key)
+                for inner_key, inner_value in inner_dict.items():
+                    group.create_dataset(inner_key, data=inner_value)    
+    
+    if args.plot:
+        plt.show()

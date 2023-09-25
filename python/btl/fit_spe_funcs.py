@@ -322,6 +322,9 @@ def fit_spe(h, model, f_h=None, root_func=False):
         # Number of parameters must be specified when using a python function
         f1 = ROOT.TF1("%s_fit" % h.GetName(), model, offset - 1.5*raw_spread, offset + 5*h.GetStdDev(), 7)
 
+    f1.SetNpx(10000)
+    f1.SetLineColor(ROOT.kRed)
+
     f1.SetParameter(0, scale)
     f1.SetParLimits(0, 0, 1e9)
 
@@ -339,13 +342,13 @@ def fit_spe(h, model, f_h=None, root_func=False):
     f1.FixParameter(6, ps)
     f1.FixParameter(7, 0)
 
-    for i in range(6):
-        print(f'[{i}]: {f1.GetParameter(i)}')
+    #for i in range(6):
+    #    print(f'[{i}]: {f1.GetParameter(i)}')
     
-    r = h.Fit(f1, 'SRB')
+    r = h.Fit(f1, 'Q0SRB')
 
-    h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
-    h.Write()
+    h.SetAxisRange(1., h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
+    #h.Write()
 
     for i in range(7):
         f1.ReleaseParameter(i)
@@ -356,14 +359,14 @@ def fit_spe(h, model, f_h=None, root_func=False):
     f1.SetParLimits(5, 0, 0.5) 
     f1.SetParLimits(6, 0, 0.5)
 
-    r = h.Fit(f1, 'SR')
+    r = h.Fit(f1, 'QSR+')
     r = r.Get()
     if not r.IsValid():
         print("Fit error!")
         return None
     
-    h.SetAxisRange(0, h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
+    h.SetAxisRange(1., h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
     f1.Write()
-    h.Write()
+    #h.Write()
 
     return [f1.GetParameter(i) for i in range(7)], [f1.GetParError(i) for i in range(7)]

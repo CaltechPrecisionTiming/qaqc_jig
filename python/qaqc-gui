@@ -17,7 +17,8 @@ import os
 import h5py
 
 WAVEDUMP_PROGRAM = 'wavedump'
-ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
+#ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
+ANALYZE_WAVEFORMS_PROGRAM = 'integrate-waveforms'
 
 # Debug mode. Right now this just controls whether we draw random numbers for
 # polling.
@@ -232,8 +233,11 @@ def reanalyze_data():
         entry.update()
 
         root, ext = splitext(filename)
-        root_filename = "%s.root" % root
-        cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename]
+#        #root_filename = "%s.root" % root
+#        #cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename]
+        out_filename = "%s_integrals.hdf5" % root
+        cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', out_filename]
+        
         if upload_enable.get():
             cmd += ['-u']
         if run_command(cmd,progress_bar=i):
@@ -438,8 +442,11 @@ def take_data():
         entry.update()
 
         root, ext = splitext(filename)
-        root_filename = "%s.root" % root
-        cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename]
+#       # root_filename = "%s.root" % root
+#       # cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', root_filename]
+        out_filename = "%s_integrals.hdf5" % root
+        cmd = [ANALYZE_WAVEFORMS_PROGRAM,filename,'-o', out_filename]
+
         if upload_enable.get():
             cmd += ['-u']
         if run_command(cmd,progress_bar=i):

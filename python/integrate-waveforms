@@ -281,7 +281,10 @@ def plot_time_volt(x, y, channel, data_type, a, b, avg_y=None, pdf=False, filena
             print('No filename specified; can not print pdf!')
         else:
             root, ext = os.path.splitext(filename)
-            plt.savefig(os.path.join(args.print_pdfs, "%s_%s_%s_TimeVolt.pdf" % (root,data_type,channel)))
+            print("printing plot in folder:", os.path.join(args.print_pdfs, "%s_%s_%s_TimeVolt.png" % (root,data_type,channel)))
+            plt.savefig(os.path.join(args.print_pdfs, "%s_%s_%s_TimeVolt.png" % (root,data_type,channel)))
+    plt.cla()
+    plt.close()
 
 
 
@@ -322,7 +325,7 @@ if __name__ == '__main__':
                 if args.group is not None and group != args.group:
                     continue
                 
-                if group != 'lyso' and group != 'spe':
+                if group != 'lyso' and group != 'spe' and group != 'sodium':
                     print("Unknown group name: \"%s\". Skipping..." % group)
                     continue
                 
@@ -350,10 +353,13 @@ if __name__ == '__main__':
                     ##################
                     # Integrations 
                     ##################
-                    print(f'Integrating {group} {channel}...')
+                    print(f'\nIntegrating {group} {channel}...')
                     for i in range(0, len(f[group][channel]), args.chunks):
+                        print(group,channel,args.chunks,len(f[group][channel]))
+                        
                         x, y = convert_data(f, group, channel, i, i+args.chunks)
-                        if group == 'lyso':
+                        
+                        if group == 'lyso' or group == 'sodium':
                             a, b = get_window(x,y, left=50, right=350)
                             y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
                             if 'avg_pulse_y' in ch_data[channel]:
@@ -367,17 +373,35 @@ if __name__ == '__main__':
                                 ch_data[channel]['avg_pulse_x'] = x
                                 ch_data[channel]['lyso_rise_time'] = get_rise_time(x, y)
                                 ch_data[channel]['lyso_fall_time'] = get_fall_time(x, y)
-                            
-                        elif group == 'spe':
-                            a, b = get_spe_window(x, args.start_time, args.integration_time)
-                            y = spe_baseline_subtraction(x, y, a, b, method=args.integration_method)
+
+                            charge.extend(integrate(x,y, a, b))
                         
-                        charge.extend(integrate(x,y, a, b))
-                    
+                        elif group == 'spe':
+                            #a1, b1 = get_spe_window(x, -650, args.integration_time)
+                            #a2, b2 = get_spe_window(x, -450, args.integration_time)
+                            #a3, b3 = get_spe_window(x, -250, args.integration_time)
+                            #a4, b4 = get_spe_window(x, -50, args.integration_time)
+                            a5, b5 = get_spe_window(x, -150, args.integration_time)                            
+                            #y1 = spe_baseline_subtraction(x, y, a1, b1, method=args.integration_method)
+                            #y2 = spe_baseline_subtraction(x, y, a2, b2, method=args.integration_method)
+                            #y3 = spe_baseline_subtraction(x, y, a3, b3, method=args.integration_method)
+                            #y4 = spe_baseline_subtraction(x, y, a4, b4, method=args.integration_method)
+                            y5 = spe_baseline_subtraction(x, y, a5, b5, method=args.integration_method)
+                            #a, b = get_window(x,y, left=50, right=350)
+                            a = a5
+                            b = b5
+                            
+                            #charge.extend(integrate(x, y1, a1, b1))
+                            #charge.extend(integrate(x, y2, a2, b2))
+                            #charge.extend(integrate(x, y3, a3, b3))
+                            #charge.extend(integrate(x, y4, a4, b4))
+                            charge.extend(integrate(x, y5, a5, b5))
+                            #charge.extend(integrate(x, y, a, b))
+                            
                     ch_data[channel]['%s_charge' % group] = np.array(charge)
                     
                     if args.plot or args.print_pdfs:
-                        if group == 'lyso':
+                        if group == 'lyso' or group == 'sodium':
                             avg_y = ch_data[channel]['avg_pulse_y']
                         else:
                             # avg_y for the spe waveform is only used for

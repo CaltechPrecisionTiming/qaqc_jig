@@ -5,6 +5,7 @@ from scipy.stats import poisson
 import sys
 import csv
 import os
+import math
 import ROOT
 from ROOT import gROOT
 from ROOT import TMath
@@ -14,14 +15,40 @@ from functools import lru_cache, wraps
 # DEFAULT VALUES FOR SPE FIT:
 D_OFFSET = 0
 D_LAMBDA = 0.5
-D_SPE_CHARGE = 0.8
+D_SPE_CHARGE = 3.0
 D_NOISE_SPREAD = 0.01
-D_SPE_CHARGE_SPREAD = 0
+D_SPE_CHARGE_SPREAD = 0.05
 D_ZERO_PEAK_SPREAD = 0.4
 # Number of peaks we use for SPE fitting
 num_peaks = 20
 
 ROOT_FUNC = "[0]*(" + "+".join(["TMath::Poisson(%i,[2])*TMath::Gaus(x-[1],[3]*%i,TMath::Sqrt([4]^2+[5]^2*%i))" % (i,i,i) for i in range(0,num_peaks)]) + ")"
+
+def ROOT_peaks(h, width=10, height=0.05, npeaks=4, options=""):
+    """
+    Finds peaks in hisogram `h`. `height` is measured as a fraction of the
+    highest peak.  Peaks lower than `<highest peak>*height` will not be
+    searched for.
+
+    Returns an array of the peak locations, sorted in charge order, lowest to
+    highest `x_pos`, and the location of the highest peak:
+    (`x_pos`, `highest_peak`)
+
+    See ROOT TSpectrum documentation for peak finding details:
+    https://root.cern.ch/root/htmldoc/guides/spectrum/Spectrum.html#processing-and-visualization-functions
+    """
+    
+    spec = ROOT.TSpectrum(npeaks)
+    highest_peak = None
+
+    n_pks = spec.Search(h, width, options, height)               
+    peaks = spec.GetPositionX()
+    vec_peaks = []
+    for ii in range(n_pks):
+        vec_peaks.append(peaks[ii])
+    #vec_peaks.sort() 
+    
+    return vec_peaks
 
 def iqr(h):
     probSum = np.array([0.25, 0.75], dtype=np.double)
@@ -223,6 +250,16 @@ def get_spe(x, p):
             f.SetParameter(i,0)
     return np.array([f.Eval(e) for e in x])
 
+def multigaussian_dfixed(x, par):
+    """
+    EDIT HERE
+    """
+    nGaus = par[0]
+    model = par[1] * TMath.Gaus(x[0],par[2],par[3])
+    for jj in range(int(nGaus)):
+        model += par[6+2*jj] * TMath.Gaus(x[0],par[4] + jj* par[5] ,par[7+2*jj])
+    return model
+
 def fit_spe(h, model, f_h=None, root_func=False):
     """ 
     SPE Fitting Strategy
@@ -295,7 +332,7 @@ def fit_spe(h, model, f_h=None, root_func=False):
     raw_spread = f_noise.GetParameter(2)
 
     # Probability that an SPE trigger a secondary SPE
-    ps = 0
+    ps = 0.05
 
     # `l`, short for lambda, which is the average number of PEs measured in the
     # integration window.
@@ -317,47 +354,50 @@ def fit_spe(h, model, f_h=None, root_func=False):
     SPE_charge = max(zero_peak_end - offset, SPE_charge)
 
     if root_func:
-        f1 = ROOT.TF1("%s_fit" % h.GetName(), string, offset - 1.5*raw_spread, offset + 5*h.GetStdDev())
+        f1 = ROOT.TF1("%s_fit" % h.GetName(), MultiGaussian, offset - 1.5*raw_spread, offset + 8*h.GetStdDev())
     else:
         # Number of parameters must be specified when using a python function
-        f1 = ROOT.TF1("%s_fit" % h.GetName(), model, offset - 1.5*raw_spread, offset + 5*h.GetStdDev(), 7)
+        f1 = ROOT.TF1("%s_fit" % h.GetName(), model, offset - 1.5*raw_spread, offset + 8*h.GetStdDev(), 7)
 
-    f1.SetNpx(10000)
-    f1.SetLineColor(ROOT.kRed)
+        f1.SetNpx(10000)
+        f1.SetLineColor(ROOT.kRed)
 
-    f1.SetParameter(0, scale)
-    f1.SetParLimits(0, 0, 1e9)
+        f1.SetParameter(0, scale)
+        f1.SetParLimits(0, 0, 1e9)
 
-    f1.FixParameter(1, offset)
+        f1.FixParameter(1, offset)
 
-    f1.SetParameter(2, l)
-    f1.SetParLimits(2, 0, num_peaks+5)
+        f1.SetParameter(2, l)
+        f1.SetParLimits(2, 0, num_peaks+5)
 
-    f1.SetParameter(3, SPE_charge)
-    f1.SetParLimits(3, zero_peak_end - offset, SPE_charge + 1)
-    f1.FixParameter(4, raw_spread)
+        SPE_charge = 4
+        f1.SetParameter(3, SPE_charge)
+        f1.SetParLimits(3, zero_peak_end - offset, SPE_charge + 2)
+        f1.FixParameter(4, raw_spread)
     
-    f1.FixParameter(5, D_SPE_CHARGE_SPREAD)
+        f1.FixParameter(5, D_SPE_CHARGE_SPREAD)
+        
+        f1.FixParameter(6, ps)
+        f1.FixParameter(7, 0)
+
+        #for i in range(6):
+        #    print(f'[{i}]: {f1.GetParameter(i)}')
     
-    f1.FixParameter(6, ps)
-    f1.FixParameter(7, 0)
+        r = h.Fit(f1, 'Q0SRB')
 
-    #for i in range(6):
-    #    print(f'[{i}]: {f1.GetParameter(i)}')
-    
-    r = h.Fit(f1, 'Q0SRB')
+        h.SetAxisRange(1., h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
+        #h.Write()
 
-    h.SetAxisRange(1., h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
-    #h.Write()
+        for i in range(7):
+            f1.ReleaseParameter(i)
 
-    for i in range(7):
-        f1.ReleaseParameter(i)
-
-    f1.SetParLimits(2, max(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1)
-    f1.SetParLimits(3, max(zero_peak_end-offset, f1.GetParameter(3) - 1), f1.GetParameter(3) + 1)
-    f1.SetParLimits(4, 0, 10)
-    f1.SetParLimits(5, 0, 0.5) 
-    f1.SetParLimits(6, 0, 0.5)
+            f1.SetParLimits(2, max(0, f1.GetParameter(2) - 1), f1.GetParameter(2) + 1)
+            f1.SetParLimits(3, max(zero_peak_end-offset, f1.GetParameter(3) - 1), f1.GetParameter(3) + 1)
+#            f1.SetParLimits(3, 2, 5)
+            f1.SetParLimits(4, 0, 10)
+            f1.SetParLimits(5, 0, 0.5) 
+            f1.SetParLimits(6, 0.01, 0.1)
+            
 
     r = h.Fit(f1, 'QSR+')
     r = r.Get()
@@ -365,8 +405,76 @@ def fit_spe(h, model, f_h=None, root_func=False):
         print("Fit error!")
         return None
     
+    # for i in range(0,7):
+    #     print("par", i, ": ", f1.GetParameter(i))
+        
     h.SetAxisRange(1., h.GetBinContent(h.GetMaximumBin())+h.GetEntries()*0.0025, "Y")
     f1.Write()
     #h.Write()
 
     return [f1.GetParameter(i) for i in range(7)], [f1.GetParError(i) for i in range(7)]
+
+
+
+def fit_spe_tspectrum(h, root_func=False):
+    """ 
+    SPE Fitting Strategy
+    
+    EDIT HERE
+    """
+
+    ## Use TSpectrum
+    nPeaks = 6
+    peaks = ROOT_peaks(h,width=15,height=0.005,npeaks=nPeaks,options='nobackground')
+    nFound = len(peaks)
+    
+    distance = 0
+    if len(peaks) > 1:
+        distance = peaks[1] - peaks[0]
+    
+    f1 = ROOT.TF1('%s_fit'%h.GetName(), multigaussian_dfixed, -5.,20.,14)
+    f1.SetNpx(10000)
+    f1.FixParameter(0,nFound)
+    f1.FixParameter(1,0.)
+    f1.FixParameter(2,0.)
+    f1.FixParameter(3,1.)
+    f1.SetLineColor(ROOT.kRed)
+    
+    fGaus = {}
+    for l in range(nFound):
+        fGaus[l] = ROOT.TF1('fGaus_%d'%l,'gaus',peaks[l]-distance/4.,peaks[l]+distance/4.)
+        fGaus[l].SetLineColor(ROOT.kRed)
+        h.Fit(fGaus[l], 'QRS+')
+        
+        f1.SetParameter(6+2*l,fGaus[l].GetParameter(0))
+        f1.SetParameter(7+2*l,fGaus[l].GetParameter(2))
+        if l == 0 :
+            f1.SetParameter(4,fGaus[l].GetParameter(1))
+        if l == 1 :
+            f1.SetParameter(5,fGaus[l].GetParameter(1)-f1.GetParameter(4))
+
+    #background = ROOT.TH1F('hBkg','',h.GetNbinsX(),h.GetBinLowEdge(1),h.GetBinLowEdge(h.GetNbinsX())+h.GetBinWidth(1))
+    #for iBin in range(1+h.GetNbinsX()+1):
+    #    binCenter = h.GetBinCenter(iBin)
+    #    keepBin = True
+    #    for l in range(nFound):
+    #        if abs(binCenter-fGaus[l].GetParameter(1)) < 2.*fGaus[l].GetParameter(2):
+    #            keepBin = False
+    #    if keepBin:
+    #        background.SetBinContent(iBin,h.GetBinContent(iBin))
+    #        background.SetBinError(iBin,h.GetBinError(iBin))
+    #fBkg = ROOT.TF1('fBkg','gaus',-5.,20)
+    #background.Fit(fBkg, 'QRS+')
+    #f1.FixParameter(1,fBkg.GetParameter(0))
+    #f1.FixParameter(2,fBkg.GetParameter(1))
+    #[f1.FixParameter(3,fBkg.GetParameter(2))
+    #
+    #r = h.Fit(f1, '')
+    #
+    #return [f1.GetParameter(i) for i in range(14)], [f1.GetParError(i) for i in range(14)] 
+
+    if 0 in fGaus.keys() and 1 in fGaus.keys():
+        return [fGaus[1].GetParameter(1)-fGaus[0].GetParameter(1)], [math.sqrt(pow(fGaus[1].GetParError(1),2)+pow(fGaus[0].GetParError(1),2))]
+    else:
+        return None
+    #return [f1.GetParameter(4)], [f1.GetParError(4)]

@@ -5,6 +5,9 @@ GUI for controlling the Caltech BTL QA/QC jig.
 Author: Anthony LaTorre
 Last Updated: Jan 24, 2023
 """
+USE_KEITHLEY = False
+USE_CHILLER = False
+
 from btl import Client
 import tkinter as tk
 from tkinter import ttk
@@ -16,8 +19,9 @@ from subprocess import Popen, PIPE
 import subprocess
 import os
 import h5py
-from utilities import keithley2231A
-
+if USE_KEITHLEY:
+   from utilities import keithley2231A
+   
 WAVEDUMP_PROGRAM = 'wavedump'
 #ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
 INTEGRATE_WAVEFORMS_PROGRAM = 'integrate-waveforms'
@@ -828,68 +832,70 @@ if __name__ == '__main__':
     #stepper_enable = tk.IntVar(frame_settings, value=1)
     #stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
     #stepper_enable_checkbox.pack()
-
-    mykey = keithley2231A.Keithley2231A()
-    state = mykey.check_state()
     
-    power_on_button = tk.Button(master=frame_buttons2,text="Power on", width=25, height=5, command=power_on)
-    if state == 0:
-        power_on_button['state'] = tk.NORMAL
-    else:
-        power_on_button['state'] = tk.DISABLED        
-    power_on_button.pack()
+    if USE_KEITHLEY:
+        mykey = keithley2231A.Keithley2231A()
+        state = mykey.check_state()
+        
+        power_on_button = tk.Button(master=frame_buttons2,text="Power on", width=25, height=5, command=power_on)
+        if state == 0:
+            power_on_button['state'] = tk.NORMAL
+        else:
+            power_on_button['state'] = tk.DISABLED        
+        power_on_button.pack()
+        
+        power_off_button = tk.Button(master=frame_buttons2,text="Power off", width=25, height=5, command=power_off)
+        if state == 0:
+            power_off_button['state'] = tk.DISABLED
+        else:
+            power_off_button['state'] = tk.NORMAL
+        power_off_button.pack()
     
-    power_off_button = tk.Button(master=frame_buttons2,text="Power off", width=25, height=5, command=power_off)
-    if state == 0:
-        power_off_button['state'] = tk.DISABLED
-    else:
-        power_off_button['state'] = tk.NORMAL
-    power_off_button.pack()
+    if USE_CHILLER:
+        out = Popen(['ssh', 'cmsdaq@100.100.100.1', '/home/cmsdaq/Programs/Lab5015Utils/driveChiller.py --check-state'],stdout=subprocess.PIPE)
+        state = int(out.stdout.read().decode().rstrip())
     
-    out = Popen(['ssh', 'cmsdaq@100.100.100.1', '/home/cmsdaq/Programs/Lab5015Utils/driveChiller.py --check-state'],stdout=subprocess.PIPE)
-    state = int(out.stdout.read().decode().rstrip())
-
-    chiller_pid = -1
-    if os.path.isfile('/home/cern_user/.setBoxTemp_PID.pid'):
-        out = Popen(['cat','/home/cern_user/.setBoxTemp_PID.pid'],stdout=subprocess.PIPE)
-        chiller_pid = int(out.stdout.read().decode().rstrip())
-
-    if chiller_pid == -1:
-        chiller_on_button = tk.Button(master=frame_buttons2,text="Chiller on", width=25, height=5, command=chiller_on)
-        chiller_on_button['state'] = tk.NORMAL
-    else:
-        chiller_on_button = tk.Button(master=frame_buttons2,text="Chiller is on (PID: %d)"%chiller_pid, width=25, height=5, command=chiller_on)
-        chiller_on_button['state'] = tk.DISABLED
-    chiller_on_button.pack()
+        chiller_pid = -1
+        if os.path.isfile('/home/cern_user/.setBoxTemp_PID.pid'):
+            out = Popen(['cat','/home/cern_user/.setBoxTemp_PID.pid'],stdout=subprocess.PIPE)
+            chiller_pid = int(out.stdout.read().decode().rstrip())
     
-    chiller_off_button = tk.Button(master=frame_buttons2,text="Chiller off", width=25, height=5, command=chiller_off)
-    if state == 0:
-        chiller_off_button['state'] = tk.DISABLED
-    else:
-        chiller_off_button['state'] = tk.NORMAL
-    chiller_off_button.pack()
-
-    chiller_temp_label = tk.Label(frame_chiller, text="chiller target temp. (° C): ")
-    chiller_temp_label.grid(row=0,column=0)
-    chiller_temp = tk.StringVar(frame_temps, value="23.0")
-    chiller_temp_entry = tk.Entry(frame_chiller, textvariable=chiller_temp)
-    chiller_temp_entry.grid(row=1,column = 0)
+        if chiller_pid == -1:
+            chiller_on_button = tk.Button(master=frame_buttons2,text="Chiller on", width=25, height=5, command=chiller_on)
+            chiller_on_button['state'] = tk.NORMAL
+        else:
+            chiller_on_button = tk.Button(master=frame_buttons2,text="Chiller is on (PID: %d)"%chiller_pid, width=25, height=5, command=chiller_on)
+            chiller_on_button['state'] = tk.DISABLED
+        chiller_on_button.pack()
+        
+        chiller_off_button = tk.Button(master=frame_buttons2,text="Chiller off", width=25, height=5, command=chiller_off)
+        if state == 0:
+            chiller_off_button['state'] = tk.DISABLED
+        else:
+            chiller_off_button['state'] = tk.NORMAL
+        chiller_off_button.pack()
     
-    tk.Label(frame_temps,text="#1").grid(row=2,column=1)
-    tk.Label(frame_temps,text="#2").grid(row=2,column=2)
-    tk.Label(frame_temps,text="#3").grid(row=2,column=3)
-    tk.Label(frame_temps,text="#4").grid(row=2,column=4)
-    tk.Label(frame_temps,text="#5").grid(row=2,column=5)
-    tk.Label(frame_temps,text="temp. (° C)").grid(row=3,column=0)
-    tk.Label(frame_temps,text=" hum. (%)").grid(row=4,column=0)    
-    
-    dht22_text = {}
-    for i in range(5):
-        dht22_text[(i,'temp')] = tk.Label(frame_temps,text="n/a")
-        dht22_text[(i,'temp')].grid(row=3,column=1+i)
-        dht22_text[(i,'hum')] = tk.Label(frame_temps,text="n/a")
-        dht22_text[(i,'hum')].grid(row=4,column=1+i)
-    read_dht22()
+        chiller_temp_label = tk.Label(frame_chiller, text="chiller target temp. (° C): ")
+        chiller_temp_label.grid(row=0,column=0)
+        chiller_temp = tk.StringVar(frame_temps, value="23.0")
+        chiller_temp_entry = tk.Entry(frame_chiller, textvariable=chiller_temp)
+        chiller_temp_entry.grid(row=1,column = 0)
+        
+        tk.Label(frame_temps,text="#1").grid(row=2,column=1)
+        tk.Label(frame_temps,text="#2").grid(row=2,column=2)
+        tk.Label(frame_temps,text="#3").grid(row=2,column=3)
+        tk.Label(frame_temps,text="#4").grid(row=2,column=4)
+        tk.Label(frame_temps,text="#5").grid(row=2,column=5)
+        tk.Label(frame_temps,text="temp. (° C)").grid(row=3,column=0)
+        tk.Label(frame_temps,text=" hum. (%)").grid(row=4,column=0)    
+        
+        dht22_text = {}
+        for i in range(5):
+            dht22_text[(i,'temp')] = tk.Label(frame_temps,text="n/a")
+            dht22_text[(i,'temp')].grid(row=3,column=1+i)
+            dht22_text[(i,'hum')] = tk.Label(frame_temps,text="n/a")
+            dht22_text[(i,'hum')].grid(row=4,column=1+i)
+        read_dht22()
         
 
     #frame_settings.grid(row=0,column=1)

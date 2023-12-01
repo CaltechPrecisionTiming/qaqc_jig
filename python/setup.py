@@ -7,6 +7,6 @@ setup(name='btl',
       description='Python Utilities for BTL QA/QC Jig',
       author='Anthony LaTorre',
       author_email='alatorre@caltech.edu',
-      packages=['btl'],
-      scripts=['analyze-waveforms','qaqc-gui','qaqc-client']
+      packages=['btl','utilities'],
+      scripts=['analyze-waveforms','integrate-waveforms','qaqc-gui','qaqc-client']
      )

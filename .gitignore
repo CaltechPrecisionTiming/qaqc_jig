@@ -9,4 +9,5 @@
 *.symvers
 *.order
 *.swo
+*.root
 __pycache__

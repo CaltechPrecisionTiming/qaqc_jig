@@ -4,6 +4,8 @@ GUI for controlling the Caltech BTL QA/QC jig.
 
 Author: Anthony LaTorre
 Last Updated: Jan 24, 2023
+
+Updates April 2024 by Alex Albert
 """
 from btl import Client
 import tkinter as tk
@@ -15,9 +17,12 @@ import json
 from subprocess import Popen, PIPE
 import os
 import h5py
+import ROOT
 
 WAVEDUMP_PROGRAM = 'wavedump'
 ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
+GENERATE_RDF_PROGRAM = 'generate-RDFs'
+
 
 # Debug mode. Right now this just controls whether we draw random numbers for
 # polling.
@@ -35,6 +40,9 @@ ASSEMBLY_CENTERS = [
 
 NUMBER_OF_BOARDS = [str(i) for i in range(1,5)]
 
+# These sources should be kept the same as those in `analyze-waveforms`.
+SOURCES = ['LYSO', 'Sodium', 'Cesium', 'Cobalt']
+
 BOARD_ADDRESSES = {
     0: [0,1],
     1: [2,3],
@@ -44,10 +52,10 @@ BOARD_ADDRESSES = {
 
 RELAYS = [0,1,2,3,4,5]
 
-def filename_template(data_path='./', barcode=None, ov=None, n_spe=None, n_lyso=None):
+def filename_template(data_path='./', src='source', barcode=None, ov=None, n_spe=None, n_source=None):
     if not exists(data_path) and data_path != '':
         os.makedirs(data_path)
-    return join(data_path, 'module_%i_Vov%.2f_Nspe%d_Nlyso%d.hdf5' % (int(barcode), float(ov), int(n_spe), int(n_lyso)))
+    return join(data_path, 'module_%i_Vov%.2f_Nspe%d_N%s%d.hdf5' % (int(barcode), float(ov), int(n_spe), src, int(n_source)))
 
 def print_warning(msg):
     start = entry.index(tk.INSERT)
@@ -96,17 +104,20 @@ def save(filename=None):
         filename = join(expanduser("~"),".qaqc_gui.settings")
     data = {}
     data['assembly_center'] = assembly_center.get()
+    data['source'] = source.get()
     data['n_boards'] = int(n_boards_var.get())
     data['barcodes'] = [barcode.get() for barcode in barcodes]
     data['module_available'] = [available.get() for available in module_available]
     data['ov'] = ov.get()
+    data['trigger'] = trigger.get()
     data['vbds'] = [vbd.get() for vbd in vbds]
     data['data_path'] = data_path.get()
     data['ip_address'] = ip_address.get()
     #data['stepper_enable'] = stepper_enable.get()
     data['n_spe_events'] = n_spe_events.get()
-    data['n_lyso_events'] = n_lyso_events.get()
+    data['n_source_events'] = n_source_events.get()
     data['upload'] = upload_enable.get()
+    data['make_RDF'] = RDF_enable.get()
     print("Saving GUI state from '%s'" % filename)
     with open(filename,'w') as f:
         json.dump(data,f)
@@ -123,6 +134,8 @@ def load(filename=None):
             data = json.load(f)
         if 'assembly_center' in data:
             assembly_center.set(data['assembly_center'])
+        if 'source' in data:
+            source.set(data['source'])
         if 'n_boards' in data:
             n_boards_var.set(str(data['n_boards']))
         if 'barcodes' in data:
@@ -133,6 +146,8 @@ def load(filename=None):
                 module_available[i].set(available)
         if 'ov' in data:
             ov.set(data['ov'])
+        if 'trigger' in data:
+            trigger.set(data['trigger'])
         if 'vbds' in data:
             for i, vbd in enumerate(data['vbds']):
                 vbds[i].set(vbd)
@@ -144,10 +159,12 @@ def load(filename=None):
         #    stepper_enable.set(data['stepper_enable'])
         if 'n_spe_events' in data:
             n_spe_events.set(data['n_spe_events'])
-        if 'n_lyso_events' in data:
-            n_lyso_events.set(data['n_lyso_events'])
+        if 'n_source_events' in data:
+            n_source_events.set(data['n_source_events'])
         if 'upload_enable' in data:
-            upload_enable.set(data['upload_enable'])
+            upload_enable.set(data['upload_enable']) 
+        if 'RDF_enable' in data:
+            RDF_enable.set(data['RDF_enable'])
         n_boards_changed()
 
 def on_closing():
@@ -213,7 +230,7 @@ def reanalyze_data():
             return
 
         try:
-            filename = filename_template(data_path=data_path.get(), barcode=barcode, ov=ov.get(), n_spe=n_spe_events.get(), n_lyso=n_lyso_events.get())
+            filename = filename_template(data_path=data_path.get(), src=source.get().lower(), barcode=barcode, ov=ov.get(), n_spe=n_spe_events.get(), n_source=n_source_events.get())
         except:
             print_warning("Not a valid data path: %s\n" % data_path.get())
             return
@@ -230,7 +247,32 @@ def reanalyze_data():
         if run_command(cmd,progress_bar=i):
             module_status[i].config(text="Failed analysis")
             continue
+        
+        if RDF_enable.get():
+            entry.insert(tk.END, "Generating RDF for module %i\n" % int(barcode))
+            entry.yview(tk.END)
+            entry.update()
 
+            root, ext = splitext(filename)
+            RDF_filename = "%s_rdf.root" % root
+            cmd = [GENERATE_RDF_PROGRAM, filename,'-o', RDF_filename, '-c', '--saturation_flag']
+            #if upload_enable.get():
+            #    cmd += ['-u']
+            
+            if run_command(cmd,progress_bar=i):
+                module_status[i].config(text="Failed analysis")
+                continue
+            main_file = ROOT.TFile.Open(root_filename, "UPDATE")
+            rdf_file = ROOT.TFile.Open(RDF_filename, "UPDATE")
+            for key in rdf_file.GetListOfKeys():
+                rdf_tree = key.ReadObj()
+                if not isinstance(rdf_tree, ROOT.TTree):
+                    continue
+                tree = rdf_tree.CloneTree(-1, "fast")
+                main_file.cd()
+                tree.Write()
+            main_file.Close(); rdf_file.Close()
+            os.system("rm " + RDF_filename) 
         module_status[i].config(text="Data + analysis successful!")
 
 def take_data():
@@ -298,7 +340,7 @@ def take_data():
         print('Setting absolute bias voltage %.2f for module %i\n' %(hv,i) )
 
         try:
-            filename = filename_template(data_path=data_path.get(), barcode=barcode, ov=ov.get(), n_spe=n_spe_events.get(), n_lyso=n_lyso_events.get())
+            filename = filename_template(data_path=data_path.get(), src=source.get().lower(), barcode=barcode, ov=ov.get(), n_spe=n_spe_events.get(), n_source=n_source_events.get())
         except:
             print_warning("Not a valid data path: %s\n" % data_path.get())
             return
@@ -355,7 +397,7 @@ def take_data():
                 hv_off(client)
                 return
 
-            # Turn the attenuation on to take lyso data
+            # Turn the attenuation on to take source data
             try:
                 query(client, "set_attenuation on")
             except Exception as e:
@@ -368,7 +410,8 @@ def take_data():
                 print_warning(str(e))
                 return
 
-            if run_command([WAVEDUMP_PROGRAM,'-t','self','-l','lyso','--channel-map',j % 2,'-n',n_lyso_events.get(),'-o',filename], progress_bar=i):
+            cmd = [WAVEDUMP_PROGRAM,'-t','self','-l',source.get().lower(),'--channel-map',j % 2,'-n',n_source_events.get(),'-o',filename,'--threshold',trigger.get()]
+            if run_command(cmd, progress_bar=i):
                 hv_off(client)
                 return
 
@@ -418,7 +461,7 @@ def take_data():
             return
 
         try:
-            filename = filename_template(data_path=data_path.get(), barcode=barcode, ov=ov.get(), n_spe=n_spe_events.get(), n_lyso=n_lyso_events.get())
+            filename = filename_template(data_path=data_path.get(), src=source.get().lower(), barcode=barcode, ov=ov.get(), n_spe=n_spe_events.get(), n_source=n_source_events.get())
         except:
             print_warning("Not a valid data path: %s\n" % data_path.get())
             return
@@ -435,7 +478,33 @@ def take_data():
         if run_command(cmd,progress_bar=i):
             module_status[i].config(text="Failed analysis")
             continue
+        
+        #Generate RDF if box was checked
+        if RDF_enable.get():
+            entry.insert(tk.END, "Generating RDF for module %i\n" % int(barcode))
+            entry.yview(tk.END)
+            entry.update()
 
+            root, ext = splitext(filename)
+            RDF_filename = "%s_rdf.root" % root
+            cmd = [GENERATE_RDF_PROGRAM, filename,'-o', RDF_filename, '-c', '--saturation_flag']
+            #if upload_enable.get():
+            #    cmd += ['-u']
+            
+            if run_command(cmd,progress_bar=i):
+                module_status[i].config(text="Failed analysis")
+                continue
+            main_file = ROOT.TFile.Open(root_filename, "UPDATE")
+            rdf_file = ROOT.TFile.Open(RDF_filename, "UPDATE")
+            for key in rdf_file.GetListOfKeys():
+                rdf_tree = key.ReadObj()
+                if not isinstance(rdf_tree, ROOT.TTree):
+                    continue
+                tree = rdf_tree.CloneTree(-1, "fast")
+                main_file.cd()
+                tree.Write()
+            main_file.Close(); rdf_file.Close()
+            os.system("rm " + RDF_filename) 
         module_status[i].config(text="Data + analysis successful!")
 
 def poll_single_module(client, module):
@@ -604,6 +673,9 @@ if __name__ == '__main__':
     assembly_center = tk.StringVar(frame_menu)
     assembly_center.set(ASSEMBLY_CENTERS[0])
 
+    source = tk.StringVar(frame_menu)
+    source.set(SOURCES[0])
+
     barcode_labels = []
     barcodes = []
     barcode_entries = []
@@ -644,6 +716,12 @@ if __name__ == '__main__':
     assembly_center_menu = tk.OptionMenu(frame_menu, assembly_center, *ASSEMBLY_CENTERS)
     assembly_center_menu.grid(row=0,column=1)
 
+    source_label = tk.Label(frame_menu, text="Source: ")
+    source_label.grid(row=1,column=0)
+
+    source_menu = tk.OptionMenu(frame_menu, source, *SOURCES)
+    source_menu.grid(row=1,column=1)
+
     n_boards_label = tk.Label(frame_menu,text="Number of Boards: ")
     n_boards_label.grid(row=2,column=0)
 
@@ -661,40 +739,54 @@ if __name__ == '__main__':
     ov_menu_entry = tk.Entry(frame_menu, textvariable=ov)
     ov_menu_entry.grid(row=3,column=1)
     
+    trigger_menu_label = tk.Label(frame_menu, text="Trigger Threshold (V): ")
+    trigger_menu_label.grid(row=4,column=0)
+    trigger = tk.StringVar(frame_menu)
+    trigger_menu_entry = tk.Entry(frame_menu, textvariable=trigger)
+    trigger_menu_entry.grid(row=4,column=1)
+
     ip_address_menu_label = tk.Label(frame_menu, text="IP Address: ")
-    ip_address_menu_label.grid(row=4,column=0)
+    ip_address_menu_label.grid(row=5,column=0)
     ip_address = tk.StringVar(frame_menu)
     ip_address.set('192.168.1.177')
     ip_address_menu_entry = tk.Entry(frame_menu, textvariable=ip_address)
-    ip_address_menu_entry.grid(row=4,column=1)
+    ip_address_menu_entry.grid(row=5,column=1)
 
     data_path_menu_label = tk.Label(frame_menu, text="Data path: ")
-    data_path_menu_label.grid(row=5,column=0)
+    data_path_menu_label.grid(row=6,column=0)
     data_path = tk.StringVar(frame_menu)
     data_path.set('')
     data_path_menu_entry = tk.Entry(frame_menu, textvariable=data_path)
-    data_path_menu_entry.grid(row=5,column=1)
+    data_path_menu_entry.grid(row=6,column=1)
     
     n_spe_events_menu_label = tk.Label(frame_menu, text="Number of SPE Events: ")
-    n_spe_events_menu_label.grid(row=6,column=0)
+    n_spe_events_menu_label.grid(row=7,column=0)
     n_spe_events = tk.IntVar(frame_menu)
     n_spe_events.set(100000)
     n_spe_events_menu_entry = tk.Entry(frame_menu, textvariable=n_spe_events)
-    n_spe_events_menu_entry.grid(row=6,column=1)
+    n_spe_events_menu_entry.grid(row=7,column=1)
 
-    n_lyso_events_menu_label = tk.Label(frame_menu, text="Number of LYSO Events: ")
-    n_lyso_events_menu_label.grid(row=7,column=0)
-    n_lyso_events = tk.IntVar(frame_menu)
-    n_lyso_events.set(100000)
-    n_lyso_events_menu_entry = tk.Entry(frame_menu, textvariable=n_lyso_events)
-    n_lyso_events_menu_entry.grid(row=7,column=1)
-    
+    n_source_events_menu_label = tk.Label(frame_menu, text="Number of Source Events: ")
+    n_source_events_menu_label.grid(row=8,column=0)
+    n_source_events = tk.IntVar(frame_menu)
+    n_source_events.set(100000)
+    n_source_events_menu_entry = tk.Entry(frame_menu, textvariable=n_source_events)
+    n_source_events_menu_entry.grid(row=8,column=1)
+
     upload_menu_label = tk.Label(frame_menu, text="Upload Results: ")
-    upload_menu_label.grid(row=8,column=0)
-    upload_enable = tk.IntVar(frame_menu, value=0)
+    upload_menu_label.grid(row=9,column=0)
+    upload_enable = tk.IntVar(frame_menu, value=1)
     upload_enable_checkbox = tk.Checkbutton(frame_menu, text=None, variable=upload_enable, onvalue=1, offvalue=0)
-    upload_enable_checkbox.grid(row=8,column=1)
+    upload_enable_checkbox.grid(row=9,column=1)
+
     
+    RDF_menu_label = tk.Label(frame_menu, text="Generate RDF: ")
+    RDF_menu_label.grid(row=10, column=0)
+    RDF_enable = tk.IntVar(frame_menu, value=1)
+    RDF_enable_checkbox = tk.Checkbutton(frame_menu, text=None, variable=RDF_enable, onvalue=1, offvalue=0)
+    RDF_enable_checkbox.grid(row=10,column=1)
+
+
     frame_menu.pack()
     frame_barcodes.pack()
 

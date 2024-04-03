@@ -18,11 +18,13 @@ from subprocess import Popen, PIPE
 import os
 import h5py
 import ROOT
+from datetime import datetime
 
 WAVEDUMP_PROGRAM = 'wavedump'
 ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
 GENERATE_RDF_PROGRAM = 'generate-RDFs'
-
+GENERATE_JSON = 'generate-json'
+JSON_OUTPUT_PATH = '/home/cptlab/qaqc-gui_output/json_outputs' #change for different computers
 
 # Debug mode. Right now this just controls whether we draw random numbers for
 # polling.
@@ -96,6 +98,7 @@ def run_command(cmd, progress_bar=None):
     stop_button.update()
     return p.returncode
 
+
 def save(filename=None):
     """
     Save the GUI state from the json file specified by `filename`.
@@ -118,6 +121,7 @@ def save(filename=None):
     data['n_source_events'] = n_source_events.get()
     data['upload'] = upload_enable.get()
     data['make_RDF'] = RDF_enable.get()
+    data['calibrate_to_jig'] = jig_calibrate_enable.get()
     print("Saving GUI state from '%s'" % filename)
     with open(filename,'w') as f:
         json.dump(data,f)
@@ -165,6 +169,8 @@ def load(filename=None):
             upload_enable.set(data['upload_enable']) 
         if 'RDF_enable' in data:
             RDF_enable.set(data['RDF_enable'])
+        if 'jig_calibrate_enable' in data:
+            jig_calibrate_enable.set(data['jig_calibrate_enable'])
         n_boards_changed()
 
 def on_closing():
@@ -492,7 +498,7 @@ def take_data():
             #    cmd += ['-u']
             
             if run_command(cmd,progress_bar=i):
-                module_status[i].config(text="Failed analysis")
+                module_status[i].config(text="Failed to Generate RDFs")
                 continue
             main_file = ROOT.TFile.Open(root_filename, "UPDATE")
             rdf_file = ROOT.TFile.Open(RDF_filename, "UPDATE")
@@ -505,6 +511,29 @@ def take_data():
                 tree.Write()
             main_file.Close(); rdf_file.Close()
             os.system("rm " + RDF_filename) 
+        
+        #code added to automatically generate sensor_module object and dump info into json 
+        #print("jig bool", jig_calibrate_enable.get())
+        temps_list = []
+        for key,value in info.items():
+            if "temp" in key:
+                temps_list.append(info[key])
+        sensor_module_cmd = {
+            'fname': root_filename,
+            'id': barcode,
+            'ov': ov.get(),
+            'tt': trigger.get(),
+            'source': source.get(),
+            'n_spe': n_spe_events.get(),
+            'n_src': n_source_events.get(),
+            'temps': temps_list,
+            'jig_calibrate': bool(jig_calibrate_enable.get())
+            }
+       
+        #run_command_sensor_module(sensor_module_cmd, progress_bar = i)
+        print("Generating json file with run+analysis info")
+        run_command([GENERATE_JSON, "--fname", root_filename, "--id", barcode, "--ov", ov.get(), "--tt", trigger.get(), "--source", source.get().lower(), "--n_spe", n_spe_events.get(), "--n_src", n_source_events.get(), "--temps", temps_list, "--jig_calibrate", jig_calibrate_enable.get()], progress_bar = i)
+
         module_status[i].config(text="Data + analysis successful!")
 
 def poll_single_module(client, module):
@@ -787,6 +816,12 @@ if __name__ == '__main__':
     RDF_enable_checkbox.grid(row=10,column=1)
 
 
+    jig_calibrate_menu_label = tk.Label(frame_menu, text="Apply channel-by-channel calibration: ")
+    jig_calibrate_menu_label.grid(row=11, column=0)
+    jig_calibrate_enable = tk.IntVar(frame_menu, value=1)
+    jig_calibrate_enable_checkbox = tk.Checkbutton(frame_menu, text=None, variable=jig_calibrate_enable, onvalue=1, offvalue=0)
+    jig_calibrate_enable_checkbox.grid(row=11,column=1)
+
     frame_menu.pack()
     frame_barcodes.pack()
 
@@ -808,7 +843,6 @@ if __name__ == '__main__':
         thermistor_text[(i,'tec_a')].grid(row=i+1,column=3)
         thermistor_text[(i,'tec_b')] = tk.Label(frame_thermistor,text="")
         thermistor_text[(i,'tec_b')].grid(row=i+1,column=4)
-
     button_poll = tk.Button(master=frame_adv_buttons,text="Poll", width=25, height=5, command=poll)
     button_poll.pack()
 

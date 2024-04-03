@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+
+from sensor_module import sensor_module
+import argparse
+
+def instantiate_sensor_module(args, **kwargs):
+    '''
+    if args.rotated not in [True, False, 0, 1] or args.jig_calibrate not in [True, False, 0, 1]:
+        raise RuntimeError("--rotated and --jig_calibrate cannot be set to non boolean values (should be either True or False")
+
+    '''
+    return sensor_module(fname=args.fname, id=args.id, ov=args.ov, tt=args.tt, source=args.source, 
+    n_spe=args.n_spe, n_src=args.n_src, temps=args.temps,rotated=args.rotated, jig_calibrate=args.jig_calibrate, json_fname = args.json_fname)
+
+
+if __name__ == "__main__":
+
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser(description="Helper Script to Generate Sensor_Module jsons from qaqc-gui")
+
+    parser.add_argument("--fname", default=None)
+    parser.add_argument("--id", default=None)
+    parser.add_argument("--ov", default=None)
+    parser.add_argument("--tt", default=None)
+    parser.add_argument("--source", default=None)
+    parser.add_argument("--n_spe", default=None)
+    parser.add_argument("--n_src", default=None)
+    parser.add_argument("--temps", default=None)
+    parser.add_argument("--rotated", default=False)
+    parser.add_argument("--jig_calibrate", default=True)
+    parser.add_argument("--json_fname", default=None)
+   
+    args = parser.parse_args()
+    obj = instantiate_sensor_module(args)
+
+
+

@@ -1,0 +1,16 @@
+#! /usr/bin/python3
+
+import h5py
+import sys
+import numpy as np
+
+
+
+# Open the output HDF5 file
+with h5py.File(sys.argv[1], 'r') as filein:
+    
+    for name,item in filein.items():
+        print(name, item)
+
+        for name2,item2 in item.items():
+            print('>>> ',name2,item2)

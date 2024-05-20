@@ -425,7 +425,7 @@ def fit_spe_tspectrum(h, root_func=False):
 
     ## Use TSpectrum
     nPeaks = 6
-    peaks = ROOT_peaks(h,width=15,height=0.005,npeaks=nPeaks,options='nobackground')
+    peaks = ROOT_peaks(h,width=10,height=0.001,npeaks=nPeaks,options='nobackground')
     nFound = len(peaks)
     
     distance = 0

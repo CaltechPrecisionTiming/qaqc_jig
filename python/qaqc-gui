@@ -273,9 +273,9 @@ def chiller_on():
     Function to turn on the chiller
     """
     
-    proc = Popen(['python3','/home/cern_user/qaqc_jig_dev/python/utilities/setBoxTemp_PID.py','--target','%f'%(float(chiller_temp_entry.get()))])
+    proc = Popen(['python3','/home/cmsdaq/DAQ/qaqc_jig_dev/python/utilities/setBoxTemp_PID.py','--target','%f'%(float(chiller_temp_entry.get()))])
     chiller_pid = proc.pid
-    os.system('echo %d >> /home/cern_user/.setBoxTemp_PID.pid'%chiller_pid)
+    os.system('echo %d >> /home/cmsdaq/.setBoxTemp_PID.pid'%chiller_pid)
     chiller_on_button.config(text='Chiller is on (PID: %d)'%chiller_pid)
     
     chiller_on_button['state'] = tk.DISABLED
@@ -285,9 +285,10 @@ def chiller_off():
     """
     Function to turn off the chiller
     """
-
+    out = Popen(['cat','/home/cmsdaq/.setBoxTemp_PID.pid'],stdout=subprocess.PIPE)
+    chiller_pid = int(out.stdout.read().decode().rstrip())
     os.system('kill -9 %d'%chiller_pid)
-    os.system('rm /home/cern_user/.setBoxTemp_PID.pid')
+    os.system('rm /home/cmsdaq/.setBoxTemp_PID.pid')
     out = Popen(['ssh', 'cmsdaq@100.100.100.1', '/home/cmsdaq/Programs/Lab5015Utils/driveChiller.py --power-off'],stdout=subprocess.PIPE)
 
     chiller_on_button.config(text='Chiller on')
@@ -587,7 +588,7 @@ def poll():
             thermistor_text[(i,key)].config(text="%.2f" % value)
 
 def read_dht22():
-    out = Popen(['tail', '-n 1', '/home/cern_user/DHT22Logger/DHTLoggerData.log'],stdout=PIPE)
+    out = Popen(['tail', '-n 1', '/home/cmsdaq/DAQ/DHT22Logger/DHTLoggerData.log'],stdout=PIPE)
     vals = (out.stdout.read().decode('utf-8')).split()
     for i in range(5):
         dht22_text[(i,'temp')].config(text="%.1f"%float(vals[2+0+2*i]))
@@ -856,8 +857,8 @@ if __name__ == '__main__':
         state = int(out.stdout.read().decode().rstrip())
     
         chiller_pid = -1
-        if os.path.isfile('/home/cern_user/.setBoxTemp_PID.pid'):
-            out = Popen(['cat','/home/cern_user/.setBoxTemp_PID.pid'],stdout=subprocess.PIPE)
+        if os.path.isfile('/home/cmsdaq/.setBoxTemp_PID.pid'):
+            out = Popen(['cat','/home/cmsdaq/.setBoxTemp_PID.pid'],stdout=subprocess.PIPE)
             chiller_pid = int(out.stdout.read().decode().rstrip())
     
         if chiller_pid == -1:

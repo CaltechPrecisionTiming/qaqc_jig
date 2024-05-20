@@ -281,8 +281,8 @@ def plot_time_volt(x, y, channel, data_type, a, b, avg_y=None, pdf=False, filena
             print('No filename specified; can not print pdf!')
         else:
             root, ext = os.path.splitext(filename)
-            print("printing plot in folder:", os.path.join(args.print_pdfs, "%s_%s_%s_TimeVolt.png" % (root,data_type,channel)))
-            plt.savefig(os.path.join(args.print_pdfs, "%s_%s_%s_TimeVolt.png" % (root,data_type,channel)))
+            print("printing plot in folder:", os.path.join(args.print_pdfs, "%s/waveform_%s_%s_TimeVolt.png" % (pdf,data_type,channel)))
+            plt.savefig(os.path.join(args.print_pdfs, "%s/waveform_%s_%s_TimeVolt.png" % (pdf,data_type,channel)))
     plt.cla()
     plt.close()
 
@@ -302,7 +302,7 @@ if __name__ == '__main__':
     parser.add_argument('filename',help='input filename (hdf5 format)')
     parser.add_argument('-o','--output', default='delete_me.hdf5', help='output file name')
     parser.add_argument('--plot', default=False, action='store_true', help='plot the waveforms and charge integral')
-    parser.add_argument('--chunks', default=10000, type=int, help='number of waveforms to process at a time')
+    parser.add_argument('--chunks', default=200000, type=int, help='number of waveforms to process at a time')
     parser.add_argument('-t', '--integration-time', default=150, type=float, help='SPE integration length in nanoseconds.')
     parser.add_argument('-s', '--start-time',  default=50, type=float, help='start time of the SPE integration in nanoseconds.')
     parser.add_argument('--active', default=None, help='Only take data from a single channel. If not specified, all channels are analyzed.')
@@ -365,14 +365,15 @@ if __name__ == '__main__':
                             if 'avg_pulse_y' in ch_data[channel]:
                                 ch_data[channel]['avg_pulse_y'] = (ch_data[channel]['avg_pulse_count']*ch_data[channel]['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (ch_data[channel]['avg_pulse_count'] + len(y))
                                 ch_data[channel]['avg_pulse_count'] += len(y)
-                                np.append(ch_data[channel]['lyso_rise_time'], get_rise_time(x, y))
-                                np.append(ch_data[channel]['lyso_fall_time'], get_fall_time(x, y))
+                                #np.append(ch_data[channel]['lyso_rise_time'], get_rise_time(x, y))
+                                #np.append(ch_data[channel]['lyso_fall_time'], get_fall_time(x, y))
+                                print(ch_data[channel]['lyso_fall_time'].shape)
                             else:
                                 ch_data[channel]['avg_pulse_y'] = np.mean(y, axis=0)
                                 ch_data[channel]['avg_pulse_count'] = len(y)
                                 ch_data[channel]['avg_pulse_x'] = x
-                                ch_data[channel]['lyso_rise_time'] = get_rise_time(x, y)
-                                ch_data[channel]['lyso_fall_time'] = get_fall_time(x, y)
+                                #ch_data[channel]['lyso_rise_time'] = get_rise_time(x, y)
+                                #ch_data[channel]['lyso_fall_time'] = get_fall_time(x, y)
 
                             charge.extend(integrate(x,y, a, b))
                         

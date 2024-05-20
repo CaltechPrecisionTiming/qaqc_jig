@@ -11,3 +11,5 @@
 *.swo
 *.root
 __pycache__
+__init__
+*.hdf5

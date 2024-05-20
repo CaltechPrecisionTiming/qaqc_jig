@@ -91,6 +91,11 @@ def plot_hist(h, path=None, filename=None, logy=False):
     if not filename or not path:
         print('No path / filename specified; can not print pdf!')
     else:
+        # simona
+        # dir_path = os.path.dirname(f"{path}/{filename}")
+        # if not os.path.exists(dir_path):
+        #     print(f"Creating directory {dir_path}")
+        #     os.makedirs(dir_path)
         root, ext = os.path.splitext(filename)
         if not os.path.isdir("%s/%s"%(path,root)):
             os.mkdir("%s/%s"%(path,root))
@@ -119,7 +124,10 @@ def plot_graph(g, path=None, filename=None, xMin=-1., xMax=32., yMin=-1., yMax=-
     hPad.SetTitle(";%s;%s"%(g.GetXaxis().GetTitle(),g.GetYaxis().GetTitle()))
     hPad.Draw()
     g.Draw('PL,same')
-    latex = ROOT.TLatex( 0.20, 0.90, 'mean = %.2e, RMS = %.1f%%'%(mean,rms/mean*100.))
+    if mean!= 0:
+        latex = ROOT.TLatex( 0.20, 0.90, 'mean = %.2e, RMS = %.1f%%'%(mean,rms/mean*100.))
+    else:
+        latex = ROOT.TLatex( 0.20, 0.90, 'mean = %.2e'%(mean))        
     latex.SetNDC()
     latex.SetTextSize(0.050)
     latex.SetTextColor(ROOT.kBlack)

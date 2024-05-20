@@ -182,7 +182,7 @@ def fit_gamma(h, eng, offset=0, offset_sigma=10):
     f.SetParameter(0, (peak-offset)/eng)
     f.SetParameter(1, 0.08*peak/eng)
     f.SetParameter(2, h.GetBinContent(h.FindBin(peak)))
-    r = h.Fit(f, 'QLSB+',  '', 0.8*peak, 1.2*peak)
+    r = h.Fit(f, 'QNLSB',  '', 0.8*peak, 1.2*peak)
     #h.Write()
     
     # Secondary fit that limits the range to +/-1.5 sigma. This makes the model
@@ -195,7 +195,7 @@ def fit_gamma(h, eng, offset=0, offset_sigma=10):
     #f.SetParLimits(0, 0, 2000/eng)
     #f.SetParLimits(1, 0, 500/eng)
     #f.SetParLimits(2, 0, 2000000)
-    r = h.Fit(f, 'QLSB+', '', offset+eng*f.GetParameter(0) - 0.75*eng*abs(f.GetParameter(1)), offset+eng*f.GetParameter(0) + 1.*eng*abs(f.GetParameter(1)))
+    r = h.Fit(f, 'QLSB+', '', offset+eng*f.GetParameter(0) - 1.*eng*abs(f.GetParameter(1)), offset+eng*f.GetParameter(0) + 0.7*eng*abs(f.GetParameter(1)))
     f.Write()
     
     try:

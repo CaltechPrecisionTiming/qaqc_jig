@@ -128,8 +128,8 @@ if __name__ == '__main__':
                 #source_bins = plot_utils.get_bins(event_charges, None)
                 #hsource = ROOT.TH1D(f"lyso_bar%02d"%ch, f"LYSO Charge Integral for ch%02d"%ch, int(1.*len(source_bins)), min(0,source_bins[0]), max(1400, source_bins[-1]))
                 #hsource_raw = ROOT.TH1D(f"lysoRaw_bar%02d"%ch, f"LYSO Charge Integral Raw for ch%02d"%ch, int(1.*len(source_bins)), min(0,source_bins[0]), max(1400, source_bins[-1]))
-                hsource = ROOT.TH1D(f"lyso_bar%02d"%ch, f"LYSO Charge Integral for bar%02d"%ch, 400, 0., 1000.)
-                hsource_raw = ROOT.TH1D(f"lyso_bar%02d_raw"%ch, f"LYSO Raw Charge Integral for bar%02d"%ch, 400, 0., 1000.)
+                hsource = ROOT.TH1D(f"lyso_bar%02d"%ch, f"LYSO Charge Integral for bar%02d"%ch, 400, 0., 2000.)
+                hsource_raw = ROOT.TH1D(f"lyso_bar%02d_raw"%ch, f"LYSO Raw Charge Integral for bar%02d"%ch, 400, 0., 2000.)
                 for x in event_charges_raw:
                     if x > zeroSuppression:
                         hsource_raw.Fill(x)
@@ -226,8 +226,8 @@ if __name__ == '__main__':
                 #source_bins = plot_utils.get_bins(event_charges, None)
                 #hsource_raw = ROOT.TH1D(f"lysoRaw_ch%02d"%ch, f"LYSO Raw Charge Integral for ch%02d"%ch, int(1.*len(source_bins)), min(0,source_bins[0]), max(1400,source_bins[-1]))
                 #hsource = ROOT.TH1D(f"lyso_ch%02d"%ch, f"LYSO Charge Integral for ch%02d"%ch, int(1.*len(source_bins)), min(0,source_bins[0]), max(1400,source_bins[-1]))
-                hsource_raw = ROOT.TH1D(f"lyso_ch%02d_raw"%ch, f"LYSO Raw Charge Integral for ch%02d"%ch, 400, 0., 1000.)
-                hsource = ROOT.TH1D(f"lyso_ch%02d"%ch, f"LYSO Charge Integral for ch%02d"%ch, 400, 0., 1000.)
+                hsource_raw = ROOT.TH1D(f"lyso_ch%02d_raw"%ch, f"LYSO Raw Charge Integral for ch%02d"%ch, 400, 0., 2000.)
+                hsource = ROOT.TH1D(f"lyso_ch%02d"%ch, f"LYSO Charge Integral for ch%02d"%ch, 400, 0., 2000.)
                 for x in event_charges_raw:
                     if x > zeroSuppression:
                         hsource_raw.Fill(x)
@@ -472,6 +472,8 @@ if __name__ == '__main__':
     g_R_spe_vs_bar = ROOT.TGraphErrors()
     g_R_light_yield_vs_bar = ROOT.TGraphErrors()
     
+    g_light_yield_asymm_vs_bar = ROOT.TGraphErrors()
+    
     for channel in sorted([item for item in ch_data if 'bar' not in item], key=lambda channel: int(channel[2:])):
         ch = int(channel[2:])
         #if not success[ch]:
@@ -554,7 +556,7 @@ if __name__ == '__main__':
     g_lyso_pc_per_kev_vs_ch.SetTitle(f"LYSO Fit Results; Channel; Raw Integrated Charge (pC/keV)")
     g_lyso_pc_per_kev_vs_ch.SetName("g_lyso_pc_per_kev_vs_ch")
     g_lyso_pc_per_kev_vs_ch.Write()
-    plot_utils.plot_graph(g_lyso_pc_per_kev_vs_ch, path=args.print_pdfs, filename=args.filename, yMin=0., yMax=3.)    
+    plot_utils.plot_graph(g_lyso_pc_per_kev_vs_ch, path=args.print_pdfs, filename=args.filename, yMin=0., yMax=3.)
         
     g_spe_vs_ch.SetTitle("SPE Fit Results; Channel; SPE Charge (pC)")
     g_spe_vs_ch.SetName("g_spe_vs_ch")
@@ -608,13 +610,23 @@ if __name__ == '__main__':
     g_R_spe_vs_bar.Write()    
     plot_utils.plot_graph_bars(g_L_spe_vs_bar, g_R_spe_vs_bar, g_avg_spe_vs_bar, path=args.print_pdfs, filename=args.filename, graphname='g_spe_vs_bar', yMin=0., yMax=6.)
     
-    g_L_light_yield_vs_bar.SetTitle(f"Light Yield; Bar ID; Light Yield Raw (p.e./MeV)")
+    g_L_light_yield_vs_bar.SetTitle(f"Light Yield; Bar ID; Light Yield (p.e./MeV)")
     g_L_light_yield_vs_bar.SetName("g_L_light_yield_vs_bar")
     g_L_light_yield_vs_bar.Write()
-    g_R_light_yield_vs_bar.SetTitle(f"Light Yield; Bar ID; Light Yield Raw (p.e./MeV)")
+    g_R_light_yield_vs_bar.SetTitle(f"Light Yield; Bar ID; Light Yield (p.e./MeV)")
     g_R_light_yield_vs_bar.SetName("g_R_light_yield_vs_bar")
     g_R_light_yield_vs_bar.Write()
     plot_utils.plot_graph_bars(g_L_light_yield_vs_bar, g_R_light_yield_vs_bar, g_avg_light_yield_vs_bar, path=args.print_pdfs, filename=args.filename, graphname='g_light_yield_vs_bar', yMin=0., yMax=6000.)
+
+    for ibar in range(16):
+        LY_L = g_L_light_yield_vs_bar.GetPointY(ibar)
+        LY_R = g_R_light_yield_vs_bar.GetPointY(ibar)
+        asymm = 2. * (LY_L-LY_R)/(LY_L+LY_R)
+        g_light_yield_asymm_vs_bar.SetPoint(ibar,ibar,asymm)
+    g_light_yield_asymm_vs_bar.SetTitle(f"Light Yield asymm.;Bar ID; asymmetry")
+    g_light_yield_asymm_vs_bar.SetName("g_light_yield_asymm_vs_bar")
+    g_light_yield_asymm_vs_bar.Write()
+    plot_utils.plot_graph(g_light_yield_asymm_vs_bar, path=args.print_pdfs, filename=args.filename, xMax=16., yMin=-0.5, yMax=0.5)
     
     
     ##################

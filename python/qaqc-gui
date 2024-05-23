@@ -51,6 +51,26 @@ BOARD_ADDRESSES = {
 
 RELAYS = [0,1,2,3,4,5]
 
+# Stepper motor
+dLcm_perstep = 0.005
+dLcm_intermodule = 5.31
+dLcm_interboard = 7.76
+nstep_intermodule = dLcm_intermodule/dLcm_perstep
+nstep_interboard = dLcm_interboard/dLcm_perstep
+list_nstep = [ 0,                 # board 0, module 0
+               nstep_intermodule, # board 0, module 1
+               nstep_intermodule, # board 0, module 2
+               nstep_interboard,  # board 1, module 0
+               nstep_intermodule, # board 1, module 1
+               nstep_intermodule, # board 1, module 2
+               nstep_interboard,  # board 2, module 0
+               nstep_intermodule, # board 2, module 1
+               nstep_intermodule, # board 2, module 2
+               nstep_interboard,  # board 3, module 0
+               nstep_intermodule, # board 3, module 1
+               nstep_intermodule, # board 3, module 2
+            ]
+
 def filename_template(data_path='./', barcode=None, ov=None, n_spe=None, n_source=None):
     if not exists(data_path) and data_path != '':
         os.makedirs(data_path)
@@ -111,7 +131,7 @@ def save(filename=None):
     data['vbds'] = [vbd.get() for vbd in vbds]
     data['data_path'] = data_path.get()
     data['ip_address'] = ip_address.get()
-    #data['stepper_enable'] = stepper_enable.get()
+    data['stepper_enable'] = stepper_enable.get()
     data['n_spe_events'] = n_spe_events.get()
     data['n_source_events'] = n_source_events.get()
     data['upload'] = upload_enable.get()
@@ -150,8 +170,8 @@ def load(filename=None):
             data_path.set(data['data_path'])            
         if 'ip_address' in data:
             ip_address.set(data['ip_address'])
-        #if 'stepper_enable' in data:
-        #    stepper_enable.set(data['stepper_enable'])
+        if 'stepper_enable' in data:
+            stepper_enable.set(data['stepper_enable'])
         if 'n_spe_events' in data:
             n_spe_events.set(data['n_spe_events'])
         if 'n_source_events' in data:
@@ -323,12 +343,12 @@ def take_data():
     client = Client(ip_address.get())
 
     # First, we try to get the stepper to the home position
-    #if stepper_enable.get():
-    #    try:
-    #        query(client, "step_home")
-    #    except Exception as e:
-    #        print_warning(str(e))
-    #        return
+    if stepper_enable.get():
+        try:
+            query(client, "step_home")
+        except Exception as e:
+            print_warning(str(e))
+            return
 
     # Next, we take the single PE data
     try:
@@ -368,6 +388,17 @@ def take_data():
         if exists(filename):
             print("deleting %s" % filename)
             os.unlink(filename)
+
+        # Move the stepper motor to the position of the module
+        if stepper_enable.get():
+            if list_nstep[i]==0:
+                pass
+            else:
+                try:
+                    query(client, "step %i" % (list_nstep[i]) )
+                except Exception as e:
+                    print_warning(str(e))
+                    return
 
         # Loop over first 8 channels and second eight channels
         for j in range(2):
@@ -470,6 +501,17 @@ def take_data():
             f.attrs['institution'] = assembly_center.get()
 
         module_status[i].config(text="Data taking done")
+
+    # In parallel to the following process, send the stepper back to the home position that takes a while
+    if stepper_enable.get():
+        from multiprocessing import Process
+        module_status[i].config(text="Sending the stepper motor back to the home position in parallel to the following process")
+        _np = Process(target=query(client, "step_home"))
+        #try:
+        #    query(client, "step_home")
+        #except Exception as e:
+        #    print_warning(str(e))
+        #    return
 
     # Now, we analyze all the data
     for i in range(12):
@@ -830,9 +872,9 @@ if __name__ == '__main__':
     reanalyze_button = tk.Button(master=frame_buttons,text="Reanalyze Data", width=25, height=5, command=reanalyze_data)
     reanalyze_button.pack()
 
-    #stepper_enable = tk.IntVar(frame_settings, value=1)
-    #stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
-    #stepper_enable_checkbox.pack()
+    stepper_enable = tk.IntVar(frame_settings, value=0)
+    stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
+    stepper_enable_checkbox.pack()
     
     if USE_KEITHLEY:
         mykey = keithley2231A.Keithley2231A()

@@ -29,7 +29,7 @@
  *
  * FIXME: Need to determine an actual number for this. */
 // An inductive proximity sensor is installed to anchor the home position
-// Thus, no limit
+// Thus, no limit is set here
 #define MAX_STEPS 1000000
 
 // Enter a MAC address and IP address for your controller below.
@@ -912,7 +912,7 @@ int do_command(char *cmd, float *value)
 
         if (step_home()) return -1;
 
-        return 0;
+        return 1;
     } else if (!strcmp(tokens[0], "set_pin")){
         if (ntok != 3){
             sprintf(err, "set_pin command expect 2 arguments: set_pin [pin index] [1/0]");
@@ -944,7 +944,8 @@ int do_command(char *cmd, float *value)
             sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
             return -1;
         }
-        if(read_pin(_idx)) return -1;
+        int rv = read_pin(_idx);
+        *value = rv;
 
         return 1;
         
@@ -1258,8 +1259,12 @@ int step(int steps)
     digitalWrite(PIN_STP_SLEEP,true);
     delay(DELAY);
 
-    /* FIXME: Need to determine direction. */
-    if (steps < 0)
+    // The direction is determined in the following wiring
+    // motor A+ -> RDV8825 A1
+    // motor A- -> RDV8825 A2
+    // motor B+ -> RDV8825 B1
+    // motor B- -> RDV8825 B2
+    if (steps > 0)
         digitalWrite(PIN_STP_DIR,false);
     else
         digitalWrite(PIN_STP_DIR,true);
@@ -1296,8 +1301,12 @@ int step_home(void)
     digitalWrite(PIN_STP_SLEEP,true);
     delay(DELAY);
 
-    /* FIXME: Need to determine direction. */
-    digitalWrite(PIN_STP_DIR,false);
+    // The direction is determined in the following wiring
+    // motor A+ -> RDV8825 A1
+    // motor A- -> RDV8825 A2
+    // motor B+ -> RDV8825 B1
+    // motor B- -> RDV8825 B2
+    digitalWrite(PIN_STP_DIR,true);
     delay(DELAY);
 
     while (++i < MAX_STEPS && digitalRead(PIN_STP_HOME) == true) {
@@ -1327,8 +1336,7 @@ int set_pin(int pin, int state){
 }
 int read_pin(int pin){
     int rv = digitalRead(pin);
-    sprintf(err, ":%i (read pin value at #pin=%i)\n", rv, pin);
-    return -1;
+    return rv;
 }
 
 

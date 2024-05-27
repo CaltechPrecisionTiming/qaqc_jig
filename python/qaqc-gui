@@ -21,7 +21,8 @@ import os
 import h5py
 if USE_KEITHLEY:
    from utilities import keithley2231A
-   
+from time import sleep
+
 WAVEDUMP_PROGRAM = 'wavedump'
 #ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
 INTEGRATE_WAVEFORMS_PROGRAM = 'integrate-waveforms'
@@ -52,24 +53,9 @@ BOARD_ADDRESSES = {
 RELAYS = [0,1,2,3,4,5]
 
 # Stepper motor
-dLcm_perstep = 0.005
-dLcm_intermodule = 5.31
-dLcm_interboard = 7.76
-nstep_intermodule = dLcm_intermodule/dLcm_perstep
-nstep_interboard = dLcm_interboard/dLcm_perstep
-list_nstep = [ 0,                 # board 0, module 0
-               nstep_intermodule, # board 0, module 1
-               nstep_intermodule, # board 0, module 2
-               nstep_interboard,  # board 1, module 0
-               nstep_intermodule, # board 1, module 1
-               nstep_intermodule, # board 1, module 2
-               nstep_interboard,  # board 2, module 0
-               nstep_intermodule, # board 2, module 1
-               nstep_intermodule, # board 2, module 2
-               nstep_interboard,  # board 3, module 0
-               nstep_intermodule, # board 3, module 1
-               nstep_intermodule, # board 3, module 2
-            ]
+dLcm_perstep = 0.005 # distance per step, configurable in gui pannel (stepper_dLperstep)
+dLcm_intermodule = 5.34 # distance between two modules on the same module board
+dLcm_interboard = 7.76 # distance between two modules from two neighbouring module boards
 
 def filename_template(data_path='./', barcode=None, ov=None, n_spe=None, n_source=None):
     if not exists(data_path) and data_path != '':
@@ -132,6 +118,7 @@ def save(filename=None):
     data['data_path'] = data_path.get()
     data['ip_address'] = ip_address.get()
     data['stepper_enable'] = stepper_enable.get()
+    data['stepper_dLperstep'] = stepper_dLperstep.get()
     data['n_spe_events'] = n_spe_events.get()
     data['n_source_events'] = n_source_events.get()
     data['upload'] = upload_enable.get()
@@ -172,6 +159,8 @@ def load(filename=None):
             ip_address.set(data['ip_address'])
         if 'stepper_enable' in data:
             stepper_enable.set(data['stepper_enable'])
+        if 'stepper_dLperstep' in data:
+            stepper_dLperstep.set(data['stepper_dLperstep'])
         if 'n_spe_events' in data:
             n_spe_events.set(data['n_spe_events'])
         if 'n_source_events' in data:
@@ -188,12 +177,12 @@ def on_closing():
     save()
     root.destroy()
 
-def query(client, cmd):
+def query(client, cmd, timeout=10):
     entry.insert(tk.END, "%s\n" % cmd)
     entry.yview(tk.END)
     entry.update()
     if not DEBUG:
-        return client.query(cmd)
+        return client.query(cmd, timeout)
 
 def hv_off(client):
     n_boards = int(n_boards_var.get())
@@ -326,6 +315,24 @@ def take_data():
     entry.delete(1.0,tk.END)
 
     n_boards = int(n_boards_var.get())
+
+    # Setup module positions for stepper motor
+    dLcm_perstep= float(stepper_dLperstep.get()) # default=0.005
+    nstep_intermodule = dLcm_intermodule/dLcm_perstep
+    nstep_interboard = dLcm_interboard/dLcm_perstep
+    list_nstep = [ 0,                 # board 0, module 0
+                   1*nstep_intermodule, # board 0, module 1
+                   2*nstep_intermodule, # board 0, module 2
+                   1*nstep_interboard + 2*nstep_intermodule,  # board 1, module 0
+                   1*nstep_interboard + 3*nstep_intermodule, # board 1, module 1
+                   1*nstep_interboard + 4*nstep_intermodule, # board 1, module 2
+                   2*nstep_interboard + 4*nstep_intermodule,  # board 2, module 0
+                   2*nstep_interboard + 5*nstep_intermodule, # board 2, module 1
+                   2*nstep_interboard + 6*nstep_intermodule, # board 2, module 2
+                   3*nstep_interboard + 6*nstep_intermodule,  # board 3, module 0
+                   3*nstep_interboard + 7*nstep_intermodule, # board 3, module 1
+                   3*nstep_interboard + 8*nstep_intermodule, # board 3, module 2
+                ]
     
     # Make sure they entered the barcodes first.
     for i in range(12):
@@ -343,12 +350,44 @@ def take_data():
     client = Client(ip_address.get())
 
     # First, we try to get the stepper to the home position
+    #
+    # Techicalities: Command 'step_home' may take second or up to minutes for moving to home depending on its last position.
+    #                Teensy can sucessfully send back a return packet to PC for the completion of this operation.
+    #                But due to the long waiting time, the actual udp packet are often missed in the udp recvform() buffer of the PC.
+    # Workaround: Ignore the timeout and the return packet of 'step_home'.
+    #             Start a loop to read the value of stp_home pin on teensy.
+    #             If stp_home is LOW, then the home position is reached.
+    #             One more thing, we need to clear up the udp recvfrom() buffer at PC,
+    #             since the above operations have overlooked at least one packet,
+    #             and this leftover misaligns later communication.
     if stepper_enable.get():
         try:
             query(client, "step_home")
         except Exception as e:
-            print_warning(str(e))
-            return
+            print_warning(str(e)+' due to step_home. Ignore!')
+            # Read Pin 17 of teensy (stp_home)
+            pin17 = 1
+            while(1):
+                try:
+                    pin17 = query(client, "read_pin 17")
+                except Exception as e:
+                    print_warning(str(e)+" waiting for read_pin 17. Retry!")
+                # Pin stp_home LOW means home position
+                if pin17 == 0:
+                    print("step_home done")
+                    break
+                sleep(10)
+            # clearup recvfrom buffer
+            _oldtimeout = client.sock.gettimeout()
+            for _i in range(5):
+                try:
+                    client.sock.settimeout(1)
+                    client.recv()
+                except Exception as e:
+                    pass
+            client.sock.settimeout(_oldtimeout)
+
+        step_lastposition = 0
 
     # Next, we take the single PE data
     try:
@@ -395,10 +434,12 @@ def take_data():
                 pass
             else:
                 try:
-                    query(client, "step %i" % (list_nstep[i]) )
+                    query(client, "step %i" % (list_nstep[i] - list_nstep[step_lastposition]), 600)
                 except Exception as e:
-                    print_warning(str(e))
+                    print_warning(str(e)+" step")
                     return
+
+            step_lastposition = i
 
         # Loop over first 8 channels and second eight channels
         for j in range(2):
@@ -502,16 +543,36 @@ def take_data():
 
         module_status[i].config(text="Data taking done")
 
-    # In parallel to the following process, send the stepper back to the home position that takes a while
+    # Send the stepper back to the home position that takes a while
+    # See above explaination of this operation
     if stepper_enable.get():
-        from multiprocessing import Process
-        module_status[i].config(text="Sending the stepper motor back to the home position in parallel to the following process")
-        _np = Process(target=query(client, "step_home"))
-        #try:
-        #    query(client, "step_home")
-        #except Exception as e:
-        #    print_warning(str(e))
-        #    return
+        print("Sending back stepper motor to home position")
+        try:
+            query(client, "step_home")
+        except Exception as e:
+            print_warning(str(e)+' due to step_home. Ignore!')
+            # Read Pin 17 of teensy (stp_home)
+            pin17 = 1
+            while(1):
+                try:
+                    pin17 = query(client, "read_pin 17")
+                except Exception as e:
+                    print_warning(str(e)+" waiting for read_pin 17. Retry!")
+                # Pin stp_home LOW means home position
+                if pin17 == 0:
+                    print("step_home done")
+                    break
+                sleep(10)
+            # clearup recvfrom buffer
+            _oldtimeout = client.sock.gettimeout()
+            for _i in range(5):
+                try:
+                    client.sock.settimeout(1)
+                    client.recv()
+                except Exception as e:
+                    pass
+            client.sock.settimeout(_oldtimeout)
+        print("Stepper motor at home position")
 
     # Now, we analyze all the data
     for i in range(12):
@@ -642,11 +703,32 @@ def step_home():
     entry.delete(1.0,tk.END)
 
     client = Client(ip_address.get())
+    # See above explaination of this operation
     try:
         query(client, "step_home")
     except Exception as e:
-        print_warning(str(e))
-        return
+        print_warning(str(e)+' due to step_home. Ignore!')
+        # Read Pin 17 of teensy (stp_home)
+        pin17 = 1
+        while(1):
+            try:
+                pin17 = query(client, "read_pin 17")
+            except Exception as e:
+                print_warning(str(e)+" waiting for read_pin 17. Retry!")
+            # Pin stp_home LOW means home position
+            if pin17 == 0:
+                print("step_home done")
+                break
+            sleep(10)
+        # clearup recvfrom buffer
+        _oldtimeout = client.sock.gettimeout()
+        for _i in range(5):
+            try:
+                client.sock.settimeout(1)
+                client.recv()
+            except Exception as e:
+                pass
+        client.sock.settimeout(_oldtimeout)
 
 def n_boards_changed(*args):
     for i in range(4):
@@ -825,6 +907,19 @@ if __name__ == '__main__':
     upload_enable_checkbox = tk.Checkbutton(frame_menu, text=None, variable=upload_enable, onvalue=1, offvalue=0)
     upload_enable_checkbox.grid(row=9,column=1)
 
+    stepper_enable_label = tk.Label(frame_menu, text="Enable stepper motor: ")
+    stepper_enable_label.grid(row=10,column=0)
+    stepper_enable = tk.IntVar(frame_settings, value=0)
+    stepper_enable_checkbox = tk.Checkbutton(frame_menu, text=None, variable=stepper_enable, onvalue=1, offvalue=0)
+    stepper_enable_checkbox.grid(row=10,column=1)
+
+    stepper_dLperstep_menu_label = tk.Label(frame_menu, text="Distance per step (cm): ")
+    stepper_dLperstep_menu_label.grid(row=11,column=0)
+    stepper_dLperstep = tk.StringVar(frame_menu)
+    stepper_dLperstep.set(str(dLcm_perstep))
+    stepper_dLperstep_menu_entry = tk.Entry(frame_menu, textvariable=stepper_dLperstep)
+    stepper_dLperstep_menu_entry.grid(row=11,column=1)
+
     frame_menu.pack()
     frame_barcodes.pack()
 
@@ -859,9 +954,6 @@ if __name__ == '__main__':
 
     entry.tag_config("error",foreground='red')
     
-    #button_home = tk.Button(master=frame_buttons,text="Stepper Home", width=25, height=5, command=step_home)
-    #button_home.pack()
-    
     button = tk.Button(master=frame_buttons,text="Take Data", width=25, height=5, command=take_data)
     button.pack()
 
@@ -872,9 +964,12 @@ if __name__ == '__main__':
     reanalyze_button = tk.Button(master=frame_buttons,text="Reanalyze Data", width=25, height=5, command=reanalyze_data)
     reanalyze_button.pack()
 
-    stepper_enable = tk.IntVar(frame_settings, value=0)
-    stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
-    stepper_enable_checkbox.pack()
+    button_home = tk.Button(master=frame_buttons,text="Stepper Home", width=25, height=5, command=step_home)
+    button_home.pack()
+
+    #stepper_enable = tk.IntVar(frame_settings, value=0)
+    #stepper_enable_checkbox = tk.Checkbutton(frame_settings, text='Enable Stepper', variable=stepper_enable, onvalue=1, offvalue=0)
+    #stepper_enable_checkbox.pack()
     
     if USE_KEITHLEY:
         mykey = keithley2231A.Keithley2231A()

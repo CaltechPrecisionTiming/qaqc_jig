@@ -88,3 +88,66 @@ You can analyze the results by running:
 ```
 $ analyze-waveforms test.hdf5 -o test.root --upload
 ```
+
+Stepper motor
+-----------------
+
+The stepper motor driving a carrier on a sliding rail is set up for the automation of
+transporting the radiactive source that will need to stop at each sensor module during the QAQC.
+The subsystem consists of the following components:
+
+- A motor driver board (carrying DRV8825) that communicates between teensy and the stepper motor
+- A stepper motor that is hooked up with a sliding rail on which the carrier moves
+- An inductive proximity sensor (TL-Q5MC1-Z NPN) that locates the home position
+
+Before the installation, the driver board needs to be solded with a electrolytic capacitor (100uF) between the pins VMOT and GND following [DRV8825 carrier instructions](https://www.pololu.com/product/2133). This capacitor protects the driver from high voltage spikes that could exceed 45 V (the max voltage for DRV8825). Note the polarity of the capacitor pins!
+
+The driver board can be plugged in the socket reserved on the control board.
+It connects to teensy for signal control/feedback and to the +12 V power supply via VMOT.
+It connects to the stepper motor by the pins at the coner of the control board (A1,A2,B1,B2).
+
+Limiting the current is necessary to avoid buring the chip especially at high step rates.
+The intructions from the board provider should be followed to tune the current limit ([video](https://youtu.be/89BHS9hfSUk)). The current limit is equal to VRef*2. In our case, we tune VRef to about 1 V which corresponds to a ~2 A current limit. This value is below the max current of the chip and the rated current of the stepper motor introduced later. We measured the VRef from the potentiometer instead of the circled point. The latter did not work. The measurement needs power and correct setting. For the QAQC setup, we switch on all power and do the following
+- Connect to teensy with qaqc-client via eithernet
+```
+qaqc-client --ip-address 192.168.1.177
+```
+- Set nRESET to HIGH
+```
+>>> set_pin 2 1
+```
+- Set nSLEEP to HIGH
+```
+>>> set_pin 1 1
+```
+- Measure VRef
+
+The stepper motor is with four wires and two phases (3 A/phase rated).
+In practice, we feed in about 0.5 A and it works well given that the load is very light.
+The wiring is:
+- Stepper motor A+ --> control board A1
+- Stepper motor A- --> control board A2
+- Stepper motor B+ --> control board B1
+- Stepper motor B- --> control board B2
+
+If you find the moving direction is the opposite, simply swaping two wires should work (e.g. A- --> A1, A+ --> A2) without touching the code.
+
+The inductive proximity sensor TL-Q5MC1-Z NPN is used to detect if the source carrier on the sliding rail reaches the home position, from where the distance to all the module positions is used to instruct the stepper motor. This sensor has 3 wires.
+- The brown wire is connected to +5 V power supply
+- The black wire is connected to the teensy pin step_home (Pin 17). This pin has an external pull down resistor of 10k ohm, thus we bridge this pin and the brown wire (+5 V) with a resistor of 10k ohm in order to split the voltage and keep it lower than 3.3 V at Pin 17
+- The blue wire is grounded
+
+In such wiring, the teensy pin step_home (Pin 17) will always be HIGH when the source carrier is not at home and be LOW when home.
+
+With all the above setup, the stepper motor is programed in qaqc-gui:
+- Go to home before the data taking
+- Move to the module position only for the ones ticked in qaqc-gui
+- Move back to the home position after all data taking
+
+For manual control of the stepper motor, one can connect teensy with eithernet
+```
+>>> step 1000
+>>> step -1000
+>>> step_home
+```
+for moving 1000 steps forward, backward and to home.

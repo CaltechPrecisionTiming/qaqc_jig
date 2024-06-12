@@ -1212,7 +1212,7 @@ int step(int steps)
 
     /* Start off with the stepper in sleep mode. */
     digitalWrite(PIN_STP_SLEEP,true);
-
+    delay(10);
     /* FIXME: Need to determine direction. */
     if (steps < 0)
         digitalWrite(PIN_STP_DIR,false);
@@ -1230,9 +1230,9 @@ int step(int steps)
             return -1;
         }
         digitalWrite(PIN_STP_STEP,true);
-        delay(DELAY);
+        delayMicroseconds(500);
         digitalWrite(PIN_STP_STEP,false);
-        delay(DELAY);
+        delayMicroseconds(500);
     }
 
     /* Put the stepper back in sleep mode. */
@@ -1247,7 +1247,7 @@ int step_home(void)
 
     /* Start off with the stepper in sleep mode. */
     digitalWrite(PIN_STP_SLEEP,true);
-
+    delay(10);
     /* FIXME: Need to determine direction. */
     digitalWrite(PIN_STP_DIR,true);
 
@@ -1260,9 +1260,9 @@ int step_home(void)
             return -1;
         }
         digitalWrite(PIN_STP_STEP,true);
-        delay(DELAY);
+        delayMicroseconds(500);
         digitalWrite(PIN_STP_STEP,false);
-        delay(DELAY);
+        delayMicroseconds(500);
     }
 
     /* Put the stepper back in sleep mode. */

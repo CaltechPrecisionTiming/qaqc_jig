@@ -491,7 +491,7 @@ void setup()
 
 #ifdef ETHERNET
     // start the Ethernet
-    Ethernet.begin(mac);
+    Ethernet.begin(mac,ip);
 
     // Check for Ethernet hardware present
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {

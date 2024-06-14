@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/bin/python3
 
 from sensor_module import sensor_module
 import argparse

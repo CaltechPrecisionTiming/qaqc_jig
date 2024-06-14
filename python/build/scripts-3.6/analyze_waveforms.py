@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/bin/python3
 """
 Creates charge histograms from hdf5 files made from `wavedump` or
 `acquire-waveforms`.
@@ -469,7 +469,7 @@ if __name__ == '__main__':
                     continue
 
                 ch = int(channel[2:])
-                #if ch==0: continue;
+
                 if not args.channel_mask & (1 << ch):
                     continue
                 
@@ -490,7 +490,7 @@ if __name__ == '__main__':
                     x, y = convert_data(f, group, channel, i, i+args.chunks)
                     if group == source:
                         a, b = get_window(x,y, left=50, right=350)
-                        y -= np.median(y[:,(x>x[a]-100) & (x<x[a])],axis=-1)[:,np.newaxis]
+                        y -= np.median(y[:,x < x[0] + 100],axis=-1)[:,np.newaxis]
                         if 'avg_pulse_y' in ch_data[channel]:
                             ch_data[channel]['avg_pulse_y'] = (ch_data[channel]['avg_pulse_count']*ch_data[channel]['avg_pulse_y'] + len(y)*np.mean(y, axis=0)) / (ch_data[channel]['avg_pulse_count'] + len(y))
                             ch_data[channel]['avg_pulse_count'] += len(y)
@@ -624,7 +624,7 @@ if __name__ == '__main__':
                     ch_data[channel]['spe'] = None
                 plot_hist(hspe, pdf=args.print_pdfs, filename=args.filename)
             
-            offset_pars = None # fit_gamma_funcs.fit_offset(hoffset) 
+            offset_pars = fit_gamma_funcs.fit_offset(hoffset) 
             if offset_pars is not None:
                 offset = offset_pars[0][0]
                 offset_sigma = offset_pars[0][1]

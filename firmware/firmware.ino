@@ -28,7 +28,9 @@
 /* Maximum number of stepper steps to take when trying to find home.
  *
  * FIXME: Need to determine an actual number for this. */
-#define MAX_STEPS 100
+// An inductive proximity sensor is installed to anchor the home position
+// Thus, no limit is set here
+#define MAX_STEPS 1000000
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
@@ -489,7 +491,7 @@ void setup()
 
 #ifdef ETHERNET
     // start the Ethernet
-    Ethernet.begin(mac);
+    Ethernet.begin(mac,ip);
 
     // Check for Ethernet hardware present
     if (Ethernet.hardwareStatus() == EthernetNoHardware) {
@@ -539,6 +541,7 @@ void setup()
      * This isn't ideal since if they get disconnected it will be enabled.
      *
      * FIXME: Change this if we ever change the design. */
+    // Currently limit switches are not in use
     digitalWrite(PIN_STP_EN_UC,false);
 
     reset();
@@ -826,6 +829,8 @@ int extmon_vread(double *value)
  * "extmon_vread" - read out the bias voltage
  * "set_hv [voltage]" - set the high voltage on the DC DC boost converter
  * "disable_hv" - disable DC DC boost converter
+ * "set_pin 2 1" - set teensy pin#2 to HIGH (use with caution)
+ * "read_pin 17" - read the value of pin#17 (use with caution)
  *
  * Returns 0, 1, or 2 on success, -1 on error. Returns 0 if there is no return
  * value, 1 if there is an integer return value, and 2 if there is a floating
@@ -907,7 +912,43 @@ int do_command(char *cmd, float *value)
 
         if (step_home()) return -1;
 
-        return 0;
+        return 1;
+    } else if (!strcmp(tokens[0], "set_pin")){
+        if (ntok != 3){
+            sprintf(err, "set_pin command expect 2 arguments: set_pin [pin index] [1/0]");
+            return -1;
+        }
+
+        int _idx;
+        int _state;
+        if (mystrtoi(tokens[1],&_idx)) {
+            sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
+            return -1;
+        }
+        if (mystrtoi(tokens[2],&_state)) {
+            sprintf(err, "expected argument 2 to be integer but got '%s'", tokens[2]);
+            return -1;
+        }
+        if(set_pin(_idx,_state)) return -1;
+
+        return 1;
+        
+    } else if (!strcmp(tokens[0], "read_pin")){
+        if (ntok != 2){
+            sprintf(err, "read_pin command expect 1 arguments: read_pin [pin index]");
+            return -1;
+        }
+
+        int _idx;
+        if (mystrtoi(tokens[1],&_idx)) {
+            sprintf(err, "expected argument 1 to be integer but got '%s'", tokens[1]);
+            return -1;
+        }
+        int rv = read_pin(_idx);
+        *value = rv;
+
+        return 1;
+        
     } else if (!strcmp(tokens[0], "set_attenuation")) {
         if (ntok != 2) {
             sprintf(err, "set_attenuation command expects 1 argument: set_attenuation [on/off]");
@@ -1196,7 +1237,9 @@ int do_command(char *cmd, float *value)
                     "extmon_vread\n"
                     "set_hv [voltage]\n"
                     "disable_hv\n"
-                    "enable_dac");
+                    "enable_dac\n"
+                    "set_pin [pin#] [0|1]\n"
+                    "read_pin [pin#]");
         return -1;
     } else {
         sprintf(err, "unknown command '%s'", tokens[0]);
@@ -1211,10 +1254,17 @@ int step(int steps)
     int i = 0;
 
     /* Start off with the stepper in sleep mode. */
+    digitalWrite(PIN_STP_RESET,true);
+    delay(DELAY);
     digitalWrite(PIN_STP_SLEEP,true);
+    delay(DELAY);
 
-    /* FIXME: Need to determine direction. */
-    if (steps < 0)
+    // The direction is determined in the following wiring
+    // motor A+ -> RDV8825 A1
+    // motor A- -> RDV8825 A2
+    // motor B+ -> RDV8825 B1
+    // motor B- -> RDV8825 B2
+    if (steps > 0)
         digitalWrite(PIN_STP_DIR,false);
     else
         digitalWrite(PIN_STP_DIR,true);
@@ -1246,12 +1296,20 @@ int step_home(void)
     int i = 0;
 
     /* Start off with the stepper in sleep mode. */
+    digitalWrite(PIN_STP_RESET,true);
+    delay(DELAY);
     digitalWrite(PIN_STP_SLEEP,true);
+    delay(DELAY);
 
-    /* FIXME: Need to determine direction. */
+    // The direction is determined in the following wiring
+    // motor A+ -> RDV8825 A1
+    // motor A- -> RDV8825 A2
+    // motor B+ -> RDV8825 B1
+    // motor B- -> RDV8825 B2
     digitalWrite(PIN_STP_DIR,true);
+    delay(DELAY);
 
-    while (++i < MAX_STEPS && digitalRead(PIN_STP_HOME) == false) {
+    while (++i < MAX_STEPS && digitalRead(PIN_STP_HOME) == true) {
         if (digitalRead(PIN_STP_FAULT) == false) {
             /* Put the stepper back in sleep mode. */
             digitalWrite(PIN_STP_SLEEP,false);
@@ -1270,6 +1328,17 @@ int step_home(void)
 
     return 0;
 }
+
+// Set/read pin values. Please use with caution.
+int set_pin(int pin, int state){
+    digitalWrite(pin,state);
+    return 0;
+}
+int read_pin(int pin){
+    int rv = digitalRead(pin);
+    return rv;
+}
+
 
 /* Formats the return message based on the return value of do_command(). The
  * return message is printed to the global variable msg. */

@@ -27,7 +27,7 @@ SPE_CHARGE = 1.0 # pC
 # FIXME: Should actually measure this
 SPE_ERROR = 0.01 # pC
 
-ES = np.linspace(1,1000,1e3)
+ES = np.linspace(1,1000,1000)
 
 # Small number to avoid divide by zeros
 EPSILON = 1e-10

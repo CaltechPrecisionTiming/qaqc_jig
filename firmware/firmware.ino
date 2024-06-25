@@ -21,14 +21,14 @@
 
 #define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
-//#define PCA9557_DEBUG
+#define PCA9557_DEBUG
 
 #define MAX_MSG_LENGTH 1024
 
 /* Maximum number of stepper steps to take when trying to find home.
  *
  * FIXME: Need to determine an actual number for this. */
-#define MAX_STEPS 100
+#define MAX_STEPS 1000
 
 // Enter a MAC address and IP address for your controller below.
 // The IP address will be dependent on your local network:
@@ -46,7 +46,8 @@ char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
 EthernetUDP Udp;
 
 /* Generic delay after setting pins high/low. */
-#define DELAY 10
+#define DELAY 1
+#define UDELAY 500
 
 char cmd[MAX_MSG_LENGTH];
 char err[MAX_MSG_LENGTH];
@@ -1213,6 +1214,7 @@ int step(int steps)
     /* Start off with the stepper in sleep mode. */
     digitalWrite(PIN_STP_SLEEP,true);
     delay(10);
+    delay(10);
     /* FIXME: Need to determine direction. */
     if (steps < 0)
         digitalWrite(PIN_STP_DIR,false);
@@ -1230,9 +1232,9 @@ int step(int steps)
             return -1;
         }
         digitalWrite(PIN_STP_STEP,true);
-        delayMicroseconds(500);
+        delayMicroseconds(UDELAY);
         digitalWrite(PIN_STP_STEP,false);
-        delayMicroseconds(500);
+        delayMicroseconds(UDELAY);
     }
 
     /* Put the stepper back in sleep mode. */
@@ -1260,9 +1262,11 @@ int step_home(void)
             return -1;
         }
         digitalWrite(PIN_STP_STEP,true);
-        delayMicroseconds(500);
+        //delayMicroseconds(UDELAY);
+        delay(DELAY);
         digitalWrite(PIN_STP_STEP,false);
-        delayMicroseconds(500);
+        //delayMicroseconds(UDELAY);
+        delay(DELAY);
     }
 
     /* Put the stepper back in sleep mode. */

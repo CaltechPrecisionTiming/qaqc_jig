@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/bin/python3
 """
 Creates charge histograms from hdf5 files made from `wavedump` or
 `acquire-waveforms`.

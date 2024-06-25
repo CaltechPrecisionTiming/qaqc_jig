@@ -11,6 +11,7 @@ Date: March 21, 2023
 from __future__ import division
 import numpy as np
 from scipy.stats import norm
+from scipy import constants
 import ROOT
 from functools import lru_cache, wraps
 from scipy.special import erf
@@ -26,7 +27,10 @@ SPE_CHARGE = 1.0 # pC
 # FIXME: Should actually measure this
 SPE_ERROR = 0.01 # pC
 
-ES = np.linspace(1,1000,250)
+ES = np.linspace(1,1000,1000)
+
+# Small number to avoid divide by zeros
+EPSILON = 1e-10
 
 def memoize(fun):
     _cache = {}
@@ -97,8 +101,26 @@ def dn(E,Q,Z,A,forb=None):
     # Branch Spectrum
     return forbiddenness*F*(np.sqrt(np.power(e,2)+2*e*511)*np.power(Q-e,2)*(e+511))
 
-# Small number to avoid divide by zeros
-EPSILON = 1e-10
+def analytic_spectrum(T, offset):
+    """
+    Analytic calculation of the beta particle energy spectrum. Follows the
+    definitions on the Wikipedia page:
+    https://en.wikipedia.org/wiki/Beta_decay#Beta_emission_spectrum
+    """
+    CL = 1 # forbiddenness constant. TODO: learn more about this.
+    Z = 72 # charge of Hafnium daughter nucleus
+    m_e = 511 # electron rest mass, keV
+    E = T + m_e # total beta particle energy
+    p = (1/constants.c)*np.sqrt(E**2 + m_e**2) # momentum of beta particle
+    Q = 593 # Endpoint (total energy released)
+    
+    if Q <= T:
+        # Q is upper bound for T
+        return 0
+    # TODO: Finish this function. Although, it may not be needed.
+    return 0
+
+
 
 @memoize
 def spectrum(es, offset):
@@ -202,11 +224,12 @@ def likelihood_fast(q,avg_y,dy,p,spe_charge=SPE_CHARGE):
     since we do the second integral analytically.
     """
     integral = integral_fast(q,avg_y,dy,spe_charge)
-    return np.trapz(p_e_fast(p)*integral,dx=ES[1]-ES[0],axis=-1)/(2*dy)
+    return np.trapz(p_e_fast(p)*integral,dx=ES[1]-ES[0],axis=-1)/(2*dy*avg_y)
 
 class lyso_spectrum(object):
-    def __init__(self, spe_charge=SPE_CHARGE):
+    def __init__(self, spe_charge=SPE_CHARGE, offset=0):
         self.spe_charge = spe_charge
+        self.offset = offset
 
     def __call__(self, x, p):
         """
@@ -223,7 +246,7 @@ class lyso_spectrum(object):
         p[8] - Constant for 597 keV spectrum
         """
         ps = tuple([p[i] for i in range(2,9)])
-        return likelihood_fast(x[0],p[0],p[1],ps,self.spe_charge)
+        return likelihood_fast(x[0]-self.offset,p[0],p[1],ps,self.spe_charge)
 
 def get_lyso(x, p, spe_charge=SPE_CHARGE):
     model = lyso_spectrum(spe_charge)
@@ -242,14 +265,14 @@ def fit_lyso(h, model, fix_pars=True):
     nucleus 176Hf relaxes.
 
     If the fit is successful, returns a list of the fit parameters:
-        p[0] - Average light yield (pC/keV)
+        p[0] - Average Light yield (pC/keV)
         p[1] - Fractional difference between light yield at center and side
         p[2] - Constant for 88 keV spectrum
         p[3] - Constant for 202 keV gamma
         p[4] - Constant for 290 keV spectrum
         p[5] - Constant for 307 keV gamma
         p[6] - Constant for 395 keV spectrum
-        p[7] - Constant for 509 keV spectrum
+        p[7] - Constant for 509 keV gamma
         p[8] - Constant for 597 keV spectrum
 
     Otherwise, returns None.
@@ -270,12 +293,14 @@ def fit_lyso(h, model, fix_pars=True):
         if xmin is None or value < ymin:
             xmin = x
             ymin = value
+    if xmin is None:
+        return None
 
     n = 0
     for i in range(1,h.GetNbinsX()-1)[::-1]:
         # We look for the peak by looping over the bins from the *right* to the
         # *left* and then looking for a peak and then for the distribution to
-        # go below 90% of this peak (I just picked the 90% number as a guess
+        # go below 80% of this peak (I just picked the 80% number as a guess
         # and it seems to work well, but this could be tweaked). The reason for
         # this is that channels 7, 8, 23, and 24 are in the middle of the
         # module and next to a bar which is not powered, so we can't properly
@@ -301,11 +326,11 @@ def fit_lyso(h, model, fix_pars=True):
         if value < ymax*0.8:
             n += 1
 
-            if n >= 2:
+            if n >= 5:
                 break
         else:
             n = 0
-
+    xmax = h.GetBinCenter(h.GetMaximumBin())
     if xmax is None:
         return None
 
@@ -324,20 +349,15 @@ def fit_lyso(h, model, fix_pars=True):
     f.SetParLimits(0,0.1,10)
     f.SetParameter(1,0.1)
     f.SetParLimits(1,0.01,0.2)
-    f.SetParameter(2,0.25*h.GetEntries()/dx)
-    f.SetParLimits(2,0,1e9)
-    f.SetParameter(3,0)
-    f.SetParLimits(3,0,1e9)
-    f.SetParameter(4,0.25*h.GetEntries()/dx)
-    f.SetParLimits(4,0,1e9)
-    f.SetParameter(5,0)
-    f.SetParLimits(5,0,1e9)
-    f.SetParameter(6,0.25*h.GetEntries()/dx)
-    f.SetParLimits(6,0,1e9)
-    f.SetParameter(7,0)
-    f.SetParLimits(7,0,1e9)
-    f.SetParameter(8,0.25*h.GetEntries()/dx)
-    f.SetParLimits(8,0,1e9)
+    
+    # Gamma + beta spectra
+    for i in (2, 4, 6, 8):
+        f.SetParameter(i,0.25*h.GetEntries()/dx)
+        f.SetParLimits(i,0,1e9)
+    # Just gamma spectra
+    for i in (3, 5, 7):
+        f.SetParameter(i,0)
+        f.SetParLimits(i,0,1e9)
 
     # Right now we don't fit for the single gammas since they should mostly be
     # cut out since we only include events where the given channel has more
@@ -356,8 +376,6 @@ def fit_lyso(h, model, fix_pars=True):
     # Now we float all the parameters
     f.ReleaseParameter(0)
     f.ReleaseParameter(1)
-    f.SetParLimits(0,0.1,10)
-    f.SetParLimits(1,0.01,0.2)
     fr = h.Fit(f,"S","",pc_per_kev*150,800)
     try:
         if not fr.Get().IsValid():

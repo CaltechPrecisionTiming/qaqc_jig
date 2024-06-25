@@ -1656,8 +1656,8 @@ void print_help()
 {
     fprintf(stderr, "usage: wavedump -o [OUTPUT] -n [NUMBER] [CONFIG_FILE]\n"
     "  -t, --trigger Type of trigger: \"software\", \"external\", or \"self\".\n"
-    "  -l, --label   Name of hdf5 group to write data to (lyso, spe)\n"
-    "  --threshold   Trigger threshold (volts) (default: -0.1)\n"
+    "  -l, --label   Name of hdf5 group to write data to (lyso, sodium, spe, ...)\n"
+    "  --threshold   Trigger threshold (volts) (default: -0.05)\n"
     "  --gzip-compression-level\n"
     "                gzip compression level (default: 0)\n"
     "  --channel-map\n"
@@ -1770,14 +1770,14 @@ WaveDumpConfig_t get_default_settings() {
     return WDcfg;
 }
 
-/* Returns the settings for the sodium or LYSO data. The only difference with
+/* Returns the settings for the external source or LYSO data. The only difference with
  * the SPE settings is that we set the offset such that we get more negative
  * range.
  *
  * FIXME: Right now we set this to 28,500 which is in between the centered
  * range and the range in which we only get -Vpp to 0. Maybe this needs to be
  * set closer to 22,000? */
-WaveDumpConfig_t get_lyso_settings()
+WaveDumpConfig_t get_source_settings()
 {
     int i, j;
 
@@ -1809,7 +1809,6 @@ WaveDumpConfig_t get_lyso_settings()
 
 WaveDumpConfig_t get_spe_settings()
 {
-    /* See `set_lyso_settings`. */
     return get_default_settings();
 }
 
@@ -1933,10 +1932,10 @@ int main(int argc, char *argv[])
 	exit(1);
     }
 
-    if (!strcmp(label,"lyso"))
-        WDcfg = get_lyso_settings(trig_type);
+    if (!strcmp(label,"spe"))
+        WDcfg = get_spe_settings(trig_type);
     else
-        WDcfg = get_default_settings(trig_type);
+        WDcfg = get_source_settings(trig_type);
     
     /* config file parsing */
     if (config_filename) {
@@ -2396,7 +2395,7 @@ int main(int argc, char *argv[])
         if (NumEvents > WF_SIZE)
             NumEvents = WF_SIZE;
         printf("got %i events\n", NumEvents);
-	printf("%i / %i\n", total_events + NumEvents, nevents);
+        printf("%i / %i\n", total_events + NumEvents, nevents);
 
         /* Analyze data */
         nread = 0;

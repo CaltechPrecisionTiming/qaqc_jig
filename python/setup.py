@@ -8,5 +8,5 @@ setup(name='btl',
       author='Anthony LaTorre',
       author_email='alatorre@caltech.edu',
       packages=['btl','utilities'],
-      scripts=['analyze-waveforms','integrate-waveforms','qaqc-gui','qaqc-client']
+      scripts=['analyze-waveforms','qaqc-gui','qaqc-client', 'integrate-waveforms', 'generate-RDFs', 'analyze_waveforms.py', 'sensor_module.py', 'generate-json']
      )

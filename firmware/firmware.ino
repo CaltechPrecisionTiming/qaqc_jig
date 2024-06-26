@@ -21,7 +21,7 @@
 
 #define LEN(x) ((sizeof(x)/sizeof(0[x])) / ((size_t)(!(sizeof(x) % sizeof(0[x])))))
 
-//#define PCA9557_DEBUG
+#define PCA9557_DEBUG
 
 #define MAX_MSG_LENGTH 1024
 
@@ -48,7 +48,8 @@ char packetBuffer[UDP_TX_PACKET_MAX_SIZE];  // buffer to hold incoming packet,
 EthernetUDP Udp;
 
 /* Generic delay after setting pins high/low. */
-#define DELAY 10
+#define DELAY 1
+#define UDELAY 500
 
 char cmd[MAX_MSG_LENGTH];
 char err[MAX_MSG_LENGTH];
@@ -1280,9 +1281,9 @@ int step(int steps)
             return -1;
         }
         digitalWrite(PIN_STP_STEP,true);
-        delayMicroseconds(500);
+        delayMicroseconds(UDELAY);
         digitalWrite(PIN_STP_STEP,false);
-        delayMicroseconds(500);
+        delayMicroseconds(UDELAY);
     }
 
     /* Put the stepper back in sleep mode. */
@@ -1318,9 +1319,11 @@ int step_home(void)
             return -1;
         }
         digitalWrite(PIN_STP_STEP,true);
-        delayMicroseconds(500);
+        //delayMicroseconds(UDELAY);
+        delay(DELAY);
         digitalWrite(PIN_STP_STEP,false);
-        delayMicroseconds(500);
+        //delayMicroseconds(UDELAY);
+        delay(DELAY);
     }
 
     /* Put the stepper back in sleep mode. */

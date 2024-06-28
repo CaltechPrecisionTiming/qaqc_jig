@@ -21,6 +21,8 @@ def find_main_peak(hist, move_param):
             # bin = nbins+1; overflow bin
             centers = np.array([hist.GetBinCenter(ibin) for ibin in range(1, hist.GetNbinsX())])
             content = np.array([hist.GetBinContent(ibin) for ibin in range(1, hist.GetNbinsX())])
+            step=10
+            content = np.convolve(content, np.ones(step), "same") / step
             A, mu = 0, 0
             for ic, (ce, co) in enumerate(zip(centers[::-1], content[::-1])):
                 if ic < 10:
@@ -33,7 +35,7 @@ def find_main_peak(hist, move_param):
                 #     break
                 left = np.mean(content[::-1][ic:ic+move_param])
                 right = np.mean(content[::-1][ic-move_param:ic])
-                center = np.mean(content[::-1][ic-5:ic+5])
+                center = np.mean(content[::-1][ic-3:ic+3])
                 if center > left and center > right and center > np.mean(content) and abs(left-right)*2/(left+right) < 0.1:# and center > A:
                     mu, A = ce, co
                     # print(hist.GetName(), mu, A)
@@ -72,7 +74,7 @@ def fit_modified(file_path, CHANNEL, source):
     #sweep in increments of 10, starting from 50 lower than upper bound
     peak_distance_param = 2
     #print(sodium_tree.FindBin(100)+1)
-    for move_param in np.arange(5, 30, 5):
+    for move_param in [5,10]:
         mu, A = find_main_peak(sodium_tree, move_param)
         #print(mu,A)
         initial_cuts = np.arange(100, 200, 10)
@@ -131,7 +133,7 @@ def fit_modified(file_path, CHANNEL, source):
                     
             #print(maxima)
             '''
-            idx_end = -10
+            idx_end = -1
             
             
              # smooth the data
@@ -173,7 +175,7 @@ def fit_modified(file_path, CHANNEL, source):
             #print(y[idx_max_2])
             low = -10000; high = 10000
             #bounds = ([low, low, low, num_events/1000, low, low, -0.1, low],[high, high, high, high, high, high, 0, high])
-            bounds = ([y[idx_max_1]/5, low, low, low, low, low, -0.1, low],[y[idx_max_1]*5, high, high, high, high, high, 0, high])
+            bounds = ([y[idx_max_1]/5, low, low, low, low, low, -0.01, low],[y[idx_max_1]*5, high, high, high, high, high, 0, high])
             # Perform the curve fitting
             x = x[5:]
             y = y[5:]

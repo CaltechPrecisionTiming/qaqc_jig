@@ -12,7 +12,7 @@ from ROOT import TF1, TMath
 import json
 import os
 from datetime import datetime
-
+from bimodal_fits_sodium_cesium import *
 class sensor_module:
     sources = ['lyso', 'sodium', 'cesium', 'cobalt', 'source'] #'source' included to account for data taking with weird naming bug
     channels = np.arange(32)
@@ -31,7 +31,7 @@ class sensor_module:
     src_thresh = 0
     pe_thresh = 0
 
-    def __init__(self, fname: str=None, id: int=None, ov: float=None, tt: int=None, source: str=None, n_spe: int=None, n_src: int=None, temps: list=None, rotated = False, jig_calibrate = True, made_RDF = False, json_fname: str=None) -> None:
+    def __init__(self, fname: str=None, id: int=None, ov: float=None, tt: int=None, source: str=None, n_spe: int=None, n_src: int=None, temps: list=None, rotated = False, jig_calibrate: bool=True, made_RDF: bool=False, json_fname: str=None) -> None:
         '''Module
         loads a root file with the stored RDF and integrations
         contains the methods used to analyze and perform QAQC on a module
@@ -90,7 +90,7 @@ class sensor_module:
                 self.ov = ov #will be set to passed value, otherwise it will be None
             #print(self.ov)
             #extract out number of source name
-            self.jig_calibrate = bool(int(jig_calibrate))
+            self.jig_calibrate = jig_calibrate=="True"
             if source not in sensor_module.sources and source!=None:
                 raise RuntimeError("Invalid Source Specified! Allowed Sources are 'lyso', 'sodium', 'cesium', 'cobalt', and 'source'")
             self.source = source
@@ -148,10 +148,13 @@ class sensor_module:
             self.ly_pe_avg = np.mean(self.ly_pe_arr)
 
             #denote channels below necessary LY threshold
-            self.low_ly_ch_spe = list(np.where(np.concatenate((np.array(list(self.ly_spe.values()))[:,0,0], np.array(list(self.ly_spe.values()))[:,2,0]))<sensor_module.spe_thresh)[0])
-            self.low_ly_ch_src = list(np.where(np.concatenate((np.array(list(self.ly_src.values()))[:,0,0], np.array(list(self.ly_src.values()))[:,2,0]))<sensor_module.src_thresh)[0])
-            self.low_ly_ch_pe = list(np.where(np.concatenate((np.array(list(self.ly_pe.values()))[:,0,0], np.array(list(self.ly_pe.values()))[:,2,0]))<sensor_module.pe_thresh)[0])
-            
+            low_ly_ch_spe = list(np.where(np.concatenate((np.array(list(self.ly_spe.values()))[:,0,0], np.array(list(self.ly_spe.values()))[:,2,0]))<sensor_module.spe_thresh)[0])
+            low_ly_ch_src = list(np.where(np.concatenate((np.array(list(self.ly_src.values()))[:,0,0], np.array(list(self.ly_src.values()))[:,2,0]))<sensor_module.src_thresh)[0])
+            low_ly_ch_pe = list(np.where(np.concatenate((np.array(list(self.ly_pe.values()))[:,0,0], np.array(list(self.ly_pe.values()))[:,2,0]))<sensor_module.pe_thresh)[0])
+           
+            self.low_ly_ch_spe = [int(val) for val in low_ly_ch_spe]
+            self.low_ly_ch_src = [int(val) for val in low_ly_ch_src]
+            self.low_ly_ch_pe = [int(val) for val in low_ly_ch_pe]
 
             #compute LY RMS for spe, src, and pe. Each is an array with three components: [LY RMS left side, LY RMS average, LY RMS right side]
             self.ly_rms_spe = self.get_LY_rms(self.ly_spe, "spe")
@@ -174,13 +177,15 @@ class sensor_module:
             #print(self.ly_difference_spe_avg, self.ly_difference_src_avg, self.ly_difference_pe_avg)
 
             #Add crosstalk and saturation counts to sensor_module object if RDF was generated
-            if made_RDF:
+            self.made_RDF = made_RDF=="True"
+            #print(self.made_RDF)
+            if self.made_RDF:
                 self.crosstalk_neighboring_channels, self.avg_neighboring_crosstalk = self.compute_crosstalk(fname, self.source, self.jig_calibrate)
                 self.saturation_rate_by_channel = self.compute_sat_by_channel(fname, self.source)
                 self.channel_averaged_saturation_rate = np.average(self.saturation_rate_by_channel)
 
             else:
-                self.crosstalk_neighboring_channels, self.avg_neighboring_crosstalk = None
+                self.crosstalk_neighboring_channels, self.avg_neighboring_crosstalk = None, None
                 self.saturation_rate_by_channel = None
                 self.channel_averaged_saturation_rate = None
             #now, call function to store fields in json
@@ -229,23 +234,43 @@ class sensor_module:
         return
     
     def store_high_level(self, filename: str=None):
-        dict_high_level = {
-            "Date": self.date_time,
-            "Module Id": self.id,
-            "Source": self.source,
-            "Trigger Threshold": self.tt,
-            "Overvoltage": self.ov,
-            "RTD Temperature Readings": self.temps,
-            "Number of Source Events": self.n_src,
-            "Number of SPE Events": self.n_spe,
-            "Jig Calibration Applied?": self.jig_calibrate,
-            "Module-Average Light Yield (PE/MeV)": self.ly_pe_avg,
-            "Channels Below PE Light Yield Threshold": self.low_ly_ch_pe,
-            "Bar-Averaged Light Yield RMS (%)" : self.ly_rms_pe[1]*100,
-            "Average Crosstalk Between Neighboring Channels (%)": self.avg_neighboring_crosstalk*100,
-            "Channel-Averaged Saturation Rate (%)": self.channel_averaged_saturation_rate*100,
-            "ROOT File with histograms and RDataFrame (if created)": self.fname 
-        }
+        if self.made_RDF:
+            dict_high_level = {
+                "Date": self.date_time,
+                "Module Id": self.id,
+                "Source": self.source,
+                "Trigger Threshold (V)": self.tt,
+                "Overvoltage (V)": self.ov,
+                "RTD Temperature Readings (C)": self.temps,
+                "Number of Source Events": self.n_src,
+                "Number of SPE Events": self.n_spe,
+                "Jig Calibration Applied?": self.jig_calibrate,
+                "Module-Average Light Yield (PE/MeV)": self.ly_pe_avg,
+                "Channels Below PE Light Yield Threshold": self.low_ly_ch_pe,
+                "Bar-Averaged Light Yield RMS (%)" : self.ly_rms_pe[1]*100,
+                "Average Crosstalk Between Neighboring Channels (%)": self.avg_neighboring_crosstalk*100,
+                "Channel-Averaged Saturation Rate (%)": self.channel_averaged_saturation_rate*100,
+                "ROOT File with histograms and RDataFrame (if created)": self.fname 
+            }
+        else:
+            dict_high_level = {
+                "Date": self.date_time,
+                "Module Id": self.id,
+                "Source": self.source,
+                "Trigger Threshold (V)": self.tt,
+                "Overvoltage (V)": self.ov,
+                "RTD Temperature Readings (C)": self.temps,
+                "Number of Source Events": self.n_src,
+                "Number of SPE Events": self.n_spe,
+                "Jig Calibration Applied?": self.jig_calibrate,
+                "Module-Average Light Yield (PE/MeV)": self.ly_pe_avg,
+                "Channels Below PE Light Yield Threshold": self.low_ly_ch_pe,
+                "Bar-Averaged Light Yield RMS (%)" : self.ly_rms_pe[1]*100,
+                "Average Crosstalk Between Neighboring Channels (%)": "Not Computed (no RDF)",
+                "Channel-Averaged Saturation Rate (%)": "Not Computed (no RDF)",
+                "ROOT File with histograms and RDataFrame (if created)": "Not Computed (no RDF)" 
+            }
+            
         if filename==None:
             filename = self.fname.replace('.root', '_highlevel.json')
         with open(filename, "w") as outfile:
@@ -275,7 +300,6 @@ class sensor_module:
     def fit_spectra(self, hist): # spe, src
         '''returns fit parameters for hist provided
             fits by Paul
-        '''
 
         def gaus(x, mu=0, sig=1):
             return 1/(sig*(2*math.pi)**0.5) * math.exp(-0.5*((x-mu)/sig)**2)
@@ -389,7 +413,7 @@ class sensor_module:
         new_chisq = fit.GetChisquare()
         # print(f', {new_chisq}],') # @FIT_X2
         return mu, fit.GetParError(0), sig, A, p0, p1
-
+        '''
         
 
     def get_spectra_params_src(self, inputFile: str=None, source: str=None, calibrate: bool=True):
@@ -406,14 +430,20 @@ class sensor_module:
         spectra_params_dict = {}
         for channel in sensor_module.channels:
             hist = tfile.Get(f'{source}_ch{channel}')
-            mu, mue, sig, A, p0, p1 = self.fit_spectra(hist)
+            #mu, mue, sig, A, p0, p1 = self.fit_spectra(hist)
+            if source=="sodium" or source=="cesium":
+                fit_params, chi2 = fit_modified(inputFile, channel, source)
+                mu = fit_params[4]; mue = fit_params[5]
             if calibrate and os.path.exists(sensor_module.path_to_jig_calibration):
                 calibration_data = pd.read_csv(sensor_module.path_to_jig_calibration, delimiter=',')
                 mu_cal = calibration_data.iloc[1][f'ch{channel}']*mu
                 mue_cal = mu_cal*((calibration_data.iloc[4][f'ch{channel}']/calibration_data.iloc[1][f'ch{channel}'])**2+(mue/mu)**2)**0.5
             else:
                 mu_cal = mu; mue_cal = mue
-            spectra_params_dict[f"ch{channel}"] = (mu_cal*1000*sensor_module.ATTENUATION_FACTOR, mue_cal*1000*sensor_module.ATTENUATION_FACTOR)
+            if source=="sodium" or source=="cesium":
+                spectra_params_dict[f"ch{channel} Raw Fit Params"] = fit_params
+                spectra_params_dict[f"ch{channel}"] = (mu_cal*sensor_module.ATTENUATION_FACTOR, mue_cal*sensor_module.ATTENUATION_FACTOR)
+                spectra_params_dict[f"ch{channel} Chi-Squared (Per Fitted Point)"] = chi2
             
         return spectra_params_dict                 
 
@@ -451,7 +481,12 @@ class sensor_module:
             spectra_dict = self.get_spectra_params_spe(self.fname)
         if spectra_dict == None and LY_type == "src":
             spectra_dict = self.get_spectra_params_src(self.fname, self.source)
-        spectra_info = np.array(list(spectra_dict.values()))
+        spectra_values_list = []
+        for key, value in spectra_dict.items():
+            if len(key) > 4:
+                continue
+            spectra_values_list.append(value)
+        spectra_info = np.array(spectra_values_list)
         lys = [spectra_info[:16],(spectra_info[:16]+spectra_info[16:])/2,spectra_info[16:]]
         ly_dict = {}
         for barNum in range(16):
@@ -463,7 +498,8 @@ class sensor_module:
         
     def get_LY_dict_pe(self, ly_spe_dict: dict=None, ly_src_dict: dict=None, source: str=None):
         '''returns dictionary with number of photoelectrons from source events (normalized by SPE charge).
-        Each key is a bar, and each value is [[left side LY, err]
+        Each key is a bar, and each value is [[left side L
+        Y, err]
         [average bar LY, err], [right side LY, err]]'''
         if source not in sensor_module.sources:
             raise RuntimeError("Source is not recognized")

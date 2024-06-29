@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+
+
+import sys
+import os
+
+import json
+import numpy as np
+import matplotlib.pyplot as plt
+
+import ROOT as rt
+
+from ROOT import TFile, TNtuple, TTree, RDataFrame
+from ROOT import TCanvas, TLegend, TLatex, TLine, TBox
+from ROOT import TH1D, TH2D, TGraph, TGraphErrors
+from ROOT import TF1, TMath
+
+ROOT_ERROR_LEVEL = {'QUIET':1001,'NORMAL':None,'VERBOSE':None}['QUIET']
+ROOT_BATCH = True #! this should be true
+
+TLATEX_TEXT_SIZE = 0.04
+TLEGEND_TEXT_SIZE = 0.04
+
+rt.gErrorIgnoreLevel = ROOT_ERROR_LEVEL
+rt.gROOT.SetBatch(ROOT_BATCH)
+# tdrStyle.setTDRStyle()
+rt.gStyle.SetOptFit(0)
+rt.gStyle.SetOptStat(0)
+
+
+TPAD_WIDTH,TPAD_HEIGHT = 800, 800
+TOP_MARGIN, BOT_MARGIN = 0.05, 0.05
+
+canvas = TCanvas('','',TPAD_WIDTH,TPAD_HEIGHT)
+tlegend_coords = (0.16, 0.895, 0.40, 0.74)
+
+
+BARS = np.arange(16)
+
+def fix_yrange(hmin, hmax):
+    if hmin - 5*BOT_MARGIN*(hmax-hmin) < 0:
+        hmin, hmax = 0, hmax + TOP_MARGIN*hmax
+    else: # this doesn't do what I want
+        mult = (1 + BOT_MARGIN + TOP_MARGIN) * (hmax - hmin)
+        hmin, hmax = hmin - BOT_MARGIN*mult, hmax + TOP_MARGIN*mult
+    return hmin, hmax
+
+def get_LY_points(ly):
+    lyL, lyR, lyA = [],[],[]
+    for value in ly.values(): 
+          lyL.append(value[0]); lyR.append(value[2]); lyA.append(value[1])
+    lyL = np.array(lyL); lyR = np.array(lyR); lyA = np.array(lyA)
+    return (lyL, lyA, lyR) 
+
+def tge_ly(ly):
+    return [TGraphErrors(len(BARS),BARS*1.0,ly[:,0]*1.0,BARS*0.0,ly[:,1]*1.0) for ly in get_LY_points(ly)]
+
+def plot_LY(input_json):
+    #input_json = sys.argv[1]
+
+    with open(input_json, 'r') as j:
+        module_dict = json.loads(j.read())
+
+    ly_pe = module_dict["ly_pe"]
+    mid = module_dict["id"]
+    vov = module_dict["ov"]
+    TT = module_dict["tt"]
+
+
+
+    lns = ['Left (A)', 'Average', 'Right (B)'] # line names
+    lws = [2,2,2] # line widths
+    lcs = [rt.kRed, rt.kBlack, rt.kAzure] # line colors
+# lls = [ [f'average yield = {ly.mean():.0f} #pm {ly.std():.2f} (#pm {100*ly.std()/ly.mean():.0f}%)' for ly in [lys[:16,0],lys[16:,0],(lys[:16,0]+lys[16:,0])/2]] for lys in (ly_spe, ly_src, ly_pe) ]
+
+
+    canvas.Clear()
+    canvas.SetGrid()
+    canvas.SetRightMargin(0.05)
+    canvas.SetLeftMargin(0.15)
+
+    legend = TLegend(*tlegend_coords)
+    legend.SetTextSize(TLEGEND_TEXT_SIZE)
+    latex = TLatex()
+    latex.SetTextAlign(11)
+    latex.SetTextSize(0.04)
+
+    lys = get_LY_points(ly_pe)
+    grs = tge_ly(ly_pe)
+
+
+    tt = f'Raw Light Yield (Module {mid}, OV={vov}V, TT={TT}V)'
+#titles = [ ss+tt for ss in ('SPE', f'{source.title()} Charge', f'{source.title()} Light') ]
+    xlabel = 'Bar'
+    ylabel = 'Light Yield [PE / MeV]' # y-labels
+    x_range = (-1, 16)
+    yrange = fix_yrange(0, np.max(np.array(list(ly_pe.values())))*1.5)
+
+    for igr, gr in enumerate(grs):
+        gr.SetTitle(tt)
+        gr.GetXaxis().SetTitle(xlabel)
+        gr.GetYaxis().SetTitle(ylabel)
+        gr.GetXaxis().SetLimits(*x_range)
+        gr.SetMinimum(yrange[0])
+        gr.SetMaximum(yrange[1])
+        
+
+        lns = ['Left (A)', 'Average', 'Right (B)'] # line names
+        lws = [2,2,2] # line widths
+        lcs = [rt.kRed, rt.kBlack, rt.kAzure] # line colors
+        # lls = [ [f'average yield = {ly.mean():.0f} #pm {ly.std():.2f} (#pm {100*ly.std()/ly.mean():.0f}%)' for ly in [lys[:16,0],lys[16:,0],(lys[:16,0]+lys[16:,0])/2]] for lys in (ly_spe, ly_src, ly_pe) ]
+
+        
+            
+        
+        canvas.Clear()
+        canvas.SetGrid()
+        canvas.SetRightMargin(0.05)
+        canvas.SetLeftMargin(0.15)
+
+        legend = TLegend(*tlegend_coords)
+        legend.SetTextSize(TLEGEND_TEXT_SIZE)
+        latex = TLatex()
+        latex.SetTextAlign(11)
+        latex.SetTextSize(0.04)
+
+        for igr, gr in enumerate(grs):
+            gr.SetTitle(tt)
+            gr.GetXaxis().SetTitle(xlabel)
+            gr.GetYaxis().SetTitle(ylabel)
+            gr.GetXaxis().SetLimits(*x_range)
+            gr.SetMinimum(yrange[0])
+            gr.SetMaximum(yrange[1])
+            
+            gr.SetName(lns[igr])
+            gr.SetLineWidth(0)
+            gr.SetLineWidth(lws[igr])
+            gr.SetLineColor(lcs[igr])
+            # gr.SetFillColorAlpha(lcs[igr], 0.3)
+            gr.SetMarkerSize(lws[igr]/2)
+            gr.SetMarkerColor(lcs[igr])
+            gr.SetMarkerStyle(rt.kFullCircle)
+            rt.gStyle.SetEndErrorSize((lws[igr]*3)//2)
+            
+            gr.Draw(('' if igr else 'A') + ' LPE')
+            legend.AddEntry(gr, gr.GetName(), 'LP')
+            
+            latex.SetTextColor(lcs[igr])
+            
+            ly = lys[igr][:,0]
+            # print(lys[igrs][igr][:,0].mean())
+            # print(lys[igrs][igr][:,1].mean())
+            # fit1 = TF1('fit1', 'pol0')
+            # gr.Fit('fit1', 'QEN')
+            # a, e = fit1.GetParameter(0), fit1.GetParError(0)
+            # a, e = _ly.mean(), ((_lyE**2).sum()**0.5)/len(_ly)
+            a, e = ly.mean(), ly.std()
+            legend.Draw()
+            # latex.DrawLatexNDC(0.19, 0.86 - 0.05*igr, f'yield: mean={a:.0f}, rmse={e:.1f}, mae={100*np.abs((ly-a)).mean()/a:.1f}%')
+            if a < 10:
+                latex.DrawLatexNDC(0.45, 0.86 - 0.05*igr, f'mean={a:>3.1f}, rmse={100*e/a:>4.1f}%')
+            else:
+                latex.DrawLatexNDC(0.45, 0.86 - 0.05*igr, f'mean={a:>3.0f}, rmse={100*e/a:>4.1f}%')
+            # latex.DrawLatexNDC(0.19, 0.86 - 0.05*igr, f'average light yield: {a:.0f} #pm {e:.2f} ({100*e/a:.0f}%)')
+
+
+        
+        canvas.Draw()
+        canvas.Print(input_json.replace(".json", "_RAW_LY.png"))
+
+if __name__ == "__main__":
+    from argparse import ArgumentParser
+    parser = ArgumentParser(description='Generate Raw LY plot from JSON')
+
+    parser.add_argument('--fname', default=None, type=str, help='filepath for input JSON')
+    args = parser.parse_args()
+    
+    plot_LY(args.fname)
+

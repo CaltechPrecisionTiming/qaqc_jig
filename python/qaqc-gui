@@ -29,6 +29,7 @@ ANALYZE_WAVEFORMS_PROGRAM = 'analyze-waveforms'
 GENERATE_RDF_PROGRAM = 'generate-RDFs'
 GENERATE_JSON = 'generate-json'
 JSON_OUTPUT_PATH = '/home/cptlab/qaqc-gui_output/json_outputs' #change for different computers
+GENERATE_LY = 'generate-LY'
 if USE_KEITHLEY:
    from utilities import keithley2231A
 from time import sleep
@@ -721,8 +722,10 @@ def take_data():
        
         #run_command_sensor_module(sensor_module_cmd, progress_bar = i)
         print("Generating json file with run+analysis info")
-        run_command([GENERATE_JSON, "--fname", root_filename, "--id", barcode, "--ov", ov.get(), "--tt", trigger.get(), "--source", source.get().lower(), "--n_spe", n_spe_events.get(), "--n_src", n_source_events.get(), "--temps", temps_list, "--jig_calibrate", jig_calibrate_enable.get(), "--made_RDF", RDF_enable.get()], progress_bar = i)
+        run_command([GENERATE_JSON, "--fname", root_filename, "--id", barcode, "--ov", ov.get(), "--tt", trigger.get(), "--source", source.get().lower(), "--n_spe", n_spe_events.get(), "--n_src", n_source_events.get(), "--temps", temps_list, "--jig_calibrate", bool(jig_calibrate_enable.get()), "--made_RDF", bool(RDF_enable.get())], progress_bar = i)
 
+        print("Outputting Raw LY")
+        run_command([GENERATE_LY, "--fname", root_filename.replace(".root", ".json")])
         module_status[i].config(text="Data + analysis successful!")
 
 def poll_single_module(client, module):

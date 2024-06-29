@@ -16,8 +16,11 @@ class Client(object):
         self.port = port
         self.sock.settimeout(timeout)
 
-    def query(self, msg):
+    def query(self, msg, timeout=10):
+        self.sock.settimeout(timeout)
         self.send(msg)
+        print(self.sock.gettimeout())
+        #print(self.sock.getsockname())
         return self.recv()
 
     def send(self, msg):
